@@ -6,6 +6,7 @@ import sqlite3
 import subprocess
 import threading
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -22,6 +23,8 @@ PORT = int(os.environ.get("ORCHESTRATOR_PORT", "18765"))
 LOCK = threading.Lock()
 DB = None
 DEFAULT_CODEX_MODELS = ["gpt-5-codex", "gpt-5", "o4-mini", "o3"]
+DB_RETRY_ATTEMPTS = 5
+DB_RETRY_SLEEP_SEC = 0.15
 
 
 def utc_now():
@@ -57,26 +60,71 @@ def display_paths(values):
 
 
 def db_connect():
-    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=7000")
     return conn
 
 
+def _is_retryable_db_error(exc):
+    msg = str(exc).lower()
+    return "database is locked" in msg or "database is busy" in msg or "locked" in msg
+
+
+def _db_fetchall(sql, params=()):
+    last_exc = None
+    for _ in range(DB_RETRY_ATTEMPTS):
+        try:
+            cur = DB.execute(sql, params)
+            return cur.fetchall()
+        except sqlite3.OperationalError as exc:
+            last_exc = exc
+            if not _is_retryable_db_error(exc):
+                raise
+            time.sleep(DB_RETRY_SLEEP_SEC)
+    raise last_exc
+
+
+def _db_fetchone(sql, params=()):
+    last_exc = None
+    for _ in range(DB_RETRY_ATTEMPTS):
+        try:
+            return DB.execute(sql, params).fetchone()
+        except sqlite3.OperationalError as exc:
+            last_exc = exc
+            if not _is_retryable_db_error(exc):
+                raise
+            time.sleep(DB_RETRY_SLEEP_SEC)
+    raise last_exc
+
+
+def _db_exec(sql, params=()):
+    last_exc = None
+    for _ in range(DB_RETRY_ATTEMPTS):
+        try:
+            DB.execute(sql, params)
+            DB.commit()
+            return
+        except sqlite3.OperationalError as exc:
+            last_exc = exc
+            if not _is_retryable_db_error(exc):
+                raise
+            time.sleep(DB_RETRY_SLEEP_SEC)
+    raise last_exc
+
+
 def q(sql, params=()):
-    cur = DB.execute(sql, params)
-    return cur.fetchall()
+    return _db_fetchall(sql, params)
 
 
 def q1(sql, params=()):
-    row = DB.execute(sql, params).fetchone()
-    return row
+    return _db_fetchone(sql, params)
 
 
 def exec_sql(sql, params=()):
-    DB.execute(sql, params)
-    DB.commit()
+    _db_exec(sql, params)
 
 
 def init_db():
@@ -1098,26 +1146,45 @@ def run_pipeline(job):
 
 def worker_loop():
     while True:
-        job = q1("SELECT * FROM jobs WHERE status='queued' ORDER BY created_at LIMIT 1")
-        if not job:
-            time.sleep(1)
-            continue
-        job = dict(job)
-        set_job_fields(job["id"], {"status": "dispatching", "stage": "dispatch", "dispatched_at": utc_now()})
         try:
+            job = q1("SELECT * FROM jobs WHERE status='queued' ORDER BY created_at LIMIT 1")
+            if not job:
+                time.sleep(1)
+                continue
+            job = dict(job)
+            set_job_fields(job["id"], {"status": "dispatching", "stage": "dispatch", "dispatched_at": utc_now()})
             run_pipeline(job)
         except Exception as exc:
-            set_job_fields(job["id"], {"status": "failed", "stage": "failed", "completed_at": utc_now(), "error": str(exc)})
-            add_timeline(job["id"], f"Failed: {exc}")
-            update_request(job["request_id"], {"status": "received"})
-            update_agent("qa", status="critical", current_task="Failure triage", initiative="Incident handling", latency_ms=700, error_rate=0.11, blocker=str(exc))
-            set_meta("updated_at", utc_now())
-            append_audit("job_failed", owner_id=job.get("owner_id"), job_id=job["id"], request_id=job.get("request_id"), detail={"error": str(exc)})
+            # Keep worker alive on any unexpected error so a single bad job never stops dispatch.
+            try:
+                if "job" in locals() and isinstance(job, dict) and job.get("id"):
+                    set_job_fields(job["id"], {"status": "failed", "stage": "failed", "completed_at": utc_now(), "error": str(exc)})
+                    add_timeline(job["id"], f"Failed: {exc}")
+                    update_request(job["request_id"], {"status": "received"})
+                    append_audit("job_failed", owner_id=job.get("owner_id"), job_id=job["id"], request_id=job.get("request_id"), detail={"error": str(exc)})
+                update_agent("qa", status="critical", current_task="Failure triage", initiative="Incident handling", latency_ms=700, error_rate=0.11, blocker=str(exc))
+                set_meta("updated_at", utc_now())
+            except Exception:
+                traceback.print_exc()
+            traceback.print_exc()
+            time.sleep(0.5)
 
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
+
+    def handle_one_request(self):
+        try:
+            return super().handle_one_request()
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except Exception:
+            traceback.print_exc()
+            try:
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "internal server error")
+            except Exception:
+                pass
 
     def _send_json(self, payload, status=HTTPStatus.OK):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -1408,6 +1475,8 @@ def main():
     worker = threading.Thread(target=worker_loop, daemon=True)
     worker.start()
 
+    ThreadingHTTPServer.daemon_threads = True
+    ThreadingHTTPServer.allow_reuse_address = True
     server = ThreadingHTTPServer(("", PORT), Handler)
     print(f"Orchestrator server running at http://localhost:{PORT}")
     print(f"Storage backend: SQLite ({DB_PATH})")
