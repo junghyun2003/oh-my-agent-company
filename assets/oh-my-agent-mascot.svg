@@ -1,0 +1,16 @@
+<svg width="320" height="220" viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="oh-my-agent-company mascot">
+  <rect width="320" height="220" fill="#f6f2e8"/>
+  <rect x="24" y="20" width="272" height="176" rx="10" fill="#fffaf0" stroke="#1f2937" stroke-width="4"/>
+  <rect x="64" y="56" width="192" height="120" rx="8" fill="#dbeafe" stroke="#1f2937" stroke-width="4"/>
+
+  <rect x="124" y="58" width="72" height="18" fill="#f59e0b" stroke="#1f2937" stroke-width="4"/>
+  <rect x="110" y="74" width="100" height="66" fill="#fde68a" stroke="#1f2937" stroke-width="4"/>
+  <rect x="130" y="94" width="14" height="14" fill="#1f2937"/>
+  <rect x="176" y="94" width="14" height="14" fill="#1f2937"/>
+  <rect x="144" y="116" width="32" height="8" fill="#1f2937"/>
+
+  <rect x="96" y="144" width="128" height="8" fill="#1f2937"/>
+  <rect x="104" y="152" width="112" height="8" fill="#1f2937"/>
+
+  <text x="160" y="192" text-anchor="middle" font-family="monospace" font-size="12" fill="#1f2937">OH-MY AGENT</text>
+</svg>

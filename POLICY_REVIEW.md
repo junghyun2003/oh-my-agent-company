@@ -65,3 +65,33 @@
 5. 지속 개선 의무
 - 매 릴리즈마다 안정성 또는 사용성 개선 항목을 최소 1개 반영한다.
 - 반영 결과는 `PROCESS_REVIEW_*.md` 또는 `POLICY_REVIEW.md`에 추적한다.
+
+## Team Lead Consensus Activation (2026-02-21)
+- 발동 상태: `확정(CEO 우선 원칙 적용)`
+- Product Planning: 요청 접수 시 `긴급/중요/의존성` 우선순위 필드 강제
+- Engineering Frontend: 컴포넌트/디자인 토큰 단일 소스 운영
+- Engineering Backend: 상태 전이 규칙 문서+테스트 동시 유지
+- Engineering App: 모바일 전환 대비 API 응답 계약 안정화 선행
+- Design Ops: `Design Review` Dev 이후 필수 게이트 + 테마 준수 릴리즈 조건화
+- Quality Assurance: 핵심 화면(`승인/감사로그/작업할당`) 스모크 체크 배포 전 필수
+- Infrastructure: 운영 스크립트 표준 강제 + 충돌 시 자동 진단 로그 기록
+- Security Ops: 민감정보 노출(로그/응답/문서) 주기 점검 고정
+- Marketing: `한 줄 가치제안 + 3개 핵심 강점` 템플릿으로 대외 메시지 통일
+- Business Strategy: 팀별 KPI를 공통 대시보드에서 동일 주기로 추적
+- Technology Lead: 릴리즈 시 `정책-코드-검증` 3축 점검 게이트 운영
+
+## Immediate Priority Actions (Local Company, 2026-02-21)
+### P0 (즉시)
+1. 로컬 무로그인 운영 고정: Local Trust Mode 기본값 유지, `owner_id` 미입력 시 자동 보정
+2. 요청 처리 안정성: `ensure/doctor` 표준화로 서버 비가용 즉시 복구
+3. 클라이언트 피드백 재처리: 미만족 요청은 반복 개선 큐로 즉시 재등록
+
+### P1 (단기)
+1. 대상 디렉토리 온보딩 개선: Git clone/빈 디렉토리/외부 자산 경로를 단일 입력 흐름으로 통합
+2. 상태 전이 회귀 방지: 요청/작업/승인 전이에 대한 자동 검증 케이스 강화
+3. 릴리즈 가시성 강화: Design Review + QA + post_job_audit 누락 감지 자동화
+
+### P2 (지속)
+1. 고객 만족 지표화: 피드백 반복 횟수/해결 리드타임/재요청률 추적
+2. 팀 KPI 통합: 전 팀 공통 주기로 대시보드 동기화
+3. 문서 일관성: AGENTS/README/팀 문서를 릴리즈마다 동시 점검

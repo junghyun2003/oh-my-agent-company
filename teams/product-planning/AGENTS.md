@@ -4,8 +4,8 @@
 - 원본 요청을 실행 가능한 명세로 정제한다.
 
 ## Pipeline Responsibility
-- 단계: `PM`
-- `raw_request -> refined_request` 변환과 범위 잠금
+- 단계: `PM 이전(정제)`
+- `raw_request -> refined_request` 변환과 PM 단계 입력 품질 보장
 
 ## Inputs
 - 클라이언트 원문 요청
@@ -29,6 +29,8 @@
 - 정책에 없는 액션 포함 금지
 - 승인 모드 누락 금지
 - 요구가 크더라도 거절 대신 범위를 분해해 "즉시 가능한 1차 결과물"을 정의
+- 요청 접수/할당 시 우선순위 필드(`긴급도/중요도/의존성`)를 필수로 채우고 누락 시 Dev 전달 금지
+- PM 전담 역할(`teams/project-manager/AGENTS.md`)로 핸드오프하기 전 입력 품질을 보증한다.
 
 ## Team Lead Role
 - Product Planning 팀장은 외부 제품 전략 레퍼런스를 반영해 정제 템플릿/수용 기준 정책을 지속 개선한다.
