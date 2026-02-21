@@ -506,19 +506,52 @@ def set_meta(key, value):
         exec_sql("INSERT INTO state_meta (key, value) VALUES (?,?)", (key, value))
 
 
+def derive_health_status(agent):
+    raw = str(agent.get("status") or "").lower()
+    blocker = str(agent.get("blocker") or "").strip()
+    latency = int(agent.get("latency_ms") or 0)
+    error_rate = float(agent.get("error_rate") or 0.0)
+
+    if raw == "critical" or blocker:
+        return "critical", "blocker_or_critical_flag"
+    if error_rate >= 0.08 or latency >= 600:
+        return "critical", "high_error_or_latency"
+    if raw == "warning" and (error_rate >= 0.06 or latency >= 450):
+        return "warning", "warning_with_signal"
+    if error_rate >= 0.06 or latency >= 450:
+        return "warning", "elevated_error_or_latency"
+    return "healthy", "within_threshold"
+
+
 def state_snapshot():
     agents = [dict(r) for r in q("SELECT * FROM agent_status")]
     summary = {"total": len(agents), "healthy": 0, "warning": 0, "critical": 0}
+    activity_summary = {"active": 0, "idle": 0}
+    normalized = []
     for a in agents:
-        if a["status"] in summary:
-            summary[a["status"]] += 1
+        health_status, reason = derive_health_status(a)
+        current_task = str(a.get("current_task") or "").strip()
+        is_active = current_task not in ("", "대기", "idle", "Idle")
+        item = dict(a)
+        item["raw_status"] = a.get("status")
+        item["status"] = health_status
+        item["health_reason"] = reason
+        item["activity"] = "active" if is_active else "idle"
+        normalized.append(item)
+        if health_status in summary:
+            summary[health_status] += 1
+        if is_active:
+            activity_summary["active"] += 1
+        else:
+            activity_summary["idle"] += 1
 
     return {
         "updated_at": q1("SELECT value FROM state_meta WHERE key='updated_at'")["value"],
         "company_mission": q1("SELECT value FROM state_meta WHERE key='company_mission'")["value"],
         "work_type": q1("SELECT value FROM state_meta WHERE key='work_type'")["value"],
         "summary": summary,
-        "agents": agents,
+        "activity_summary": activity_summary,
+        "agents": normalized,
     }
 
 

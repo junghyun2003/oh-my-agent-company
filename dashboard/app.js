@@ -32,6 +32,40 @@ const DESIGN_OPEN_ROLES = [
   { title: "Design Technologist", focus: "컴포넌트 프로토타이핑" },
   { title: "Brand Illustrator", focus: "에이전트 팀 비주얼" }
 ];
+const MARKET_INTELLIGENCE = [
+  {
+    metric: "미국 CPI (인플레이션)",
+    value: "전년 대비 3.0%",
+    detail: "2026년 1월 CPI 기준. 핵심(Core) CPI는 3.3%.",
+    impact: "가격 민감도가 올라가므로 UI는 결제/비용 안내를 더 명확하게 보여줘야 함",
+    source: "https://www.bls.gov/news.release/cpi.nr0.htm",
+    released_at: "2026-02-19"
+  },
+  {
+    metric: "미국 고용",
+    value: "실업률 4.1%, 비농업 고용 +14.3만",
+    detail: "2026년 1월 Employment Situation 발표 기준.",
+    impact: "고객사의 채용/운영 예산 변동에 맞춘 단계형 플랜 안내 필요",
+    source: "https://www.bls.gov/news.release/empsit.nr0.htm",
+    released_at: "2026-02-06"
+  },
+  {
+    metric: "미국 GDP",
+    value: "2025년 4분기 연율 +2.3%",
+    detail: "BEA Advance Estimate 기준.",
+    impact: "신규 기능 제안 시 ROI 근거를 함께 제시해야 의사결정이 빨라짐",
+    source: "https://www.bea.gov/news/2026/gross-domestic-product-4th-quarter-and-year-2025-advance-estimate",
+    released_at: "2026-01-29"
+  },
+  {
+    metric: "미 연준 정책금리",
+    value: "4.25%~4.50% 유지",
+    detail: "FOMC 2026-01-28 성명 기준.",
+    impact: "고객의 비용 통제 수요가 크므로, UX는 비용/우선순위 선택 흐름을 단순화해야 함",
+    source: "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260128a.htm",
+    released_at: "2026-01-28"
+  }
+];
 const TABLE_PAGINATION = {
   requests: { size: 5, containerId: "requestsPagination" },
   jobs: { size: 5, containerId: "jobsPagination" },
@@ -439,17 +473,79 @@ function renderOffice(agents) {
 }
 
 function renderTeamHealth(agents) {
+  const root = document.getElementById("teamHealth");
+  if (!root) return;
+  if (!Array.isArray(agents) || !agents.length) {
+    root.innerHTML = `<p class="muted">팀 헬스를 계산할 에이전트 데이터가 없습니다.</p>`;
+    return;
+  }
+
   const byTeam = agents.reduce((acc, agent) => {
     if (!acc[agent.team]) acc[agent.team] = [];
     acc[agent.team].push(agent);
     return acc;
   }, {});
 
-  const root = document.getElementById("teamHealth");
-  root.innerHTML = Object.entries(byTeam).map(([team, items]) => {
+  const getLevel = (score) => {
+    if (score >= 85) return { key: "stable", label: "안정", guide: "현재 운영 정책 유지 + 주 1회 점검" };
+    if (score >= 70) return { key: "watch", label: "주의", guide: "병목 단계 우선 점검 + 핸드오프 리드타임 단축" };
+    return { key: "risk", label: "위험", guide: "즉시 인력 재배치 + CTO/QA 합동 대응" };
+  };
+
+  const entries = Object.entries(byTeam).map(([team, items]) => {
     const score = Math.round(items.map(weightedAgentScore).reduce((s, v) => s + v, 0) / items.length);
-    return `<div class="team"><strong>${esc(team)}</strong><div>${score} / 100 가중치 점수</div><div class="bar"><div class="fill" style="width:${score}%"></div></div></div>`;
-  }).join("");
+    const warningCount = items.filter((agent) => agent.status === "warning").length;
+    const criticalCount = items.filter((agent) => agent.status === "critical").length;
+    const avgLatency = Math.round(items.reduce((sum, agent) => sum + Number(agent.latency_ms || 0), 0) / items.length);
+    const avgError = items.reduce((sum, agent) => sum + Number(agent.error_rate || 0), 0) / items.length;
+    const level = getLevel(score);
+    return { team, score, warningCount, criticalCount, avgLatency, avgError, size: items.length, level };
+  });
+
+  const overallScore = Math.round(entries.reduce((sum, entry) => sum + entry.score, 0) / entries.length);
+  const riskTeams = entries.filter((entry) => entry.level.key === "risk").length;
+  const watchTeams = entries.filter((entry) => entry.level.key === "watch").length;
+  const summaryLevel = getLevel(overallScore);
+
+  root.innerHTML = `
+    <article class="team-health-overview ${summaryLevel.key}">
+      <div>
+        <p class="eyebrow">왜 필요한가</p>
+        <h3>팀 헬스는 납품 리스크 조기 경보판입니다.</h3>
+        <p class="muted">가중치(상태 55% + 지연 25% + 에러율 20%)로 병목 팀을 먼저 보여주어, 클라이언트 영향 전에 대응하게 합니다.</p>
+      </div>
+      <div class="team-health-kpis">
+        <div class="kpi"><strong>${esc(entries.length)}</strong><small>활성 팀</small></div>
+        <div class="kpi"><strong>${esc(overallScore)}</strong><small>전체 점수</small></div>
+        <div class="kpi"><strong>${esc(watchTeams)}</strong><small>주의 팀</small></div>
+        <div class="kpi"><strong>${esc(riskTeams)}</strong><small>위험 팀</small></div>
+      </div>
+    </article>
+    <div class="team-health-grid">
+      ${entries
+        .sort((a, b) => a.score - b.score)
+        .map(
+          (entry) => `
+            <article class="team ${entry.level.key}">
+              <header>
+                <strong>${esc(entry.team)}</strong>
+                <span class="tag">${esc(entry.level.label)}</span>
+              </header>
+              <div class="team-score">${esc(entry.score)} / 100</div>
+              <div class="bar"><div class="fill" style="width:${entry.score}%"></div></div>
+              <ul class="team-metrics">
+                <li>팀원: ${esc(entry.size)}명</li>
+                <li>평균 지연: ${esc(entry.avgLatency)} ms</li>
+                <li>평균 에러율: ${esc(fmtPct(entry.avgError))}</li>
+                <li>경고/위험: ${esc(entry.warningCount)} / ${esc(entry.criticalCount)}</li>
+              </ul>
+              <p class="team-guide"><strong>권장 조치:</strong> ${esc(entry.level.guide)}</p>
+            </article>
+          `
+        )
+        .join("")}
+    </div>
+  `;
 }
 
 function renderDesignBoard(state) {
@@ -561,6 +657,20 @@ function renderRequests(payload) {
 function describeJob(job) {
   const meta = [job.work_type, job.mission].map((value) => normalizeWhitespace(value)).filter(Boolean);
   return meta.join(" · ");
+}
+
+function reportPathToHref(pathValue) {
+  const raw = String(pathValue || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("./")) return `/${raw.slice(2)}`;
+  if (raw.startsWith("/")) {
+    const marker = "/deliverables/";
+    const idx = raw.indexOf(marker);
+    if (idx >= 0) return raw.slice(idx);
+    return raw;
+  }
+  if (raw.startsWith("deliverables/")) return `/${raw}`;
+  return raw;
 }
 
 function pickActiveJob(jobs = []) {
@@ -795,13 +905,22 @@ function renderReportHub(jobs = []) {
   `;
 
   const latest = [...jobs].sort((a, b) => jobTimestamp(b) - jobTimestamp(a))[0];
+  const reportReady = latest.status === "done" && !!latest.report_path;
+  const reportHint = reportReady
+    ? "리포트 파일이 준비되었습니다."
+    : `현재 상태: ${statusKo(latest.status)} (${statusKo(latest.stage)}) · Report 단계 완료 후 생성됩니다.`;
   const files = Array.isArray(latest.changed_files) ? latest.changed_files : [];
   const actions = Array.isArray(latest.executed_actions) ? latest.executed_actions : [];
   const qaNote = latest.qa_result || latest.qa_summary || "QA 결과 수집중";
   const filePreview = files.slice(0, 3).map((file) => `<code>${esc(file)}</code>`).join(", ") || "-";
+  const reportHref = reportPathToHref(latest.report_path);
+  const reportLine = latest.report_path
+    ? `<a href="${esc(reportHref)}" target="_blank" rel="noopener noreferrer">${esc(latest.report_path)}</a>`
+    : "아직 리포트 경로가 없습니다.";
   evidenceRoot.innerHTML = `
     <h3>최근 리포트 · ${esc(latest.id || "-")}</h3>
-    <p class="muted">${esc(latest.report_path || "리포트 경로 미지정")}</p>
+    <p class="muted">${reportLine}</p>
+    <p class="muted">${esc(reportHint)}</p>
     <ul class="report-list">
       <li>변경 파일 ${esc(files.length)}개 · ${filePreview}</li>
       <li>실행 액션 ${esc(actions.length)}개 · ${esc(actions.join(", ") || "-")}</li>
@@ -873,7 +992,10 @@ function renderJobs(payload) {
             const approval = j.approval_mode || "auto";
             const actions = esc((j.executed_actions || []).join(", ") || "-");
             const changed = (j.changed_files || []).length;
-            const report = j.report_path ? `<code>${esc(j.report_path)}</code>` : "-";
+            const reportHref = reportPathToHref(j.report_path);
+            const report = j.report_path
+              ? `<a href="${esc(reportHref)}" target="_blank" rel="noopener noreferrer"><code>${esc(j.report_path)}</code></a>`
+              : "-";
             return `<tr><td><code>${esc(j.id)}</code></td><td><span class="tag">${esc(statusKo(j.status))}</span></td><td>${esc(statusKo(j.stage || "-"))}</td><td>${esc(approval)}</td><td>${actions}</td><td>${changed}</td><td>${report}</td></tr>`;
           }).join("")}
         </tbody>
@@ -1066,10 +1188,36 @@ function checkStatusTag(ok) {
   return `<span class="tag status-warn">보완 필요</span>`;
 }
 
+function renderMarketBrief() {
+  const root = document.getElementById("marketBrief");
+  if (!root) return;
+  root.innerHTML = `
+    <div class="market-brief-header">
+      <div>
+        <p class="eyebrow">시장 브리핑 (공식 지표)</p>
+        <h3>디자인팀이 참고하는 최신 경제 지표</h3>
+      </div>
+      <span class="tag">최종 업데이트: 2026-02-21</span>
+    </div>
+    <div class="market-brief-grid">
+      ${MARKET_INTELLIGENCE.map((item) => `
+        <article class="market-card">
+          <strong>${esc(item.metric)}</strong>
+          <div class="market-value">${esc(item.value)}</div>
+          <p>${esc(item.detail)}</p>
+          <p class="market-impact"><strong>UX 반영:</strong> ${esc(item.impact)}</p>
+          <a href="${esc(item.source)}" target="_blank" rel="noopener noreferrer">출처 보기 (${esc(item.released_at)})</a>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderDesignReview(statePayload, requestsPayload, jobsPayload, auditPayload) {
   const summaryRoot = document.getElementById("designReviewSummary");
+  const designOpsRoot = document.getElementById("designOpsStatus");
   const tableRoot = document.getElementById("designReviewTable");
-  if (!summaryRoot || !tableRoot) return;
+  if (!summaryRoot || !designOpsRoot || !tableRoot) return;
 
   const requests = Array.isArray(requestsPayload?.requests) ? requestsPayload.requests : [];
   const jobs = Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : [];
@@ -1082,6 +1230,13 @@ function renderDesignReview(statePayload, requestsPayload, jobsPayload, auditPay
   const clientTemplateCount = requests.filter((r) => hasTemplateSections(r.response_note)).length;
   const hasSecurityTeam = agents.some((a) => String(a.team || "").toLowerCase() === "security");
   const hasDesignTeam = agents.some((a) => String(a.team || "").toLowerCase() === "design");
+  const designJobs = jobs.filter((job) => {
+    const text = `${job.work_type || ""} ${job.mission || ""} ${job.refined_request || ""}`.toLowerCase();
+    return /design|ux|ui|디자인|사용성/.test(text);
+  });
+  const designDone = designJobs.filter((job) => job.status === "done").length;
+  const designActive = designJobs.filter((job) => !["done", "failed"].includes(job.status)).length;
+  const latestDesignJob = [...designJobs].sort((a, b) => jobTimestamp(b) - jobTimestamp(a))[0];
 
   const checks = [
     {
@@ -1119,6 +1274,8 @@ function renderDesignReview(statePayload, requestsPayload, jobsPayload, auditPay
   const pass = checks.filter((c) => c.ok).length;
   const score = Math.round((pass / checks.length) * 100);
   const caution = checks.length - pass;
+  const latestRelease = [...MARKET_INTELLIGENCE]
+    .sort((a, b) => new Date(b.released_at).getTime() - new Date(a.released_at).getTime())[0];
 
   summaryRoot.innerHTML = [
     { label: "디자인 점검 점수", value: `${score}%`, helper: "전 페이지 UX 운영 준비도" },
@@ -1135,6 +1292,36 @@ function renderDesignReview(statePayload, requestsPayload, jobsPayload, auditPay
     `
     )
     .join("");
+
+  designOpsRoot.innerHTML = [
+    {
+      label: "디자인 관련 작업",
+      value: `${designJobs.length}건`,
+      helper: `진행중 ${designActive}건 · 완료 ${designDone}건`
+    },
+    {
+      label: "최근 디자인 태스크",
+      value: latestDesignJob ? String(latestDesignJob.id) : "-",
+      helper: latestDesignJob ? (latestDesignJob.mission || latestDesignJob.work_type || "세부 미션 없음") : "아직 생성된 디자인 태스크 없음"
+    },
+    {
+      label: "최신 시장 지표 릴리스",
+      value: latestRelease ? latestRelease.released_at : "-",
+      helper: latestRelease ? latestRelease.metric : "시장 지표 미등록"
+    }
+  ]
+    .map(
+      (item) => `
+      <div class="metric-card">
+        <div class="metric-value">${esc(item.value)}</div>
+        <div class="metric-label">${esc(item.label)}</div>
+        <p>${esc(item.helper)}</p>
+      </div>
+    `
+    )
+    .join("");
+
+  renderMarketBrief();
 
   tableRoot.innerHTML = `
     <div class="table-wrap"><table class="table">

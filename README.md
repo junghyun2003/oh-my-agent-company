@@ -89,6 +89,7 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - QA 결과는 `pass/block/waive` 형태로 구조화
 - 클라이언트 응답은 4블록 템플릿(변경점/영향/리스크/다음 조치)을 사용
 - 무리한 클라이언트 요구에도 거절 대신 범위 분해/단계 납품/MDR 제시를 기본 정책으로 적용
+- 디자인/마케팅 팀은 월 1회 이상 공식 경제지표(BLS/BEA/Federal Reserve)와 UX 레퍼런스를 업데이트해 UI/메시지 의사결정에 반영
 
 ## OSS 라이선스
 - License: `MIT`

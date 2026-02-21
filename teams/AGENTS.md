@@ -37,6 +37,7 @@
 - Client commitment: 요구가 어렵더라도 거절 대신 범위 분해/단계 납품/대안 제시로 결과물을 반드시 제공
 - Third-party review: 월 1회 `THIRD_PARTY_REVIEW_YYYY-MM-DD.md` 작성, 개선 Top 3를 다음 릴리즈 백로그로 등록
 - Executive escalation: 장시간 정체/실패 작업은 CEO/CTO 판단 대상으로 승격
+- Market intelligence: Design/Marketing은 월 1회 이상 공식 시장지표(BLS/BEA/Federal Reserve) 업데이트를 공유하고 UX/메시지에 반영
 
 ## Handoff Gate
 - PM -> CTO: 범위/수용기준/비기능요구 전달

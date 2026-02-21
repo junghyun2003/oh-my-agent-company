@@ -26,7 +26,7 @@
         <button class="nav-item" data-target="section-status" data-desc="파이프라인 단계별 상태를 추적합니다.">실행 상태</button>
         <button class="nav-item" data-target="section-conversations" data-desc="팀 간 대화를 요약하고 확인합니다.">팀 대화</button>
         <button class="nav-item" data-target="section-reports" data-desc="결과 리포트와 QA 증빙을 모아봅니다.">리포트 허브</button>
-        <button class="nav-item" data-target="section-health" data-desc="에이전트별 건강도를 비교합니다.">팀 헬스</button>
+        <button class="nav-item" data-target="section-health" data-desc="팀별 리스크와 대응 우선순위를 확인합니다.">팀 헬스</button>
         <button class="nav-item" data-target="section-design" data-desc="디자인 Ops 팀 채용 현황을 확인합니다.">디자인 팀</button>
         <button class="nav-item" data-target="section-design-review" data-desc="디자인팀 주관 UI/UX 점검과 개선 태스크를 운영합니다.">UX 점검센터</button>
         <button class="nav-item" data-target="section-jobs" data-desc="승인 대기 작업을 빠르게 처리합니다.">승인</button>
@@ -325,8 +325,8 @@
 
         <section class="panel" id="section-health">
           <div class="panel-title">
-            <h2>팀 헬스(가중치)</h2>
-            <p>상태 55% + 지연 25% + 에러율 20%</p>
+            <h2>팀 헬스(운영 리스크 뷰)</h2>
+            <p>클라이언트가 팀별 안정성, 지연, 에러율, 권장 조치를 바로 이해할 수 있도록 구성했습니다.</p>
           </div>
           <div id="teamHealth" class="team-health"></div>
         </section>
@@ -376,9 +376,11 @@
         <section class="panel" id="section-design-review">
           <div class="panel-title">
             <h2>디자인팀 UX 점검센터</h2>
-            <p>디자인팀 주관으로 전 페이지 UX 품질을 점검하고, 필요 시 즉시 개선 태스크를 정식 할당합니다.</p>
+            <p>디자인팀 주관으로 전 페이지 UX 품질을 점검하고, 시장/사용자 지표를 반영해 개선 태스크를 정식 할당합니다.</p>
           </div>
           <div id="designReviewSummary" class="status-metrics"></div>
+          <div id="designOpsStatus" class="status-metrics"></div>
+          <div id="marketBrief" class="market-brief"></div>
           <div id="designReviewTable"></div>
 
           <form id="designTaskForm" class="job-form two-col">
@@ -390,12 +392,16 @@
           </form>
 
           <div class="reference-links">
-            <h3>외부 레퍼런스 (빠른 학습)</h3>
+            <h3>외부 레퍼런스 (빠른 학습 + 시장 정보)</h3>
             <ul>
               <li><a href="https://web.dev/learn/design" target="_blank" rel="noopener noreferrer">web.dev Learn Design</a></li>
               <li><a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">WCAG 접근성 가이드</a></li>
               <li><a href="https://developer.mozilla.org/ko/docs/Learn/CSS" target="_blank" rel="noopener noreferrer">MDN CSS 학습 (한글)</a></li>
               <li><a href="https://developers.google.com/fonts/docs/getting_started?hl=ko" target="_blank" rel="noopener noreferrer">Google Fonts 시작 가이드 (한글)</a></li>
+              <li><a href="https://www.bls.gov/cpi/" target="_blank" rel="noopener noreferrer">미국 CPI (BLS)</a></li>
+              <li><a href="https://www.bls.gov/news.release/empsit.nr0.htm" target="_blank" rel="noopener noreferrer">미국 고용지표 (BLS)</a></li>
+              <li><a href="https://www.bea.gov/news/glance" target="_blank" rel="noopener noreferrer">미국 GDP 릴리스 (BEA)</a></li>
+              <li><a href="https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm" target="_blank" rel="noopener noreferrer">FOMC 정책 발표 (Federal Reserve)</a></li>
             </ul>
           </div>
         </section>
