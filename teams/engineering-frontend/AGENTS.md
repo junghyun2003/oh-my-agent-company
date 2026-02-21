@@ -26,3 +26,4 @@
 ## Local Operation Rules
 - UI 변경도 승인 게이트 적용 대상
 - 정책 외 경로 접근 금지
+- Design Ops와 역할 분리: Frontend는 구현/상호작용, Design Ops는 정보구조/가독성 담당

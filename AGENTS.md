@@ -28,6 +28,10 @@
 - 승인 모드(`auto/manual_pre/manual_post/manual_both`)를 작업마다 적용한다.
 - 감사로그는 `state/agent_company.db`의 `audit_events` 테이블에 append-only로 기록한다.
 - 작업이 완료(`job_done`)되면 같은 작업 ID에 대해 `post_job_audit` 이벤트를 추가로 기록한다.
+- 팀별 의견 수렴 결과는 `TEAM_FEEDBACK_YYYY-MM-DD.md`로 남기고 정책 문서에 반영한다.
+- 팀 의견 충돌 시 의사결정 우선순위는 `CEO > CTO > Product/QA > other teams`를 따른다.
+- Dev 착수 전 실행 커맨드/경로 정책 검증 결과를 감사로그에 남긴다.
+- QA 결과는 `pass/block/waive` 형태로 구조화한다.
 
 ## Team Structure
 - `teams/AGENTS.md`: 팀 전체 규약 및 인덱스

@@ -65,6 +65,10 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - 정책에 없는 저장소/경로 변경은 거부
 - 승인 모드가 요구하면 승인 전 단계 진행 금지
 - 실패/승인/완료 이벤트는 모두 감사로그 기록
+- 팀별 의견 수렴 문서(`TEAM_FEEDBACK_YYYY-MM-DD.md`)를 주기적으로 작성하고 정책에 반영
+- 팀 의견 충돌 시 의사결정 우선순위는 `CEO > CTO > Product/QA > other teams`
+- Dev 착수 전 실행 커맨드/경로 검증 결과를 감사로그에 기록
+- QA 결과는 `pass/block/waive` 형태로 구조화
 
 ## 8) 트러블슈팅
 - 포트 충돌: 기존 서버 종료 후 재실행
@@ -78,3 +82,7 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 3. 서버 1회 실행(현재 경로가 `repo_policies`에 자동 등록됨)
 4. 서버 실행 후 대시보드 접속
 5. 샘플 요청으로 end-to-end 검증
+
+## 10) 운영 회고 문서
+- 정책 리뷰: `POLICY_REVIEW.md`
+- 팀 의견 수렴(최신): `TEAM_FEEDBACK_2026-02-21.md`

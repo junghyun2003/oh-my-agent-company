@@ -15,6 +15,7 @@
 ## Outputs
 - QA 노트
 - 게이트 통과/보류 판단
+- QA verdict (`pass` / `block` / `waive`)
 
 ## Decision Rights
 - 결함 심각도 기준으로 보류 권고
@@ -22,6 +23,7 @@
 ## Audit Fields You Must Leave
 - 승인 대기 사유
 - 실패 원인 요약
+- verdict와 근거 1줄
 
 ## Local Operation Rules
 - `manual_post/manual_both` 모드에서는 post 승인 전 완료 처리 금지

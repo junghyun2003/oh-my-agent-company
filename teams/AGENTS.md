@@ -28,6 +28,8 @@
 - Approval gates: `auto/manual_pre/manual_post/manual_both`
 - Repo policy: 허용 저장소/허용 액션/수정 경로 강제
 - Audit: 주요 이벤트는 `state/agent_company.db (table: audit_events)` 기록
+- Feedback loop: 팀 의견 수렴 결과는 `TEAM_FEEDBACK_YYYY-MM-DD.md`로 남기고 정책에 반영
+- QA output: 결과 상태를 `pass/block/waive`로 구조화
 
 ## Handoff Gate
 - PM -> CTO: 범위/수용기준/비기능요구 전달

@@ -26,3 +26,4 @@
 ## Local Operation Rules
 - 기본 포트는 `18765` 사용
 - 데이터 파일 손상 시 안전 복구 후 재시작
+- 헬스체크는 `process + port + api` 3단계로 표준화
