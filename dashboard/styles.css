@@ -917,6 +917,14 @@ input, select, textarea, button {
 }
 
 textarea { resize: vertical; }
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, white);
+  outline-offset: 2px;
+}
 
 button {
   cursor: pointer;
@@ -1224,6 +1232,35 @@ button.ghost {
 
 #execAuditSummary {
   margin-bottom: 0.8rem;
+}
+
+#designReviewSummary {
+  margin-bottom: 0.8rem;
+}
+
+.reference-links {
+  margin-top: 0.9rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: #fffefb;
+}
+
+.reference-links h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.96rem;
+}
+
+.reference-links ul {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.reference-links a {
+  color: #1f4da8;
+  text-decoration-thickness: 1.2px;
 }
 
 .hidden-panel { display: none; }

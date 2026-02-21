@@ -28,6 +28,7 @@
         <button class="nav-item" data-target="section-reports" data-desc="결과 리포트와 QA 증빙을 모아봅니다.">리포트 허브</button>
         <button class="nav-item" data-target="section-health" data-desc="에이전트별 건강도를 비교합니다.">팀 헬스</button>
         <button class="nav-item" data-target="section-design" data-desc="디자인 Ops 팀 채용 현황을 확인합니다.">디자인 팀</button>
+        <button class="nav-item" data-target="section-design-review" data-desc="디자인팀 주관 UI/UX 점검과 개선 태스크를 운영합니다.">UX 점검센터</button>
         <button class="nav-item" data-target="section-jobs" data-desc="승인 대기 작업을 빠르게 처리합니다.">승인</button>
         <button class="nav-item" data-target="section-audit" data-desc="감사 이벤트를 조회합니다.">감사 로그</button>
         <button class="nav-item" data-target="section-exec-audit" data-desc="요청부터 응대까지 실행 투명성을 한 번에 점검합니다.">실행 투명성</button>
@@ -66,6 +67,7 @@
         <button type="button" data-target="section-requests">요청 → 접수</button>
         <button type="button" data-target="section-intake">정제 → 할당</button>
         <button type="button" data-target="section-status">실행 모니터링</button>
+        <button type="button" data-target="section-design-review">디자인팀 점검</button>
         <button type="button" data-target="section-reports">리포트 · QA</button>
         <button type="button" data-target="section-audit">감사 추적</button>
         <button type="button" data-target="section-exec-audit">투명성 감사</button>
@@ -368,6 +370,33 @@
             </article>
             <aside class="design-profile" id="designProfile"></aside>
             <div class="design-stats" id="designStats"></div>
+          </div>
+        </section>
+
+        <section class="panel" id="section-design-review">
+          <div class="panel-title">
+            <h2>디자인팀 UX 점검센터</h2>
+            <p>디자인팀 주관으로 전 페이지 UX 품질을 점검하고, 필요 시 즉시 개선 태스크를 정식 할당합니다.</p>
+          </div>
+          <div id="designReviewSummary" class="status-metrics"></div>
+          <div id="designReviewTable"></div>
+
+          <form id="designTaskForm" class="job-form two-col">
+            <label class="full">디자인팀 개선 태스크 메모
+              <textarea id="designTaskMemo" rows="4" placeholder="예: 모바일에서 표가 깨지고, 감사 로그 상세가 너무 길어 읽기 어렵습니다."></textarea>
+            </label>
+            <button type="submit">디자인팀 정식 태스크 생성</button>
+            <span id="designTaskResult" class="muted full"></span>
+          </form>
+
+          <div class="reference-links">
+            <h3>외부 레퍼런스 (빠른 학습)</h3>
+            <ul>
+              <li><a href="https://web.dev/learn/design" target="_blank" rel="noopener noreferrer">web.dev Learn Design</a></li>
+              <li><a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">WCAG 접근성 가이드</a></li>
+              <li><a href="https://developer.mozilla.org/ko/docs/Learn/CSS" target="_blank" rel="noopener noreferrer">MDN CSS 학습 (한글)</a></li>
+              <li><a href="https://developers.google.com/fonts/docs/getting_started?hl=ko" target="_blank" rel="noopener noreferrer">Google Fonts 시작 가이드 (한글)</a></li>
+            </ul>
           </div>
         </section>
 

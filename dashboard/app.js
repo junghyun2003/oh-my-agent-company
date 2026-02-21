@@ -1026,6 +1026,157 @@ function renderExecutionAudit(requestsPayload, jobsPayload, auditPayload) {
   `;
 }
 
+function checkStatusTag(ok) {
+  if (ok) return `<span class="tag status-ok">정상</span>`;
+  return `<span class="tag status-warn">보완 필요</span>`;
+}
+
+function renderDesignReview(statePayload, requestsPayload, jobsPayload, auditPayload) {
+  const summaryRoot = document.getElementById("designReviewSummary");
+  const tableRoot = document.getElementById("designReviewTable");
+  if (!summaryRoot || !tableRoot) return;
+
+  const requests = Array.isArray(requestsPayload?.requests) ? requestsPayload.requests : [];
+  const jobs = Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : [];
+  const audits = Array.isArray(auditPayload?.events) ? auditPayload.events : [];
+  const agents = Array.isArray(statePayload?.agents) ? statePayload.agents : [];
+
+  const doneJobs = jobs.filter((j) => j.status === "done");
+  const doneWithReport = doneJobs.filter((j) => !!j.report_path).length;
+  const postAuditCount = audits.filter((a) => a.kind === "post_job_audit").length;
+  const clientTemplateCount = requests.filter((r) => hasTemplateSections(r.response_note)).length;
+  const hasSecurityTeam = agents.some((a) => String(a.team || "").toLowerCase() === "security");
+  const hasDesignTeam = agents.some((a) => String(a.team || "").toLowerCase() === "design");
+
+  const checks = [
+    {
+      name: "디자인팀 운영 활성화",
+      ok: hasDesignTeam,
+      evidence: hasDesignTeam ? "Design 팀 상태 확인됨" : "Design 팀 상태 미확인",
+      action: "agent_status에 Design Ops 운영 상태 확인",
+    },
+    {
+      name: "보안팀 협업 준비",
+      ok: hasSecurityTeam,
+      evidence: hasSecurityTeam ? "Security 팀 상태 확인됨" : "Security 팀 상태 미확인",
+      action: "Security Ops 팀 문서/시드 반영 후 파이프라인 참여 확인",
+    },
+    {
+      name: "리포트 증적 확보",
+      ok: doneJobs.length === 0 ? true : doneWithReport === doneJobs.length,
+      evidence: `완료 ${doneJobs.length}건 중 리포트 ${doneWithReport}건`,
+      action: "Report 단계 누락 작업 재점검",
+    },
+    {
+      name: "완료 후 감사 생성",
+      ok: doneJobs.length === 0 ? true : postAuditCount >= doneJobs.length,
+      evidence: `post_job_audit ${postAuditCount}건`,
+      action: "서버 재기동 후 완료 작업 1건 실행해 post_job_audit 생성 확인",
+    },
+    {
+      name: "클라이언트 한글 템플릿 응대",
+      ok: clientTemplateCount > 0,
+      evidence: `4블록 템플릿 응답 ${clientTemplateCount}건`,
+      action: "응대 시 [변경점/영향/리스크/다음 조치] 템플릿 사용",
+    },
+  ];
+
+  const pass = checks.filter((c) => c.ok).length;
+  const score = Math.round((pass / checks.length) * 100);
+  const caution = checks.length - pass;
+
+  summaryRoot.innerHTML = [
+    { label: "디자인 점검 점수", value: `${score}%`, helper: "전 페이지 UX 운영 준비도" },
+    { label: "통과 항목", value: pass, helper: "정상 운영 기준 충족" },
+    { label: "보완 항목", value: caution, helper: "즉시 개선 필요" },
+  ]
+    .map(
+      (item) => `
+      <div class="metric-card">
+        <div class="metric-value">${esc(item.value)}</div>
+        <div class="metric-label">${esc(item.label)}</div>
+        <p>${esc(item.helper)}</p>
+      </div>
+    `
+    )
+    .join("");
+
+  tableRoot.innerHTML = `
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>점검 항목</th><th>상태</th><th>근거</th><th>다음 조치</th></tr></thead>
+      <tbody>
+        ${checks
+          .map((check) => `<tr><td>${esc(check.name)}</td><td>${checkStatusTag(check.ok)}</td><td>${esc(check.evidence)}</td><td>${esc(check.action)}</td></tr>`)
+          .join("")}
+      </tbody>
+    </table></div>
+  `;
+}
+
+async function submitDesignTask(event) {
+  event.preventDefault();
+  const resultEl = document.getElementById("designTaskResult");
+  const memo = document.getElementById("designTaskMemo").value.trim();
+  const approvalMode = document.getElementById("approvalMode").value || "manual_post";
+  const repository = document.getElementById("repoSelect").value || pickDefaultRepoPath();
+  if (!repository) {
+    resultEl.textContent = "실패: 대상 저장소를 찾지 못했습니다. 저장소 목록을 먼저 로드하세요.";
+    return;
+  }
+
+  const requestPayload = {
+    ...ownerPayload(),
+    client_name: "내부 운영(Design Ops)",
+    raw_request: memo || "디자인팀 주관 전 페이지 UI/UX 점검 및 사용자 친화 개선"
+  };
+
+  try {
+    const reqRes = await fetch(requestsUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestPayload)
+    });
+    const reqData = await reqRes.json();
+    if (!reqRes.ok) throw new Error(reqData.error || "디자인 요청 생성 실패");
+
+    const assignPayload = {
+      ...ownerPayload(),
+      request_id: reqData.request.id,
+      work_type: "디자인팀 전면 UX 점검",
+      mission: "전 페이지 사용자 친화성 개선",
+      repository,
+      refined_request: [
+        `[요청 ID] ${reqData.request.id} · 내부 운영(Design Ops)`,
+        `[요약] 전 페이지 UI/UX 검토, 깨짐/가독성/흐름 단절 해결`,
+        `[주요 작업]`,
+        `1. 모든 패널(요청/할당/실행/대화/리포트/감사)의 레이아웃 및 모바일 대응 검증`,
+        `2. 한글 문장/라벨/버튼의 이해도 개선`,
+        `3. 클라이언트 응대 흐름과 감사 추적 가시성 개선`,
+        `[완료 기준]`,
+        `1. 디자인팀 점검센터 지표 80점 이상`,
+        `2. 깨짐 이슈 0건`,
+        `3. 변경점을 리포트 및 감사로그에 남김`
+      ].join("\n"),
+      apply_changes: true,
+      approval_mode: approvalMode
+    };
+
+    const jobRes = await fetch(assignUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(assignPayload)
+    });
+    const jobData = await jobRes.json();
+    if (!jobRes.ok) throw new Error(jobData.error || "디자인 태스크 할당 실패");
+
+    resultEl.textContent = `디자인팀 정식 태스크 생성 완료: ${jobData.job.id}`;
+    document.getElementById("designTaskForm").reset();
+    await loadAll();
+  } catch (error) {
+    resultEl.textContent = `실패: ${error.message}`;
+  }
+}
+
 function setupAuditControls() {
   const kindSelect = document.getElementById("auditKindFilter");
   const searchInput = document.getElementById("auditSearchInput");
@@ -1188,6 +1339,7 @@ async function loadAll() {
     renderPolicy(policies);
     renderAudit(audit);
     renderExecutionAudit(requests, jobs, audit);
+    renderDesignReview(state, requests, jobs, audit);
     renderUsage(usage);
   } catch (error) {
     document.getElementById("alerts").innerHTML = `<div class="alert">로딩 실패: ${esc(error.message)}</div>`;
@@ -1325,6 +1477,7 @@ document.getElementById("refreshInterval").addEventListener("change", restartPol
 document.getElementById("pollingEnabled").addEventListener("change", restartPolling);
 document.getElementById("manualRefreshBtn").addEventListener("click", loadAll);
 document.getElementById("refreshModelsBtn").addEventListener("click", () => loadCodexModels(true, document.getElementById("codexModel").value));
+document.getElementById("designTaskForm").addEventListener("submit", submitDesignTask);
 
 setupAutoRefineControls();
 setupSnbNavigation();
