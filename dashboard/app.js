@@ -1984,7 +1984,9 @@ async function loadRepositories() {
   refillSelectPreservingValue(
     select,
     "저장소 선택",
-    data.repositories.map((r) => `<option value="${esc(r.path)}">${esc(r.name)} - ${esc(r.path)}</option>`).join("")
+    data.repositories
+      .map((r) => `<option value="${esc(r.path)}">${esc(r.name)} · ${esc(shortRepoName(r.path))}</option>`)
+      .join("")
   );
 }
 
