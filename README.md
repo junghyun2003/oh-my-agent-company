@@ -82,6 +82,11 @@ Change port:
 ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 ```
 
+Tech Leader audit:
+```bash
+./scripts/tech_leader_audit.sh
+```
+
 ## Data and Artifacts
 - DB: `/Users/junghyen2003/Documents/oh-my-agent-company/state/agent_company.db`
 - Requests table: `requests`

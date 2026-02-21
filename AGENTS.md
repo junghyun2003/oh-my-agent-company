@@ -1,6 +1,6 @@
-# AGENTS Guide (oh-my-agnet-company)
+# AGENTS Guide (oh-my-agent-company)
 
-이 저장소는 개인이 로컬 PC에서 "oh-my-agnet-company"를 운영하기 위한 실행형 오케스트레이션 템플릿이다.
+이 저장소는 개인이 로컬 PC에서 "oh-my-agent-company"를 운영하기 위한 실행형 오케스트레이션 템플릿이다.
 
 ## What This System Does
 - 클라이언트 요청 접수

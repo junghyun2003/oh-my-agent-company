@@ -2,8 +2,8 @@
 
 ## Product Positioning
 - Category: Local AI Agent Orchestration Console
-- One-liner: "Run your own oh-my-agnet-company on a local machine with governance, approvals, and audit trails."
-- Korean one-liner: "로컬 PC에서 승인/감사 기반으로 oh-my-agnet-company를 운영하는 실행형 콘솔"
+- One-liner: "Run your own oh-my-agent-company on a local machine with governance, approvals, and audit trails."
+- Korean one-liner: "로컬 PC에서 승인/감사 기반으로 oh-my-agent-company를 운영하는 실행형 콘솔"
 
 ## Ideal Customers
 1. Solo builders and indie founders
