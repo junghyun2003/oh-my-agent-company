@@ -4,7 +4,7 @@
 
 ## 1) 핵심 개념
 - 운영자(Owner): 기본 `owner` (대시보드에서 변경 가능)
-- 파이프라인: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Infra) -> QA -> Report`
+- 파이프라인: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Security/Infra) -> QA -> Report`
 - 승인 게이트: `auto`, `manual_pre`, `manual_post`, `manual_both`
 - 권한정책: 허용 저장소/수정경로/허용 액션 통제
 - 감사로그: 누가/무엇을/어떻게 변경했는지 추적
@@ -90,3 +90,11 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - 정책 리뷰: `POLICY_REVIEW.md`
 - 팀 의견 수렴(최신): `TEAM_FEEDBACK_2026-02-21.md`
 - 프로세스 의사결정(최신): `PROCESS_REVIEW_2026-02-21.md`
+- 제3자 사용성 프레임: `THIRD_PARTY_READINESS.md`
+- 제3자 리뷰 템플릿: `THIRD_PARTY_REVIEW_TEMPLATE.md`
+
+## 11) 제3자 사용성 운영 루프
+1. 월 1회 `THIRD_PARTY_REVIEW_YYYY-MM-DD.md`를 템플릿 기반으로 작성
+2. 준비도 점수와 주요 불편 Top 3를 팀별로 합의
+3. 다음 릴리즈에 개선 항목 최소 1개 이상 반영
+4. 반영 결과를 `POLICY_REVIEW.md` 또는 `PROCESS_REVIEW_*.md`에 기록

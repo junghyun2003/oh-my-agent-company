@@ -920,6 +920,112 @@ function renderAudit(payload) {
   renderPaginationControls("audit", pagination);
 }
 
+function hasTemplateSections(text) {
+  const note = String(text || "");
+  return ["[변경점]", "[영향]", "[리스크]", "[다음 조치]"].every((x) => note.includes(x));
+}
+
+function renderExecutionAudit(requestsPayload, jobsPayload, auditPayload) {
+  const summaryRoot = document.getElementById("execAuditSummary");
+  const tableRoot = document.getElementById("execAuditTable");
+  if (!summaryRoot || !tableRoot) return;
+
+  const requests = Array.isArray(requestsPayload?.requests) ? requestsPayload.requests : [];
+  const jobs = Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : [];
+  const events = Array.isArray(auditPayload?.events) ? auditPayload.events : [];
+  const jobsByRequest = new Map(jobs.map((job) => [String(job.request_id), job]));
+
+  const rows = requests
+    .slice()
+    .sort((a, b) => eventTimestamp(b.created_at) - eventTimestamp(a.created_at))
+    .map((req) => {
+      const requestId = String(req.id);
+      const job = jobsByRequest.get(requestId);
+      const reqEvents = events.filter((e) => String(e.request_id || "") === requestId);
+      const hasAssigned = reqEvents.some((e) => e.kind === "job_assigned");
+      const hasDone = reqEvents.some((e) => e.kind === "job_done");
+      const hasFailed = reqEvents.some((e) => e.kind === "job_failed");
+      const hasPostAudit = reqEvents.some((e) => e.kind === "post_job_audit");
+      const hasClientPrepared = reqEvents.some((e) => e.kind === "client_message_prepared");
+      const hasResponded = reqEvents.some((e) => e.kind === "client_responded");
+      const hasReport = !!job?.report_path;
+      const hasResponseTemplate = hasTemplateSections(req.response_note);
+
+      const checks = [
+        hasAssigned,
+        hasDone || hasFailed,
+        hasReport || hasFailed,
+        hasPostAudit || hasFailed,
+        hasClientPrepared || hasResponded || hasResponseTemplate || hasFailed,
+      ];
+      const passed = checks.filter(Boolean).length;
+      const score = Math.round((passed / checks.length) * 100);
+
+      const gaps = [];
+      if (!hasAssigned) gaps.push("할당 로그 없음");
+      if (!(hasDone || hasFailed)) gaps.push("종료 로그 없음");
+      if (!hasReport && !hasFailed) gaps.push("리포트 누락");
+      if (!hasPostAudit && !hasFailed) gaps.push("완료 후 감사 누락");
+      if (!(hasClientPrepared || hasResponded || hasResponseTemplate) && !hasFailed) gaps.push("클라이언트 응대 근거 부족");
+
+      return {
+        request: req,
+        job,
+        hasFailed,
+        score,
+        gaps,
+        status: hasFailed ? "위험" : score === 100 ? "정상" : score >= 60 ? "주의" : "위험",
+      };
+    });
+
+  const total = rows.length;
+  const healthy = rows.filter((r) => r.status === "정상").length;
+  const warn = rows.filter((r) => r.status === "주의").length;
+  const bad = rows.filter((r) => r.status === "위험").length;
+  const avg = total ? Math.round(rows.map((r) => r.score).reduce((a, b) => a + b, 0) / total) : 0;
+
+  summaryRoot.innerHTML = [
+    { label: "요청 수", value: total, helper: "감사 대상" },
+    { label: "정상", value: healthy, helper: "전 흐름 추적 가능" },
+    { label: "주의", value: warn, helper: "일부 증적 누락" },
+    { label: "위험", value: bad, helper: "실패/핵심 누락" },
+    { label: "평균 투명성", value: `${avg}%`, helper: "요청 단위 점수" },
+  ]
+    .map(
+      (item) => `
+      <div class="metric-card">
+        <div class="metric-value">${esc(item.value)}</div>
+        <div class="metric-label">${esc(item.label)}</div>
+        <p>${esc(item.helper)}</p>
+      </div>
+    `
+    )
+    .join("");
+
+  if (!rows.length) {
+    tableRoot.innerHTML = `<p class="muted">감사할 요청 데이터가 없습니다.</p>`;
+    return;
+  }
+
+  tableRoot.innerHTML = `
+    <div class="table-wrap"><table class="table">
+      <thead>
+        <tr><th>요청</th><th>클라이언트</th><th>작업</th><th>상태</th><th>투명성 점수</th><th>누락/이슈</th></tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map((row) => {
+            const statusClassName = row.status === "정상" ? "status-ok" : row.status === "주의" ? "status-warn" : "status-bad";
+            const jobId = row.job?.id ? `<code>${esc(row.job.id)}</code>` : "-";
+            const gaps = row.gaps.length ? row.gaps.join(", ") : "없음";
+            return `<tr><td><code>${esc(row.request.id)}</code></td><td>${esc(row.request.client_name || "-")}</td><td>${jobId}</td><td><span class="tag ${statusClassName}">${esc(row.status)}</span></td><td>${esc(row.score)}%</td><td>${esc(gaps)}</td></tr>`;
+          })
+          .join("")}
+      </tbody>
+    </table></div>
+  `;
+}
+
 function setupAuditControls() {
   const kindSelect = document.getElementById("auditKindFilter");
   const searchInput = document.getElementById("auditSearchInput");
@@ -1081,6 +1187,7 @@ async function loadAll() {
     renderJobs(jobs);
     renderPolicy(policies);
     renderAudit(audit);
+    renderExecutionAudit(requests, jobs, audit);
     renderUsage(usage);
   } catch (error) {
     document.getElementById("alerts").innerHTML = `<div class="alert">로딩 실패: ${esc(error.message)}</div>`;

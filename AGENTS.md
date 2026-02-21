@@ -5,7 +5,7 @@
 ## What This System Does
 - 클라이언트 요청 접수
 - Owner(운영자)가 요청을 정제해 작업 할당
-- 파이프라인 실행: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Infra) -> QA -> Report`
+- 파이프라인 실행: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Security/Infra) -> QA -> Report`
 - 수동 승인 게이트(전/후) 처리
 - 작업 완료 후 클라이언트 응대(4블록 템플릿: 변경점/영향/리스크/다음 조치)
 - 전체 이벤트 감사로그 기록 + 작업 완료 직후 `post_job_audit` 자동 생성
@@ -35,6 +35,8 @@
 - 클라이언트 응답은 `변경점/영향/리스크/다음 조치` 4블록 템플릿을 기본으로 사용한다.
 - 클라이언트 요구가 어렵거나 무리해 보여도 업무 거절을 기본값으로 두지 않는다. 대신 범위 분해, 단계적 납품, 리스크 고지를 통해 반드시 실행 가능한 결과물을 제시한다.
 - 모든 단계는 "지금 당장 전달 가능한 최소 결과물(MDR: Minimum Deliverable Result)"을 남겨야 한다.
+- 제3자 사용성은 월 1회 이상 정기 리뷰를 수행하고, 결과를 문서(`THIRD_PARTY_REVIEW_YYYY-MM-DD.md`)로 남긴다.
+- 제3자 사용성 개선 항목은 매 릴리즈에 최소 1개 이상 반영한다.
 
 ## Team Structure
 - `teams/AGENTS.md`: 팀 전체 규약 및 인덱스
@@ -46,3 +48,4 @@
 2. `README.md`
 3. `teams/AGENTS.md`
 4. 영향받는 `teams/*/AGENTS.md`
+5. `THIRD_PARTY_READINESS.md`

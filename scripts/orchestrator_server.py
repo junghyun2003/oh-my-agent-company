@@ -275,6 +275,7 @@ def seed_defaults():
             ("frontend", "Frontend Agent", "Engineering", "healthy", "대기", "UX integrity", "Web Squad", now, 210, 0.01, "QA Agent", None),
             ("app", "App Agent", "Engineering", "healthy", "대기", "Mobile quality", "Mobile Squad", now, 190, 0.01, "QA Agent", None),
             ("design", "Design Ops Agent", "Design", "healthy", "대기", "UI coherence", "Design Ops", now, 180, 0.01, "Frontend Agent", None),
+            ("security", "Security Agent", "Security", "healthy", "대기", "Secure delivery", "Security Ops", now, 175, 0.01, "QA Agent", None),
             ("qa", "QA Agent", "Reliability", "healthy", "대기", "Release confidence", "QA Team", now, 160, 0.01, "Infrastructure Agent", None),
             ("infra", "Infrastructure Agent", "Reliability", "healthy", "대기", "SLO protection", "SRE", now, 170, 0.01, "CTO Agent", None),
         ]
@@ -290,6 +291,12 @@ def seed_defaults():
             exec_sql(
                 "INSERT INTO agent_status (id,name,team,status,current_task,initiative,owner,last_update,latency_ms,error_rate,next_handoff,blocker) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 ("design", "Design Ops Agent", "Design", "healthy", "대기", "UI coherence", "Design Ops", now, 180, 0.01, "Frontend Agent", None),
+            )
+        if not q1("SELECT id FROM agent_status WHERE id='security'"):
+            now = utc_now()
+            exec_sql(
+                "INSERT INTO agent_status (id,name,team,status,current_task,initiative,owner,last_update,latency_ms,error_rate,next_handoff,blocker) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("security", "Security Agent", "Security", "healthy", "대기", "Secure delivery", "Security Ops", now, 175, 0.01, "QA Agent", None),
             )
 
     if not q1("SELECT key FROM state_meta WHERE key='company_mission'"):
@@ -1000,17 +1007,18 @@ def run_pipeline(job):
         ("frontend", "Frontend implementation"),
         ("app", "App impact validation"),
         ("design", "Design system alignment"),
+        ("security", "Security review and hardening"),
         ("infra", "Infra deployment prep"),
     ]:
         update_agent(aid, status="warning", current_task=task, initiative="Dev stage", latency_ms=340, error_rate=0.04, blocker=None)
     set_job_fields(job["id"], {"stage": "dev"})
     add_timeline(job["id"], "Dev stage started in parallel.")
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=6) as pool:
         dev_notes = list(
             pool.map(
                 lambda role: agent_note(role, "Dev", job["refined_request"]),
-                ["Backend", "Frontend", "App", "Design", "Infrastructure"],
+                ["Backend", "Frontend", "App", "Design", "Security", "Infrastructure"],
             )
         )
 
@@ -1043,7 +1051,7 @@ def run_pipeline(job):
     post_audit = build_post_completion_audit(job)
     report_path = write_report(job, actions, changed_files, pm_notes + cto_notes + dev_notes + qa_notes, post_audit=post_audit)
 
-    for aid in ["ceo", "cto", "strategy", "marketing", "product", "backend", "frontend", "app", "design", "qa", "infra"]:
+    for aid in ["ceo", "cto", "strategy", "marketing", "product", "backend", "frontend", "app", "design", "security", "qa", "infra"]:
         update_agent(aid, status="healthy", latency_ms=170, error_rate=0.01, blocker=None)
     update_agent("ceo", current_task="Client delivery report", initiative="Owner briefing")
     set_meta("updated_at", utc_now())

@@ -1222,6 +1222,10 @@ button.ghost {
   grid-column: 1 / -1;
 }
 
+#execAuditSummary {
+  margin-bottom: 0.8rem;
+}
+
 .hidden-panel { display: none; }
 
 @media (max-width: 1080px) {

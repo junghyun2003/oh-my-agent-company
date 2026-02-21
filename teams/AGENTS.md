@@ -12,6 +12,7 @@
 - `teams/engineering-frontend/AGENTS.md`
 - `teams/engineering-app/AGENTS.md`
 - `teams/design-ops/AGENTS.md`
+- `teams/security-ops/AGENTS.md`
 - `teams/quality-assurance/AGENTS.md`
 - `teams/infrastructure/AGENTS.md`
 
@@ -26,7 +27,7 @@
 
 ## Universal Control Rules
 - Owner identity: `owner_id=owner` 기준 실행
-- Pipeline order: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Infra) -> QA -> Report`
+- Pipeline order: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Security/Infra) -> QA -> Report`
 - Approval gates: `auto/manual_pre/manual_post/manual_both`
 - Repo policy: 허용 저장소/허용 액션/수정 경로 강제
 - Audit: 주요 이벤트는 `state/agent_company.db (table: audit_events)` 기록
@@ -34,6 +35,7 @@
 - QA output: 결과 상태를 `pass/block/waive`로 구조화
 - Client delivery: 클라이언트 응답은 4블록 템플릿으로 표준화
 - Client commitment: 요구가 어렵더라도 거절 대신 범위 분해/단계 납품/대안 제시로 결과물을 반드시 제공
+- Third-party review: 월 1회 `THIRD_PARTY_REVIEW_YYYY-MM-DD.md` 작성, 개선 Top 3를 다음 릴리즈 백로그로 등록
 
 ## Handoff Gate
 - PM -> CTO: 범위/수용기준/비기능요구 전달
