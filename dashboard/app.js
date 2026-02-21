@@ -823,6 +823,96 @@ function renderTimeline(job) {
   if (emptyEl) emptyEl.classList.add("is-hidden");
 }
 
+function normalizeEventStage(stage) {
+  const token = String(stage || "").trim().toLowerCase();
+  const map = {
+    pm: "pm",
+    product: "pm",
+    cto: "cto",
+    dev: "dev",
+    qa: "qa",
+    report: "report",
+    pre_approval: "pre_approval",
+    post_approval: "post_approval",
+  };
+  return map[token] || token;
+}
+
+function collectConversationEvents(job) {
+  if (!job) return [];
+  const result = [];
+
+  const timeline = Array.isArray(job.timeline) ? job.timeline : [];
+  timeline.forEach((event) => {
+    result.push({
+      at: event.at || "",
+      stage: normalizeEventStage(event.stage || job.stage || ""),
+      actor: event.actor || "시스템",
+      message: event.message || "",
+      source: "timeline",
+    });
+  });
+
+  const noteSets = [
+    { key: "pm_notes", stage: "pm" },
+    { key: "cto_notes", stage: "cto" },
+    { key: "dev_notes", stage: "dev" },
+    { key: "qa_notes", stage: "qa" },
+  ];
+  noteSets.forEach(({ key, stage }) => {
+    const notes = Array.isArray(job[key]) ? job[key] : [];
+    notes.forEach((note) => {
+      const message = note.note || note.message || "";
+      if (!message) return;
+      result.push({
+        at: note.at || "",
+        stage: normalizeEventStage(note.stage || stage),
+        actor: note.role || "팀",
+        message,
+        source: key,
+      });
+    });
+  });
+
+  const seen = new Set();
+  return result
+    .filter((event) => event.message)
+    .sort((a, b) => eventTimestamp(a.at) - eventTimestamp(b.at))
+    .filter((event) => {
+      const key = `${event.at}|${event.actor}|${event.message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function renderClientDigest(events, job) {
+  const clientDigestList = document.getElementById("clientDigestList");
+  const clientStatus = document.getElementById("clientDigestStatus");
+  const clientEmpty = document.getElementById("clientDigestEmpty");
+  if (!clientDigestList || !clientStatus) return;
+
+  if (!events.length) {
+    clientDigestList.innerHTML = "";
+    clientStatus.textContent = "대상 이벤트가 없어 요약을 생성하지 않았습니다.";
+    lastClientDigestText = "";
+    if (clientEmpty) clientEmpty.classList.remove("is-hidden");
+    return;
+  }
+
+  const picked = events.slice(-4).map((event) => {
+    const translated = translateToKorean(event.message);
+    const line = translated === event.message
+      ? `${statusKo(event.stage || "-")}: ${event.message}`
+      : translated;
+    return line;
+  });
+  clientDigestList.innerHTML = picked.map((line) => `<li>${esc(line)}</li>`).join("");
+  lastClientDigestText = [`작업: ${job.id}`, ...picked].join("\n");
+  clientStatus.textContent = "클라이언트 공유용 요약이 최신 상태입니다.";
+  if (clientEmpty) clientEmpty.classList.add("is-hidden");
+}
+
 function renderConversation(job) {
   const titleEl = document.getElementById("conversationJobTitle");
   const metaEl = document.getElementById("conversationJobMeta");
@@ -855,9 +945,7 @@ function renderConversation(job) {
   metaEl.textContent = describeJob(job) || "정제된 작업 내용을 확인하세요.";
   stageEl.textContent = statusKo(job.stage);
 
-  const events = Array.isArray(job.timeline)
-    ? [...job.timeline].sort((a, b) => eventTimestamp(a.at) - eventTimestamp(b.at))
-    : [];
+  const events = collectConversationEvents(job);
 
   if (!events.length) {
     feedEl.innerHTML = "";
@@ -870,7 +958,7 @@ function renderConversation(job) {
       .map(
         (event) => `
           <li class="conversation-item">
-            <strong>${esc(event.stage ? statusKo(event.stage) : event.actor || "시스템")}</strong>
+            <strong>${esc(event.actor || (event.stage ? statusKo(event.stage) : "시스템"))}</strong>
             <small>${esc(formatTimelineTime(event.at))}</small>
             ${renderConversationLine(event)}
           </li>
@@ -1626,6 +1714,24 @@ function setupConversationLangToggle() {
   applyActive();
 }
 
+function setupClientDigestCopyButton() {
+  const button = document.getElementById("clientDigestCopyBtn");
+  const status = document.getElementById("clientDigestStatus");
+  if (!button) return;
+  button.addEventListener("click", async () => {
+    if (!lastClientDigestText) {
+      if (status) status.textContent = "복사할 요약이 아직 없습니다.";
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(lastClientDigestText);
+      if (status) status.textContent = "요약을 클립보드에 복사했습니다.";
+    } catch (error) {
+      if (status) status.textContent = `복사 실패: ${error.message}`;
+    }
+  });
+}
+
 async function loadRepositories() {
   const res = await fetch(`${reposUrl}?t=${Date.now()}`);
   const data = await res.json();
@@ -1859,6 +1965,7 @@ setupPaginationDelegation();
 setupIntakePresets();
 setupAuditControls();
 setupConversationLangToggle();
+setupClientDigestCopyButton();
 loadOwnerInfo()
   .then(loadSettings)
   .then(loadRepositories)
