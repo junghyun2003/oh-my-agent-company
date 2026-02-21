@@ -20,6 +20,7 @@
 ## Decision Rights
 - 구조적 리스크가 크면 보류/재설계 요청
 - 품질 기준 미달 시 릴리즈 차단 권고
+- 무리한 요구를 기술적으로 실행 가능하게 재분해하고 단계별 구현 순서를 결정
 
 ## Audit Fields You Must Leave
 - `kind=approval_wait` 발생 배경
@@ -28,3 +29,4 @@
 ## Local Operation Rules
 - `writable_paths` 밖 변경 설계 금지
 - 승인 모드에 따라 pre/post 게이트 동작 확인
+- "불가" 판단 시에도 대체안(A/B)과 최소 납품 경로(MDR)를 함께 제시

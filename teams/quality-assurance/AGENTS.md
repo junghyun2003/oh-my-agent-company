@@ -19,6 +19,7 @@
 
 ## Decision Rights
 - 결함 심각도 기준으로 보류 권고
+- 클라이언트 납품 일정 보호를 위해 `block` 시 대체 릴리즈 경로를 함께 제안
 
 ## Audit Fields You Must Leave
 - 승인 대기 사유
@@ -27,3 +28,4 @@
 
 ## Local Operation Rules
 - `manual_post/manual_both` 모드에서는 post 승인 전 완료 처리 금지
+- QA 결과에는 고객 관점 영향(무엇이 개선/제한되는지)을 1줄로 포함

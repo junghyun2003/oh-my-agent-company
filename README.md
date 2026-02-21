@@ -71,6 +71,7 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - Dev 착수 전 실행 커맨드/경로 검증 결과를 감사로그에 기록
 - QA 결과는 `pass/block/waive` 형태로 구조화
 - 클라이언트 응답은 4블록 템플릿(변경점/영향/리스크/다음 조치)을 사용
+- 무리한 클라이언트 요구에도 거절 대신 범위 분해/단계 납품/MDR 제시를 기본 정책으로 적용
 
 ## 8) 트러블슈팅
 - 포트 충돌: 기존 서버 종료 후 재실행

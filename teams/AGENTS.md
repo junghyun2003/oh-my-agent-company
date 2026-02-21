@@ -22,6 +22,7 @@
 - `Action`: 즉시 실행 항목
 - `Risk`: 리스크와 완화 전략
 - `Client Message`: 대외 전달 시 `변경점/영향/리스크/다음 조치` 형태로 요약
+- `MDR`: 지금 즉시 전달 가능한 최소 결과물(파일/화면/리포트/결정사항)
 
 ## Universal Control Rules
 - Owner identity: `owner_id=owner` 기준 실행
@@ -32,6 +33,7 @@
 - Feedback loop: 팀 의견 수렴 결과는 `TEAM_FEEDBACK_YYYY-MM-DD.md`로 남기고 정책에 반영
 - QA output: 결과 상태를 `pass/block/waive`로 구조화
 - Client delivery: 클라이언트 응답은 4블록 템플릿으로 표준화
+- Client commitment: 요구가 어렵더라도 거절 대신 범위 분해/단계 납품/대안 제시로 결과물을 반드시 제공
 
 ## Handoff Gate
 - PM -> CTO: 범위/수용기준/비기능요구 전달
