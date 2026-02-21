@@ -52,3 +52,4 @@
 3. `teams/AGENTS.md`
 4. 영향받는 `teams/*/AGENTS.md`
 5. `THIRD_PARTY_READINESS.md`
+6. 대외 메시지 변경 시 `MARKETING_PLAYBOOK.md`

@@ -2,6 +2,21 @@
 
 개인이 로컬 PC에서 클라이언트 요청을 접수하고, 에이전트 조직으로 처리한 뒤, 승인/응대까지 완료할 수 있도록 만든 운영 템플릿입니다.
 
+## Global Pitch (EN)
+- Run a local "AI agent company" with clear governance.
+- Turn client requests into traceable delivery via a structured pipeline.
+- Keep speed and reliability together with approvals, audits, and client-ready reporting.
+
+## 왜 외부 고객에게 어필되는가
+1. 빠르지만 통제 가능
+- 병렬 Dev 파이프라인 + 승인 게이트로 속도와 품질을 함께 관리합니다.
+
+2. 신뢰 가능한 운영 로그
+- append-only 감사 이벤트로 요청부터 납품까지 추적 가능합니다.
+
+3. 클라이언트 친화 결과물
+- 응대 메시지 4블록 템플릿(변경점/영향/리스크/다음 조치)으로 전달 품질을 표준화합니다.
+
 ## 1) 핵심 개념
 - 운영자(Owner): 기본 `owner` (대시보드에서 변경 가능)
 - 파이프라인: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Security/Infra) -> QA -> Report`
@@ -61,6 +76,7 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - 팀 인덱스: `teams/AGENTS.md`
 - 팀별 역할: `teams/*/AGENTS.md`
 - 운영 정책 검토: `POLICY_REVIEW.md`
+- 마케팅 실행 가이드: `MARKETING_PLAYBOOK.md`
 
 ## 7) 기본 운영 원칙
 - Owner 검증 실패 요청은 거부
@@ -73,6 +89,10 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - QA 결과는 `pass/block/waive` 형태로 구조화
 - 클라이언트 응답은 4블록 템플릿(변경점/영향/리스크/다음 조치)을 사용
 - 무리한 클라이언트 요구에도 거절 대신 범위 분해/단계 납품/MDR 제시를 기본 정책으로 적용
+
+## OSS 라이선스
+- License: `MIT`
+- 상업적 사용/수정/배포가 가능하며, 저작권 고지와 라이선스 고지를 포함해야 합니다.
 
 ## 8) 트러블슈팅
 - 포트 충돌: 기존 서버 종료 후 재실행
