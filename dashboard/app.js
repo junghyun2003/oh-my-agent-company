@@ -607,6 +607,10 @@ function renderOffice(agents) {
   const warning = agents.filter((a) => a.status === "warning").length;
   const critical = agents.filter((a) => a.status === "critical").length;
   const active = agents.filter((a) => String(a.current_task || "").trim()).length;
+  const jobs = Array.isArray(tableCache.jobs?.jobs) ? tableCache.jobs.jobs : [];
+  const queuedJobs = jobs.filter((j) => ["queued", "dispatching"].includes(j.status)).length;
+  const runningJobs = jobs.filter((j) => ["in_progress", "waiting_pre_approval", "waiting_post_approval"].includes(j.status)).length;
+  const deliveredJobs = jobs.filter((j) => j.status === "done").length;
   const avgLatency = Math.round(agents.reduce((sum, a) => sum + Number(a.latency_ms || 0), 0) / Math.max(1, agents.length));
   const avgError = agents.reduce((sum, a) => sum + Number(a.error_rate || 0), 0) / Math.max(1, agents.length);
   const opsScore = Math.round(agents.reduce((sum, a) => sum + weightedAgentScore(a), 0) / Math.max(1, agents.length));
@@ -633,6 +637,11 @@ function renderOffice(agents) {
     .slice(0, 5)
     .map((a) => `${a.team} · ${a.name}: ${a.current_task || a.initiative || "작업 동기화 중"}`);
   const feedLoop = liveFeed.length ? [...liveFeed, ...liveFeed] : ["라이브 액티비티 데이터가 없습니다."];
+  const queuePreview = jobs
+    .slice()
+    .sort((a, b) => eventTimestamp(b.created_at) - eventTimestamp(a.created_at))
+    .slice(0, 6)
+    .map((j) => j.id);
 
   const desks = agents
     .map((agent, index) => {
@@ -672,8 +681,8 @@ function renderOffice(agents) {
       <div class="pixel-office-topline">
         <div class="pixel-building" aria-hidden="true"></div>
         <div class="pixel-banner">
-          <strong>oh-my-agent-company Pixel Live Office</strong>
-          <small>클라이언트가 팀별 상태를 5초 안에 파악할 수 있는 실시간 운영 보드</small>
+          <strong>oh-my-agent-company Tycoon Ops Floor</strong>
+          <small>편의점 타이쿤 감성으로 현재 업무/대기열/팀 가동률을 한눈에 보여주는 운영 매장 뷰</small>
           <div class="pixel-legend">
             <span><i class="dot healthy"></i>정상 ${healthy}</span>
             <span><i class="dot warning"></i>주의 ${warning}</span>
@@ -682,23 +691,42 @@ function renderOffice(agents) {
           </div>
         </div>
       </div>
-      <div class="pixel-command">
-        <div class="pixel-command-card">
-          <strong>운영 스코어</strong>
-          <p>${opsScore}점</p>
-          <small>전체 ${agents.length}명 기준</small>
+      <div class="pixel-tycoon-strip">
+        <span class="pixel-badge">입점 대기 ${queuedJobs}</span>
+        <span class="pixel-badge">매장 처리중 ${runningJobs}</span>
+        <span class="pixel-badge">납품 완료 ${deliveredJobs}</span>
+        <div class="pixel-cashline">
+          ${queuePreview.length ? queuePreview.map((id) => `<em>${esc(id)}</em>`).join("") : "<em>신규 업무 대기열 비어있음</em>"}
         </div>
-        <div class="pixel-command-card">
-          <strong>평균 지연/에러</strong>
-          <p>${avgLatency}ms · ${fmtPct(avgError)}</p>
-          <small>실시간 품질 체감 지표</small>
-        </div>
-        <div class="pixel-command-card">
-          <strong>핵심 팀 집중도</strong>
-          <ul>
-            ${teams.map((t) => `<li><span>${esc(t.team)}</span><em>${esc(t.busy)}/${esc(t.size)} · ${esc(t.score)}점</em></li>`).join("")}
-          </ul>
-        </div>
+      </div>
+      <div class="pixel-tycoon-layout">
+        <section class="pixel-shop-floor">
+          <div class="pixel-aisles" aria-hidden="true">
+            <span class="pixel-shelf"></span>
+            <span class="pixel-shelf"></span>
+            <span class="pixel-shelf"></span>
+            <span class="pixel-shelf"></span>
+          </div>
+          <div class="pixel-desks">${desks}</div>
+        </section>
+        <aside class="pixel-hud">
+          <div class="pixel-hud-card">
+            <strong>매장 운영 점수</strong>
+            <p>${opsScore}점</p>
+            <small>전체 ${agents.length}명 기준</small>
+          </div>
+          <div class="pixel-hud-card">
+            <strong>품질 체감 지표</strong>
+            <p>${avgLatency}ms · ${fmtPct(avgError)}</p>
+            <small>응답 속도와 오류율의 균형</small>
+          </div>
+          <div class="pixel-hud-card">
+            <strong>팀 카운터 점유율</strong>
+            <ul>
+              ${teams.map((t) => `<li><span>${esc(t.team)}</span><em>${esc(t.busy)}/${esc(t.size)} · ${esc(t.score)}점</em></li>`).join("")}
+            </ul>
+          </div>
+        </aside>
       </div>
       <div class="pixel-feed">
         <strong>라이브 액티비티</strong>
@@ -706,7 +734,6 @@ function renderOffice(agents) {
           ${feedLoop.map((line) => `<span>${esc(line)}</span>`).join("")}
         </div>
       </div>
-      <div class="pixel-desks">${desks}</div>
     </div>
   `;
 }

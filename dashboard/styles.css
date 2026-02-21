@@ -1101,6 +1101,125 @@ button.ghost {
   gap: 0.72rem;
 }
 
+.pixel-tycoon-strip {
+  border: 1px dashed #9cb5d8;
+  border-radius: 10px;
+  background: rgba(247, 251, 255, 0.88);
+  padding: 0.4rem 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, auto) 1fr;
+  gap: 0.38rem 0.52rem;
+  align-items: center;
+}
+
+.pixel-badge {
+  border: 1px solid #88a6d3;
+  background: #eaf2ff;
+  color: #2b4f86;
+  border-radius: 999px;
+  padding: 0.12rem 0.46rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pixel-cashline {
+  display: flex;
+  gap: 0.32rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.pixel-cashline em {
+  font-style: normal;
+  border: 1px solid #b8cae7;
+  border-radius: 7px;
+  background: #fff;
+  color: #4a5d7d;
+  font-size: 0.66rem;
+  padding: 0.12rem 0.36rem;
+}
+
+.pixel-tycoon-layout {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr;
+  gap: 0.55rem;
+}
+
+.pixel-shop-floor {
+  border: 1px solid #b9c9df;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(245, 250, 255, 0.84) 100%);
+  padding: 0.52rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pixel-aisles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(70px, 1fr));
+  gap: 0.4rem;
+}
+
+.pixel-shelf {
+  height: 20px;
+  border: 2px solid #466088;
+  border-radius: 4px;
+  background: repeating-linear-gradient(90deg, #8fb3ea 0 8px, #d5e5ff 8px 16px), linear-gradient(180deg, #aac2e8 0%, #7e9ac4 100%);
+  box-shadow: inset 0 -2px 0 rgba(30, 51, 82, 0.22);
+}
+
+.pixel-hud {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pixel-hud-card {
+  border: 1px solid #bccbe1;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 0.48rem 0.56rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.pixel-hud-card strong {
+  font-size: 0.74rem;
+  color: #425166;
+}
+
+.pixel-hud-card p {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #223149;
+}
+
+.pixel-hud-card small {
+  color: #596a82;
+  font-size: 0.71rem;
+}
+
+.pixel-hud-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.pixel-hud-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+}
+
+.pixel-hud-card li em {
+  font-style: normal;
+  color: #2f4d76;
+}
+
 .pixel-command {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -1982,9 +2101,11 @@ button.ghost {
 
 :root[data-theme="dark"] .sidebar-note,
 :root[data-theme="dark"] .pixel-banner,
+:root[data-theme="dark"] .pixel-hud-card,
 :root[data-theme="dark"] .pixel-command-card,
 :root[data-theme="dark"] .pixel-desk,
 :root[data-theme="dark"] .pixel-station,
+:root[data-theme="dark"] .pixel-shop-floor,
 :root[data-theme="dark"] .office,
 :root[data-theme="dark"] .market-card,
 :root[data-theme="dark"] .kanban-column,
@@ -2013,6 +2134,18 @@ button.ghost {
 :root[data-theme="dark"] #usageStamp { color: var(--subtle); }
 :root[data-theme="dark"] .table th,
 :root[data-theme="dark"] .table td { border-color: var(--line); }
+:root[data-theme="dark"] .pixel-tycoon-strip { background: rgba(20, 30, 46, 0.92); border-color: #385277; }
+:root[data-theme="dark"] .pixel-badge { background: #152236; border-color: #3a5478; color: #c9dcfb; }
+:root[data-theme="dark"] .pixel-cashline em { background: #101a28; border-color: #334b6a; color: #b7ccec; }
+:root[data-theme="dark"] .pixel-shelf {
+  border-color: #668bc1;
+  background: repeating-linear-gradient(90deg, #41608a 0 8px, #6e8fbf 8px 16px), linear-gradient(180deg, #4f709d 0%, #385377 100%);
+}
+:root[data-theme="dark"] .pixel-hud-card p { color: #deebff; }
+:root[data-theme="dark"] .pixel-hud-card strong,
+:root[data-theme="dark"] .pixel-hud-card small,
+:root[data-theme="dark"] .pixel-hud-card li em,
+:root[data-theme="dark"] .pixel-handoff { color: #aac0df; }
 :root[data-theme="dark"] .pixel-command-card p { color: #deebff; }
 :root[data-theme="dark"] .pixel-command-card strong,
 :root[data-theme="dark"] .pixel-command-card small,
@@ -2041,6 +2174,14 @@ button.ghost {
 
   .kanban-board {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+
+  .pixel-tycoon-strip {
+    grid-template-columns: repeat(2, minmax(120px, auto)) 1fr;
+  }
+
+  .pixel-tycoon-layout {
+    grid-template-columns: 1fr;
   }
 
   .pixel-command {
@@ -2084,6 +2225,22 @@ button.ghost {
   }
 
   .kanban-board {
+    grid-template-columns: 1fr;
+  }
+
+  .pixel-tycoon-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .pixel-cashline {
+    justify-content: flex-start;
+  }
+
+  .pixel-aisles {
+    grid-template-columns: repeat(2, minmax(70px, 1fr));
+  }
+
+  .pixel-tycoon-layout {
     grid-template-columns: 1fr;
   }
 
