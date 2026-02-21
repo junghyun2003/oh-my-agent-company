@@ -10,7 +10,6 @@ const auditUrl = "/api/audit";
 const usageUrl = "/api/usage";
 const assignUrl = "/api/jobs/from-request";
 const approveUrl = "/api/jobs/approve";
-const respondUrl = "/api/requests/respond";
 const settingsSaveUrl = "/api/settings/save";
 
 let timer = null;
@@ -28,6 +27,11 @@ const RUNNING_STATUSES = new Set(["in_progress"]);
 const RUNNING_STAGES = new Set(PIPELINE_STEPS.map((step) => step.id));
 const APPROVAL_WAIT_STATUSES = new Set(["waiting_pre_approval", "waiting_post_approval"]);
 const QUEUED_STATUSES = new Set(["queued", "dispatching"]);
+const DESIGN_OPEN_ROLES = [
+  { title: "Lead Product Designer", focus: "대시보드 시스템 UI" },
+  { title: "Design Technologist", focus: "컴포넌트 프로토타이핑" },
+  { title: "Brand Illustrator", focus: "에이전트 팀 비주얼" }
+];
 
 function rememberRequests(requests = []) {
   requestLookup.clear();
@@ -306,6 +310,34 @@ function renderTeamHealth(agents) {
   }).join("");
 }
 
+function renderDesignBoard(state) {
+  const rolesRoot = document.getElementById("designOpenRoles");
+  const statsRoot = document.getElementById("designStats");
+  if (!rolesRoot || !statsRoot) return;
+
+  rolesRoot.innerHTML = DESIGN_OPEN_ROLES.map((role) => `<li class="design-role"><strong>${esc(role.title)}</strong><span>${esc(role.focus)}</span><em>채용중</em></li>`).join("");
+
+  const agents = Array.isArray(state.agents) ? state.agents.filter((agent) => /design/i.test(agent.team || "")) : [];
+  const unavailable = agents.filter((agent) => agent.status !== "healthy").length;
+  const issueCount = Math.max(1, Number(state.summary?.warning || 0) + Number(state.summary?.critical || 0));
+  const stats = [
+    { label: "현 디자인 인원", value: `${agents.length}명`, helper: unavailable ? `${unavailable}명 이슈 해결중` : "모두 가용" },
+    { label: "UI 결함 추적", value: `${issueCount}건`, helper: "경고/위험 지표 기준" },
+    { label: "필수 채용", value: `${DESIGN_OPEN_ROLES.length}명`, helper: "역할별 1명" }
+  ];
+  statsRoot.innerHTML = stats
+    .map(
+      (stat) => `
+        <div class="design-stat">
+          <strong>${esc(stat.value)}</strong>
+          <small>${esc(stat.label)}</small>
+          <p>${esc(stat.helper)}</p>
+        </div>
+      `
+    )
+    .join("");
+}
+
 function setTimestamp(isoString) {
   const d = new Date(isoString);
   document.getElementById("lastUpdated").textContent = `업데이트: ${d.toLocaleString("ko-KR")}`;
@@ -344,16 +376,6 @@ function renderRequests(payload) {
     .join("")
   );
 
-  const respondSelect = document.getElementById("respondRequestSelect");
-  refillSelectPreservingValue(
-    respondSelect,
-    "완료 요청 선택",
-    requests
-    .filter((r) => r.status === "completed")
-    .map((r) => `<option value="${esc(r.id)}">${esc(r.id)} | ${esc(r.client_name)}</option>`)
-    .join("")
-  );
-
   autoFillRefinedRequest({ requestId: requestSelect.value });
 }
 
@@ -366,7 +388,7 @@ function pickActiveJob(jobs = []) {
   if (!jobs.length) return null;
   const priority = jobs.find((job) => RUNNING_STATUSES.has(job.status) || APPROVAL_WAIT_STATUSES.has(job.status) || QUEUED_STATUSES.has(job.status));
   if (priority) return priority;
-  const ongoing = jobs.find((job) => job.status && !["done", "failed", "responded"].includes(job.status));
+  const ongoing = jobs.find((job) => job.status && !["done", "failed"].includes(job.status));
   return ongoing || jobs[0] || null;
 }
 
@@ -438,6 +460,19 @@ function eventTimestamp(value) {
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
+function jobTimestamp(job) {
+  if (!job) return 0;
+  const candidates = ["updated_at", "completed_at", "created_at"];
+  for (const key of candidates) {
+    if (job[key]) {
+      const value = new Date(job[key]);
+      if (!Number.isNaN(value.getTime())) return value.getTime();
+    }
+  }
+  const numericId = Number(job.id);
+  return Number.isNaN(numericId) ? 0 : numericId;
+}
+
 function renderTimeline(job) {
   const listEl = document.getElementById("timelineList");
   const emptyEl = document.getElementById("timelineEmptyState");
@@ -461,6 +496,123 @@ function renderTimeline(job) {
     )
     .join("");
   if (emptyEl) emptyEl.classList.add("is-hidden");
+}
+
+function renderConversation(job) {
+  const titleEl = document.getElementById("conversationJobTitle");
+  const metaEl = document.getElementById("conversationJobMeta");
+  const stageEl = document.getElementById("conversationStage");
+  const feedEl = document.getElementById("conversationFeed");
+  const emptyEl = document.getElementById("conversationEmptyState");
+  const summaryEl = document.getElementById("conversationSummary");
+  const filtersEl = document.getElementById("conversationFilters");
+  if (!titleEl || !metaEl || !stageEl || !feedEl || !emptyEl || !summaryEl || !filtersEl) return;
+
+  if (!job) {
+    titleEl.textContent = "대상 작업 없음";
+    metaEl.textContent = "활성 작업이 없으면 대화가 비어있습니다.";
+    stageEl.textContent = "--";
+    feedEl.innerHTML = "";
+    emptyEl.classList.remove("is-hidden");
+    summaryEl.innerHTML = `<p class=\"muted\">대화 요약을 위해 실행중인 작업이 필요합니다.</p>`;
+    filtersEl.innerHTML = "";
+    return;
+  }
+
+  titleEl.textContent = `${job.id}${job.client_name ? ` · ${job.client_name}` : ""}`;
+  metaEl.textContent = describeJob(job) || "정제된 작업 내용을 확인하세요.";
+  stageEl.textContent = statusKo(job.stage);
+
+  const events = Array.isArray(job.timeline)
+    ? [...job.timeline].sort((a, b) => eventTimestamp(a.at) - eventTimestamp(b.at))
+    : [];
+
+  if (!events.length) {
+    feedEl.innerHTML = "";
+    emptyEl.classList.remove("is-hidden");
+  } else {
+    feedEl.innerHTML = events
+      .map(
+        (event) => `
+          <li class="conversation-item">
+            <strong>${esc(event.stage ? statusKo(event.stage) : event.actor || "시스템")}</strong>
+            <small>${esc(formatTimelineTime(event.at))}</small>
+            <p>${esc(event.message || "-")}</p>
+          </li>
+        `
+      )
+      .join("");
+    emptyEl.classList.add("is-hidden");
+  }
+
+  const summaryRows = [
+    ["업무 유형", job.work_type || "-"],
+    ["미션", job.mission || "-"],
+    ["승인 모드", job.approval_mode || "auto"],
+    ["변경 파일", `${(job.changed_files || []).length}개`],
+    ["실행 액션", (job.executed_actions || []).join(", ") || "-"]
+  ];
+  summaryEl.innerHTML = `
+    <h4>작업 요약</h4>
+    <ul class="summary-list">
+      ${summaryRows.map(([label, value]) => `<li><span>${esc(label)}</span><strong>${esc(value)}</strong></li>`).join("")}
+    </ul>
+  `;
+
+  const activeIdx = PIPELINE_STEPS.findIndex((step) => step.id === job.stage);
+  filtersEl.innerHTML = `
+    <div class="filter-title">단계별 진척</div>
+    <ul class="filter-chips">
+      ${PIPELINE_STEPS.map((step, idx) => {
+        const state = activeIdx === -1 ? (idx === 0 ? "current" : "upcoming") : idx < activeIdx ? "complete" : idx === activeIdx ? "current" : "upcoming";
+        return `<li class="filter-chip ${state}">${esc(step.label)}</li>`;
+      }).join("")}
+    </ul>
+  `;
+}
+
+function renderReportHub(jobs = []) {
+  const summaryRoot = document.getElementById("reportSummary");
+  const evidenceRoot = document.getElementById("reportEvidence");
+  if (!summaryRoot || !evidenceRoot) return;
+
+  if (!jobs.length) {
+    summaryRoot.innerHTML = `<h3>운영 요약</h3><p class="muted">집계할 작업이 없습니다.</p>`;
+    evidenceRoot.innerHTML = `<h3>최근 리포트</h3><p class="muted">리포트 데이터를 가져올 작업이 없습니다.</p>`;
+    return;
+  }
+
+  const doneCount = jobs.filter((j) => j.status === "done").length;
+  const waitingCount = jobs.filter((j) => APPROVAL_WAIT_STATUSES.has(j.status)).length;
+  const runningCount = jobs.filter((j) => RUNNING_STATUSES.has(j.status)).length;
+  summaryRoot.innerHTML = `
+    <h3>운영 요약</h3>
+    <div class="report-badges">
+      <span class="report-badge">누적 ${esc(jobs.length)}건</span>
+      <span class="report-badge">완료 ${esc(doneCount)}건</span>
+      <span class="report-badge">승인 대기 ${esc(waitingCount)}건</span>
+    </div>
+    <ul class="report-list">
+      <li>실행중: ${esc(runningCount)}건 (PM→Report 흐름 모니터링)</li>
+      <li>승인 보류: ${esc(waitingCount)}건 (Owner 개입 필요)</li>
+      <li>완료 누적: ${esc(doneCount)}건 (QA 증빙 포함)</li>
+    </ul>
+  `;
+
+  const latest = [...jobs].sort((a, b) => jobTimestamp(b) - jobTimestamp(a))[0];
+  const files = Array.isArray(latest.changed_files) ? latest.changed_files : [];
+  const actions = Array.isArray(latest.executed_actions) ? latest.executed_actions : [];
+  const qaNote = latest.qa_result || latest.qa_summary || "QA 결과 수집중";
+  const filePreview = files.slice(0, 3).map((file) => `<code>${esc(file)}</code>`).join(", ") || "-";
+  evidenceRoot.innerHTML = `
+    <h3>최근 리포트 · ${esc(latest.id || "-")}</h3>
+    <p class="muted">${esc(latest.report_path || "리포트 경로 미지정")}</p>
+    <ul class="report-list">
+      <li>변경 파일 ${esc(files.length)}개 · ${filePreview}</li>
+      <li>실행 액션 ${esc(actions.length)}개 · ${esc(actions.join(", ") || "-")}</li>
+      <li>QA 증빙: ${esc(qaNote)}</li>
+    </ul>
+  `;
 }
 
 function renderStatusMetrics(jobs = []) {
@@ -543,6 +695,8 @@ function renderJobs(payload) {
   renderPipeline(activeJob);
   renderTimeline(activeJob);
   renderStatusMetrics(originalJobs);
+  renderConversation(activeJob);
+  renderReportHub(originalJobs);
 }
 
 function renderPolicy(data) {
@@ -677,6 +831,7 @@ async function loadAll() {
     renderAgents(state.agents);
     renderOffice(state.agents);
     renderTeamHealth(state.agents);
+    renderDesignBoard(state);
     renderRequests(requests);
     renderJobs(jobs);
     renderPolicy(policies);
@@ -800,32 +955,6 @@ async function approveJob(event) {
   }
 }
 
-async function submitResponse(event) {
-  event.preventDefault();
-  const result = document.getElementById("respondResult");
-  const payload = {
-    ...ownerPayload(),
-    request_id: document.getElementById("respondRequestSelect").value,
-    response_note: document.getElementById("responseNoteInput").value.trim()
-  };
-
-  try {
-    const res = await fetch(respondUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "응대 처리 실패");
-
-    result.textContent = "클라이언트 응대 완료 처리되었습니다.";
-    document.getElementById("respondForm").reset();
-    await loadAll();
-  } catch (error) {
-    result.textContent = `실패: ${error.message}`;
-  }
-}
-
 function restartPolling() {
   const sec = Number(document.getElementById("refreshInterval").value);
   const enabled = document.getElementById("pollingEnabled").checked;
@@ -839,7 +968,6 @@ document.getElementById("ownerForm").addEventListener("submit", submitOwnerSetti
 document.getElementById("requestForm").addEventListener("submit", submitRequest);
 document.getElementById("jobForm").addEventListener("submit", submitJob);
 document.getElementById("approveForm").addEventListener("submit", approveJob);
-document.getElementById("respondForm").addEventListener("submit", submitResponse);
 document.getElementById("refreshInterval").addEventListener("change", restartPolling);
 document.getElementById("pollingEnabled").addEventListener("change", restartPolling);
 document.getElementById("manualRefreshBtn").addEventListener("click", loadAll);

@@ -19,12 +19,15 @@
 
       <nav class="nav-stack">
         <button class="nav-item active" data-target="all">전체 보기</button>
-        <button class="nav-item" data-target="section-owner">운영자 정책</button>
+        <button class="nav-item" data-target="section-owner">운영 설정</button>
         <button class="nav-item" data-target="section-requests">요청 접수</button>
         <button class="nav-item" data-target="section-intake">작업 할당</button>
         <button class="nav-item" data-target="section-status">실행 상태</button>
+        <button class="nav-item" data-target="section-conversations">팀 대화</button>
+        <button class="nav-item" data-target="section-reports">리포트 허브</button>
         <button class="nav-item" data-target="section-health">팀 헬스</button>
-        <button class="nav-item" data-target="section-jobs">승인/응대</button>
+        <button class="nav-item" data-target="section-design">디자인 팀</button>
+        <button class="nav-item" data-target="section-jobs">승인</button>
         <button class="nav-item" data-target="section-audit">감사 로그</button>
       </nav>
 
@@ -39,7 +42,7 @@
         <div>
           <p class="eyebrow">Personal Agent Company</p>
           <h1>에이전트 회사 운영 대시보드</h1>
-          <p class="subtitle">요청 접수 → 정제 → 할당 → 승인 → 응대까지 한 화면에서 관리합니다. · Codex 라이브</p>
+          <p class="subtitle">요청 접수 → 정제 → 할당 → 승인 → 리포트까지 한 화면에서 관리합니다. · Codex 라이브</p>
           <div class="meta-line">
             <span id="ownerModeBadge" class="mode-badge">모드: --</span>
             <span class="pill" id="workType">업무 유형: --</span>
@@ -54,11 +57,12 @@
       <main>
         <section class="panel" id="section-owner">
           <div class="panel-title">
-            <h2>운영자 & 정책</h2>
-            <p>설정 변경 후 <strong>운영 설정 저장</strong>을 눌러야 반영됩니다.</p>
+            <h2>운영 설정</h2>
+            <p>운영자, 승인, Polling을 한 곳에서 관리합니다. 저장 후 즉시 반영됩니다.</p>
           </div>
 
-          <form id="ownerForm" class="job-form two-col">
+          <div class="panel-split">
+            <form id="ownerForm" class="job-form two-col">
             <label>운영자 ID
               <input id="ownerId" placeholder="예: owner" value="owner" required />
             </label>
@@ -111,6 +115,13 @@
             <span id="ownerSaveResult" class="muted"></span>
           </form>
 
+          <aside class="policy-card">
+            <h3>저장소 정책 스냅샷</h3>
+            <p class="muted">설정에 따라 쓰기 권한이 제한됩니다. 정책 변경 시 아래 목록이 자동 반영됩니다.</p>
+            <div id="policyInfo" class="policy-list"></div>
+          </aside>
+          </div>
+
           <details class="usage-help">
             <summary>지표 설명</summary>
             <ul>
@@ -122,7 +133,6 @@
             </ul>
           </details>
 
-          <div id="policyInfo" class="muted"></div>
         </section>
 
         <section class="panel" id="section-requests">
@@ -234,6 +244,42 @@
           <div class="grid" id="agentGrid"></div>
         </section>
 
+        <section class="panel" id="section-conversations">
+          <div class="panel-title">
+            <h2>팀 대화 리플레이</h2>
+            <p>PM → CTO → Dev → QA → Report 단계별로 남긴 이벤트를 대화 스트림으로 확인합니다.</p>
+          </div>
+          <div class="conversation-board">
+            <div class="conversation-main">
+              <div class="conversation-header">
+                <div>
+                  <p class="eyebrow">현재 추적 작업</p>
+                  <h3 id="conversationJobTitle">대상 작업 없음</h3>
+                  <p id="conversationJobMeta" class="muted">활성 작업이 없으면 대화가 비어있습니다.</p>
+                </div>
+                <span class="tag" id="conversationStage">--</span>
+              </div>
+              <ol class="conversation-feed" id="conversationFeed"></ol>
+              <p id="conversationEmptyState" class="muted">타임라인 이벤트가 없어 대화를 재현할 수 없습니다.</p>
+            </div>
+            <aside class="conversation-sidebar">
+              <div class="conversation-summary" id="conversationSummary"></div>
+              <div class="conversation-filters" id="conversationFilters"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="panel" id="section-reports">
+          <div class="panel-title">
+            <h2>작업 리포트 허브</h2>
+            <p>각 팀의 실행 증적, 변경 파일, QA 증빙을 한눈에 요약합니다.</p>
+          </div>
+          <div class="report-grid">
+            <article class="report-card" id="reportSummary"></article>
+            <article class="report-card" id="reportEvidence"></article>
+          </div>
+        </section>
+
         <section class="panel" id="section-health">
           <div class="panel-title">
             <h2>팀 헬스(가중치)</h2>
@@ -244,8 +290,8 @@
 
         <section class="panel" id="section-jobs">
           <div class="panel-title">
-            <h2>4) 승인 & 납품 & 응대</h2>
-            <p>승인 대기 처리 후 클라이언트 응대를 마무리합니다.</p>
+            <h2>4) 승인 & 납품</h2>
+            <p>승인 게이트 중심으로 단순화했습니다. 응대 플로우는 리포트 허브에서 커버합니다.</p>
           </div>
 
           <div id="jobsTable"></div>
@@ -265,19 +311,21 @@
             <button type="submit" class="full">승인 처리</button>
             <span id="approveResult" class="muted full"></span>
           </form>
+        </section>
 
-          <form id="respondForm" class="job-form one-col">
-            <label>완료 요청
-              <select id="respondRequestSelect" required>
-                <option value="">완료 요청 선택</option>
-              </select>
-            </label>
-            <label>클라이언트 응대 메시지
-              <textarea id="responseNoteInput" rows="3" placeholder="고객에게 전달할 결과 요약" required></textarea>
-            </label>
-            <button type="submit">응대 완료 처리</button>
-            <span id="respondResult" class="muted"></span>
-          </form>
+        <section class="panel" id="section-design">
+          <div class="panel-title">
+            <h2>디자인 팀 채용 보드</h2>
+            <p>깨진 UI 대응을 위해 전담 디자인 셀을 긴급 채용합니다.</p>
+          </div>
+          <div class="design-board">
+            <article class="design-hero">
+              <h3>Design Ops Squad</h3>
+              <p>UI 재정렬 · 새로운 리포트 뷰 구축 · 브랜드 일관성 확보를 담당할 팀을 구성합니다.</p>
+              <ul id="designOpenRoles" class="design-roles"></ul>
+            </article>
+            <div class="design-stats" id="designStats"></div>
+          </div>
         </section>
 
         <section class="panel" id="section-audit">
