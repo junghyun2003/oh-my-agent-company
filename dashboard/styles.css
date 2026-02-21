@@ -996,71 +996,135 @@ button.ghost {
 }
 
 .office {
-  border: 1px solid #d0d6df;
-  border-radius: 12px;
+  border: 1px solid #b7c3d4;
+  border-radius: 14px;
   background:
-    linear-gradient(180deg, rgba(150, 207, 255, 0.24) 0%, rgba(245, 242, 232, 0.55) 55%, rgba(238, 234, 224, 0.9) 100%),
+    linear-gradient(180deg, rgba(161, 216, 255, 0.34) 0%, rgba(246, 241, 229, 0.84) 45%, rgba(227, 219, 205, 1) 100%),
+    repeating-linear-gradient(0deg, rgba(102, 112, 130, 0.08) 0 2px, transparent 2px 16px),
+    repeating-linear-gradient(90deg, rgba(102, 112, 130, 0.08) 0 2px, transparent 2px 16px),
     url("assets/pixel/office_tiles_cc0.png") top center / 480px 192px repeat;
   image-rendering: pixelated;
-  padding: 0.8rem;
+  padding: 0.9rem;
   margin-bottom: 0.75rem;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.36);
 }
 
 .pixel-office-scene {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.72rem;
 }
 
 .pixel-office-topline {
   display: grid;
-  grid-template-columns: minmax(84px, 100px) 1fr;
+  grid-template-columns: minmax(96px, 112px) 1fr;
   gap: 0.7rem;
   align-items: center;
 }
 
 .pixel-building {
-  width: 86px;
-  height: 66px;
+  width: 96px;
+  height: 74px;
   border: 2px solid #1d2735;
   background:
-    repeating-linear-gradient(90deg, #9da6b8 0 8px, #788195 8px 16px),
+    repeating-linear-gradient(90deg, #9da6b8 0 8px, #7f8aa0 8px 16px),
+    repeating-linear-gradient(0deg, rgba(221, 230, 247, 0.4) 0 2px, transparent 2px 10px),
     linear-gradient(180deg, #5a6c8f 0%, #31445f 100%);
-  box-shadow: inset 0 0 0 2px #cad3e4;
+  box-shadow: inset 0 0 0 2px #cad3e4, 0 4px 0 rgba(28, 40, 57, 0.3);
   image-rendering: pixelated;
 }
 
 .pixel-banner {
-  border: 1px solid #c9d2e1;
+  border: 1px solid #bccbe1;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.78);
-  padding: 0.45rem 0.6rem;
+  background: rgba(255, 255, 255, 0.84);
+  padding: 0.48rem 0.64rem;
   display: grid;
-  gap: 0.18rem;
+  gap: 0.24rem;
 }
 
 .pixel-banner strong {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
 }
 
 .pixel-banner small {
   color: #4d5a6d;
-  font-size: 0.77rem;
+  font-size: 0.75rem;
+}
+
+.pixel-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem 0.68rem;
+  font-size: 0.74rem;
+  color: #38475d;
+}
+
+.pixel-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.24rem;
+}
+
+.pixel-legend .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid #253347;
+  display: inline-block;
+}
+
+.pixel-legend .dot.healthy { background: #3db66c; }
+.pixel-legend .dot.warning { background: #db9f2c; }
+.pixel-legend .dot.critical { background: #d45757; }
+.pixel-legend .dot.idle { background: #6f83b0; }
+
+.pixel-signal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  border-radius: 999px;
+  border: 1px solid #c9d2e0;
+  padding: 0.1rem 0.42rem;
+  font-size: 0.67rem;
+  font-weight: 700;
+  background: #eef3fb;
+  color: #2f4668;
+}
+
+.pixel-signal.status-healthy {
+  background: #e7f8ee;
+  border-color: #9fdbb6;
+  color: #1b7240;
+}
+
+.pixel-signal.status-warning {
+  background: #fff5df;
+  border-color: #edcc8a;
+  color: #8a5a0c;
+}
+
+.pixel-signal.status-critical {
+  background: #ffebeb;
+  border-color: #ecb0b0;
+  color: #8e2a2a;
 }
 
 .pixel-desks {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
-  gap: 0.56rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.62rem;
 }
 
 .pixel-desk {
   border: 1px solid #bac6d7;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 0.45rem 0.5rem;
-  min-height: 124px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.93) 0%, rgba(245, 249, 255, 0.88) 100%);
+  padding: 0.46rem 0.54rem;
+  min-height: 154px;
   display: grid;
-  gap: 0.4rem;
+  gap: 0.34rem;
+  box-shadow: 0 3px 0 rgba(46, 60, 83, 0.14);
 }
 
 .pixel-desk header {
@@ -1073,7 +1137,9 @@ button.ghost {
 .pixel-station {
   border: 1px solid #cad4e2;
   border-radius: 8px;
-  background: linear-gradient(180deg, rgba(247, 250, 255, 0.9) 0%, rgba(236, 242, 250, 0.95) 100%);
+  background:
+    repeating-linear-gradient(0deg, rgba(145, 164, 192, 0.12) 0 2px, transparent 2px 8px),
+    linear-gradient(180deg, rgba(247, 250, 255, 0.94) 0%, rgba(236, 242, 250, 0.96) 100%);
   padding: 0.35rem 0.4rem;
   display: flex;
   align-items: flex-end;
@@ -1082,11 +1148,11 @@ button.ghost {
 
 .pixel-monitor {
   min-height: 34px;
-  min-width: 70px;
+  min-width: 84px;
   border: 2px solid #3b4a61;
   background: #1f2d42;
   color: #a4d0ff;
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   font-weight: 700;
   padding: 0.2rem 0.24rem;
   display: grid;
@@ -1096,34 +1162,112 @@ button.ghost {
 }
 
 .pixel-avatar {
-  width: 50px;
-  height: 48px;
-  border: 1px solid #2d3f57;
+  width: 54px;
+  height: 52px;
+  border: 2px solid #2d3f57;
+  border-radius: 4px;
+  position: relative;
   background-image: url("assets/pixel/avatar_sheet_cc0.png");
   background-repeat: no-repeat;
   background-size: 600px 192px;
   background-position: calc(var(--sprite-x, 0) * -50px) calc(var(--sprite-y, 0) * -48px);
+  background-color: #e8edf7;
   image-rendering: pixelated;
-  animation: avatar-work 1.1s steps(2) infinite;
+  animation: avatar-work 1.2s steps(2) infinite;
 }
 
-.pixel-avatar.status-warning { animation-duration: 0.72s; }
-.pixel-avatar.status-critical { animation-duration: 0.45s; }
-.pixel-avatar.status-healthy { animation-duration: 1.4s; }
+.pixel-avatar::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 3px;
+  height: 3px;
+  background: rgba(23, 39, 61, 0.24);
+}
+
+.pixel-avatar::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 10px;
+  height: 10px;
+  box-shadow:
+    0 0 0 2px var(--avatar-main, #f5ca99),
+    14px 0 0 2px var(--avatar-main, #f5ca99),
+    7px 12px 0 5px var(--avatar-accent, #496ca1);
+}
+
+.pixel-avatar.role-design { --avatar-main: #f3c39d; --avatar-accent: #cb5f7d; }
+.pixel-avatar.role-dev { --avatar-main: #f0bf95; --avatar-accent: #4c7dd1; }
+.pixel-avatar.role-qa { --avatar-main: #f2c79d; --avatar-accent: #4da67a; }
+.pixel-avatar.role-infra { --avatar-main: #efc096; --avatar-accent: #6279a3; }
+.pixel-avatar.role-security { --avatar-main: #f0be90; --avatar-accent: #7f63b8; }
+.pixel-avatar.role-marketing { --avatar-main: #f4cba5; --avatar-accent: #d2773f; }
+.pixel-avatar.role-pm { --avatar-main: #f3c89f; --avatar-accent: #4b8fa4; }
+.pixel-avatar.role-lead { --avatar-main: #f2c69f; --avatar-accent: #5166b3; }
+.pixel-avatar.role-general { --avatar-main: #efc39f; --avatar-accent: #6680a6; }
+
+.pixel-task {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #3e4959;
+  line-height: 1.3;
+  min-height: 1.9rem;
+}
+
+.pixel-kpis {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.36rem;
+  font-size: 0.68rem;
+  color: #556174;
+}
+
+.pixel-score {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pixel-score small {
+  color: #495566;
+  font-size: 0.68rem;
+}
+
+.pixel-score-bar {
+  height: 8px;
+  border-radius: 2px;
+  border: 1px solid #4e5f78;
+  background: #84a3d8;
+}
+
+.pixel-score-bar.good { background: #56be76; border-color: #2d8250; }
+.pixel-score-bar.warn { background: #daa84d; border-color: #966920; }
+.pixel-score-bar.bad { background: #d46363; border-color: #983737; }
+
+.pixel-avatar.status-warning { animation-duration: 0.78s; }
+.pixel-avatar.status-critical { animation-duration: 0.5s; }
+.pixel-avatar.status-healthy { animation-duration: 1.45s; }
+.pixel-avatar.status-critical::after { background: rgba(160, 50, 50, 0.34); }
+.pixel-avatar.status-warning::after { background: rgba(158, 120, 42, 0.34); }
+.pixel-avatar.status-healthy::after { background: rgba(55, 123, 76, 0.28); }
 
 .pixel-desk.status-warning {
   border-color: rgba(202, 122, 27, 0.6);
-  box-shadow: inset 0 0 0 1px rgba(202, 122, 27, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(202, 122, 27, 0.18), 0 3px 0 rgba(118, 78, 20, 0.18);
 }
 
 .pixel-desk.status-critical {
   border-color: rgba(182, 54, 54, 0.7);
-  box-shadow: inset 0 0 0 1px rgba(182, 54, 54, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(182, 54, 54, 0.22), 0 3px 0 rgba(125, 37, 37, 0.2);
 }
 
 .pixel-desk.status-healthy {
   border-color: rgba(31, 143, 79, 0.62);
-  box-shadow: inset 0 0 0 1px rgba(31, 143, 79, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(31, 143, 79, 0.16), 0 3px 0 rgba(24, 102, 58, 0.16);
 }
 
 @keyframes avatar-work {

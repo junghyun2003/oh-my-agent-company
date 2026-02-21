@@ -444,10 +444,12 @@ function renderConversationLine(event) {
 }
 
 function weightedAgentScore(agent) {
+  const latency = Number(agent.latency_ms || 0);
+  const errorRate = Number(agent.error_rate || 0);
   const scoreByStatus = { healthy: 95, warning: 70, critical: 35, idle: 85 };
   const statusScore = scoreByStatus[agent.status] ?? 60;
-  const latencyScore = Math.max(0, Math.min(100, 100 - agent.latency_ms / 8));
-  const errorScore = Math.max(0, Math.min(100, 100 - agent.error_rate * 800));
+  const latencyScore = Math.max(0, Math.min(100, 100 - latency / 8));
+  const errorScore = Math.max(0, Math.min(100, 100 - errorRate * 800));
   return Math.round(statusScore * 0.55 + latencyScore * 0.25 + errorScore * 0.2);
 }
 
@@ -514,26 +516,65 @@ function renderOffice(agents) {
     return;
   }
 
+  const roleClassForTeam = (team) => {
+    const token = String(team || "").trim().toLowerCase();
+    if (["design"].includes(token)) return "role-design";
+    if (["dev", "engineering"].includes(token)) return "role-dev";
+    if (["qa"].includes(token)) return "role-qa";
+    if (["infra", "infrastructure"].includes(token)) return "role-infra";
+    if (["security"].includes(token)) return "role-security";
+    if (["marketing"].includes(token)) return "role-marketing";
+    if (["pm", "product"].includes(token)) return "role-pm";
+    if (["cto", "ceo", "executive"].includes(token)) return "role-lead";
+    return "role-general";
+  };
+  const statusSignal = (status) => {
+    if (status === "healthy") return "정상";
+    if (status === "warning") return "주의";
+    if (status === "critical") return "위험";
+    return "대기";
+  };
+  const scoreClass = (score) => {
+    if (score >= 85) return "good";
+    if (score >= 70) return "warn";
+    return "bad";
+  };
+
+  const healthy = agents.filter((a) => a.status === "healthy").length;
+  const warning = agents.filter((a) => a.status === "warning").length;
+  const critical = agents.filter((a) => a.status === "critical").length;
+  const active = agents.filter((a) => String(a.current_task || "").trim()).length;
+
   const desks = agents
     .map((agent, index) => {
       const col = (index * 2) % 10;
       const row = Math.floor(index / 5) % 4;
+      const score = weightedAgentScore(agent);
+      const roleClass = roleClassForTeam(agent.team);
       return `
         <article class="pixel-desk ${statusClass(agent.status)}">
           <header>
             <strong>${esc(agent.name)}</strong>
-            <span class="tag">${esc(statusKo(agent.status))}</span>
+            <span class="pixel-signal ${statusClass(agent.status)}">${esc(statusSignal(agent.status))}</span>
           </header>
           <div class="pixel-station">
             <div class="pixel-monitor">${esc(agent.team || "Team")}</div>
             <div
-              class="pixel-avatar ${statusClass(agent.status)}"
+              class="pixel-avatar ${roleClass} ${statusClass(agent.status)}"
               style="--sprite-x:${col}; --sprite-y:${row};"
               role="img"
-              aria-label="${esc(agent.name)} pixel avatar"
+              aria-label="${esc(agent.name)} pixel avatar (${esc(agent.team || "team")})"
             ></div>
           </div>
-          <p class="muted">${esc(agent.current_task || "대기중")}</p>
+          <p class="pixel-task">${esc(agent.current_task || "업무 대기중")}</p>
+          <div class="pixel-kpis">
+            <span>지연 ${esc(agent.latency_ms)}ms</span>
+            <span>에러 ${esc(fmtPct(agent.error_rate))}</span>
+          </div>
+          <div class="pixel-score">
+            <div class="pixel-score-bar ${scoreClass(score)}" style="width:${Math.max(8, Math.min(100, score))}%"></div>
+            <small>${esc(score)}점</small>
+          </div>
         </article>
       `;
     })
@@ -544,8 +585,14 @@ function renderOffice(agents) {
       <div class="pixel-office-topline">
         <div class="pixel-building" aria-hidden="true"></div>
         <div class="pixel-banner">
-          <strong>oh-my-agnet-company 픽셀 오피스</strong>
-          <small>클라이언트가 실시간으로 팀 좌석/업무를 확인하는 뷰</small>
+          <strong>oh-my-agent-company Pixel Live Office</strong>
+          <small>클라이언트가 팀별 상태를 5초 안에 파악할 수 있는 실시간 운영 보드</small>
+          <div class="pixel-legend">
+            <span><i class="dot healthy"></i>정상 ${healthy}</span>
+            <span><i class="dot warning"></i>주의 ${warning}</span>
+            <span><i class="dot critical"></i>위험 ${critical}</span>
+            <span><i class="dot idle"></i>활성 업무 ${active}</span>
+          </div>
         </div>
       </div>
       <div class="pixel-desks">${desks}</div>
