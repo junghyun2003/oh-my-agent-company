@@ -76,7 +76,7 @@ const paginationState = { requests: 1, jobs: 1, audit: 1 };
 const tableCache = { requests: null, jobs: null, audit: null };
 const auditFilterState = { kind: "all", q: "" };
 let reposCache = [];
-let conversationLangMode = "bilingual";
+let conversationLangMode = "kor";
 let lastClientDigestText = "";
 const TRANSLATION_RULES = [
   { pattern: /\bclient\b/gi, replacement: "클라이언트" },
@@ -375,16 +375,67 @@ function translateToKorean(text) {
   return TRANSLATION_RULES.reduce((acc, rule) => acc.replace(rule.pattern, rule.replacement), text);
 }
 
+function toClientFriendlyActor(actor, stage) {
+  const token = String(actor || "").trim().toLowerCase();
+  const actorMap = {
+    "product planning": "기획팀",
+    "pm": "기획팀",
+    "cto": "기술총괄",
+    "codex": "개발팀",
+    "dev": "개발팀",
+    "qa": "품질팀",
+    "system": "운영 시스템",
+    "시스템": "운영 시스템",
+    "team": "운영팀",
+    "팀": "운영팀",
+  };
+  if (actorMap[token]) return actorMap[token];
+  if (stage && STAGE_FALLBACK_KO[stage]) return `${statusKo(stage)} 팀`;
+  return actor || "운영팀";
+}
+
+function toClientFriendlyMessage(rawMessage, stage) {
+  const message = String(rawMessage || "").trim();
+  if (!message) return STAGE_FALLBACK_KO[stage] || "팀에서 작업 상황을 업데이트했습니다.";
+
+  if (/^failed:/i.test(message)) {
+    return "작업 중 이슈가 감지되어 원인 분석과 안정화 조치를 진행 중입니다.";
+  }
+  if (/stage started/i.test(message)) {
+    return `${statusKo(stage || "-")} 단계 검토를 시작했습니다.`;
+  }
+  if (/waiting for pre-change approval/i.test(message)) {
+    return "변경 전 검토를 마치고 운영자 승인 대기 중입니다.";
+  }
+  if (/waiting for post-change approval/i.test(message)) {
+    return "변경 반영 후 검증을 마치고 최종 승인 대기 중입니다.";
+  }
+  if (/owner approved/i.test(message)) {
+    return "운영자 승인 완료로 다음 단계를 진행합니다.";
+  }
+  if (/report stage complete\. job done\./i.test(message)) {
+    return "리포트 작성과 내부 검증이 완료되어 전달 준비를 마쳤습니다.";
+  }
+  if (/post-completion audit generated/i.test(message)) {
+    return "완료 후 품질 점검 기록을 생성했습니다.";
+  }
+  if (/^codex run:/i.test(message)) {
+    return "자동화 실행 결과를 검토해 작업에 반영했습니다.";
+  }
+  if (/regression and release checks/i.test(message)) {
+    return "회귀 및 배포 안정성 점검을 진행했습니다.";
+  }
+
+  const translated = translateToKorean(message);
+  if (translated !== message) return translated;
+  return STAGE_FALLBACK_KO[stage] || "팀에서 작업 상황을 업데이트했습니다.";
+}
+
 function renderConversationLine(event) {
   const message = event.message || "-";
   const stage = event.stage || "";
   const english = esc(message);
-  const fallback = STAGE_FALLBACK_KO[stage] || "팀에서 남긴 메시지를 확인하세요.";
-  const translated = translateToKorean(message);
-  let korean = translated;
-  if (translated === message) {
-    korean = fallback;
-  }
+  const korean = toClientFriendlyMessage(message, stage);
   const showKor = conversationLangMode === "kor" || conversationLangMode === "bilingual";
   const showEng = conversationLangMode === "eng" || conversationLangMode === "bilingual";
   const korLine = showKor ? `<p>${esc(korean)}</p>` : "";
@@ -905,11 +956,7 @@ function renderClientDigest(events, job) {
   }
 
   const picked = events.slice(-4).map((event) => {
-    const translated = translateToKorean(event.message);
-    const line = translated === event.message
-      ? `${statusKo(event.stage || "-")}: ${event.message}`
-      : translated;
-    return line;
+    return `${statusKo(event.stage || "-")}: ${toClientFriendlyMessage(event.message, event.stage)}`;
   });
   clientDigestList.innerHTML = picked.map((line) => `<li>${esc(line)}</li>`).join("");
   lastClientDigestText = [`작업: ${job.id}`, ...picked].join("\n");
@@ -962,7 +1009,7 @@ function renderConversation(job) {
       .map(
         (event) => `
           <li class="conversation-item">
-            <strong>${esc(event.actor || (event.stage ? statusKo(event.stage) : "시스템"))}</strong>
+            <strong>${esc(toClientFriendlyActor(event.actor, event.stage))}</strong>
             <small>${esc(formatTimelineTime(event.at))}</small>
             ${renderConversationLine(event)}
           </li>
