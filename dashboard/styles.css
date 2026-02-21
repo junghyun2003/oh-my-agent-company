@@ -1062,6 +1062,86 @@ button.ghost {
   gap: 0.72rem;
 }
 
+.pixel-command {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 0.55rem;
+}
+
+.pixel-command-card {
+  border: 1px solid #bccbe1;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 0.48rem 0.56rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.pixel-command-card strong {
+  font-size: 0.74rem;
+  color: #425166;
+}
+
+.pixel-command-card p {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #223149;
+}
+
+.pixel-command-card small {
+  color: #596a82;
+  font-size: 0.71rem;
+}
+
+.pixel-command-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.pixel-command-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+}
+
+.pixel-command-card li em {
+  font-style: normal;
+  color: #2f4d76;
+}
+
+.pixel-feed {
+  border: 1px solid #bccbe1;
+  border-radius: 10px;
+  background: rgba(18, 34, 56, 0.9);
+  padding: 0.4rem 0.54rem;
+  color: #d5e8ff;
+  overflow: hidden;
+}
+
+.pixel-feed strong {
+  font-size: 0.72rem;
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #9fc5ff;
+}
+
+.pixel-feed-track {
+  display: flex;
+  gap: 1.6rem;
+  white-space: nowrap;
+  width: max-content;
+  animation: pixel-feed-scroll 20s linear infinite;
+}
+
+.pixel-feed-track span {
+  font-size: 0.74rem;
+}
+
 .pixel-office-topline {
   display: grid;
   grid-template-columns: minmax(96px, 112px) 1fr;
@@ -1252,6 +1332,11 @@ button.ghost {
   min-height: 1.9rem;
 }
 
+.pixel-handoff {
+  color: #5a6780;
+  font-size: 0.68rem;
+}
+
 .pixel-kpis {
   display: flex;
   justify-content: space-between;
@@ -1312,6 +1397,11 @@ button.ghost {
   50% {
     transform: translateY(-2px);
   }
+}
+
+@keyframes pixel-feed-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 .alert {
@@ -1853,6 +1943,7 @@ button.ghost {
 
 :root[data-theme="dark"] .sidebar-note,
 :root[data-theme="dark"] .pixel-banner,
+:root[data-theme="dark"] .pixel-command-card,
 :root[data-theme="dark"] .pixel-desk,
 :root[data-theme="dark"] .pixel-station,
 :root[data-theme="dark"] .office,
@@ -1891,6 +1982,10 @@ button.ghost {
 :root[data-theme="dark"] #usageStamp { color: var(--subtle); }
 :root[data-theme="dark"] .table th,
 :root[data-theme="dark"] .table td { border-color: var(--line); }
+:root[data-theme="dark"] .pixel-command-card p { color: #deebff; }
+:root[data-theme="dark"] .pixel-command-card strong,
+:root[data-theme="dark"] .pixel-command-card small,
+:root[data-theme="dark"] .pixel-handoff { color: #aac0df; }
 
 @media (max-width: 1080px) {
   .app-shell { grid-template-columns: 1fr; }
@@ -1915,6 +2010,10 @@ button.ghost {
 
   .kanban-board {
     grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+
+  .pixel-command {
+    grid-template-columns: repeat(2, minmax(170px, 1fr));
   }
 }
 
@@ -1954,6 +2053,14 @@ button.ghost {
   }
 
   .kanban-board {
+    grid-template-columns: 1fr;
+  }
+
+  .pixel-office-topline {
+    grid-template-columns: 1fr;
+  }
+
+  .pixel-command {
     grid-template-columns: 1fr;
   }
 }
