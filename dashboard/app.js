@@ -13,6 +13,7 @@ const approveUrl = "/api/jobs/approve";
 const settingsSaveUrl = "/api/settings/save";
 
 let timer = null;
+let auditSearchTimer = null;
 const requestLookup = new Map();
 const PIPELINE_STEPS = [
   { id: "pm", label: "PM", desc: "요청 스코프 확정" },
@@ -1229,10 +1230,30 @@ function applyAuditFilter(events = []) {
     const owner = String(event.owner_id || "");
     const jobId = String(event.job_id || "");
     const requestId = String(event.request_id || "");
-    const text = `${kind} ${owner} ${jobId} ${requestId}`.toLowerCase();
+    const details = JSON.stringify(event || {});
+    const text = `${kind} ${owner} ${jobId} ${requestId} ${details}`.toLowerCase();
     const kindOk = auditFilterState.kind === "all" || kind === auditFilterState.kind;
     const queryOk = !auditFilterState.q || text.includes(auditFilterState.q);
     return kindOk && queryOk;
+  });
+}
+
+function highlightAuditValue(value, query) {
+  const raw = String(value || "-");
+  if (!query) return esc(raw);
+  const lower = raw.toLowerCase();
+  const index = lower.indexOf(query);
+  if (index === -1) return esc(raw);
+  const before = esc(raw.slice(0, index));
+  const hit = esc(raw.slice(index, index + query.length));
+  const after = esc(raw.slice(index + query.length));
+  return `${before}<mark class="audit-hit">${hit}</mark>${after}`;
+}
+
+function syncAuditQuickFilters() {
+  const buttons = Array.from(document.querySelectorAll("#auditQuickFilters button[data-kind]"));
+  buttons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.kind === auditFilterState.kind);
   });
 }
 
@@ -1240,6 +1261,7 @@ function renderAudit(payload) {
   tableCache.audit = payload;
   const allEvents = [...(payload.events || [])].reverse();
   const events = applyAuditFilter(allEvents);
+  syncAuditQuickFilters();
   const statsEl = document.getElementById("auditFilterStats");
   if (statsEl) {
     const kindLabel = auditFilterState.kind === "all" ? "전체" : auditFilterState.kind;
@@ -1248,17 +1270,18 @@ function renderAudit(payload) {
   }
   const root = document.getElementById("auditTable");
   if (!events.length) {
-    root.innerHTML = `<p class="muted">감사 로그 이벤트가 없습니다.</p>`;
+    root.innerHTML = `<p class="audit-empty">${auditFilterState.q || auditFilterState.kind !== "all" ? "조건에 맞는 감사 로그가 없습니다. 필터를 초기화해 보세요." : "감사 로그 이벤트가 없습니다."}</p>`;
     renderPaginationControls("audit", { page: 1, totalPages: 1, totalItems: 0 });
     return;
   }
   const pagination = applyPagination("audit", events);
   const rows = pagination.pageItems;
+  const query = auditFilterState.q;
   root.innerHTML = `
     <div class="table-wrap"><table class="table">
       <thead><tr><th>시각</th><th>종류</th><th>운영자</th><th>작업</th><th>요청</th><th>상세</th></tr></thead>
       <tbody>
-        ${rows.map((e) => `<tr><td>${esc(e.at)}</td><td>${esc(e.kind || "-")}</td><td>${esc(e.owner_id || "-")}</td><td>${esc(e.job_id || "-")}</td><td>${esc(e.request_id || "-")}</td><td class="audit-detail"><pre><code>${escapeHtml(JSON.stringify(e, null, 2))}</code></pre></td></tr>`).join("")}
+        ${rows.map((e) => `<tr><td>${highlightAuditValue(e.at, query)}</td><td>${highlightAuditValue(e.kind || "-", query)}</td><td>${highlightAuditValue(e.owner_id || "-", query)}</td><td>${highlightAuditValue(e.job_id || "-", query)}</td><td>${highlightAuditValue(e.request_id || "-", query)}</td><td class="audit-detail"><pre><code>${escapeHtml(JSON.stringify(e, null, 2))}</code></pre></td></tr>`).join("")}
       </tbody>
     </table></div>`;
   renderPaginationControls("audit", pagination);
@@ -1590,6 +1613,15 @@ async function submitDesignTask(event) {
 function setupAuditControls() {
   const kindSelect = document.getElementById("auditKindFilter");
   const searchInput = document.getElementById("auditSearchInput");
+  const clearButton = document.getElementById("auditSearchClear");
+  const quickFilters = Array.from(document.querySelectorAll("#auditQuickFilters button[data-kind]"));
+
+  const commitSearch = () => {
+    auditFilterState.q = String(searchInput?.value || "").trim().toLowerCase();
+    paginationState.audit = 1;
+    if (tableCache.audit) renderAudit(tableCache.audit);
+  };
+
   if (kindSelect) {
     kindSelect.addEventListener("change", () => {
       auditFilterState.kind = kindSelect.value || "all";
@@ -1599,11 +1631,38 @@ function setupAuditControls() {
   }
   if (searchInput) {
     searchInput.addEventListener("input", () => {
-      auditFilterState.q = String(searchInput.value || "").trim().toLowerCase();
+      if (auditSearchTimer) clearTimeout(auditSearchTimer);
+      auditSearchTimer = setTimeout(commitSearch, 160);
+    });
+    searchInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        if (auditSearchTimer) clearTimeout(auditSearchTimer);
+        commitSearch();
+      }
+      if (event.key === "Escape") {
+        searchInput.value = "";
+        if (auditSearchTimer) clearTimeout(auditSearchTimer);
+        commitSearch();
+      }
+    });
+  }
+  if (clearButton) {
+    clearButton.addEventListener("click", () => {
+      if (searchInput) searchInput.value = "";
+      if (auditSearchTimer) clearTimeout(auditSearchTimer);
+      commitSearch();
+      searchInput?.focus();
+    });
+  }
+  quickFilters.forEach((button) => {
+    button.addEventListener("click", () => {
+      const nextKind = button.dataset.kind || "all";
+      auditFilterState.kind = nextKind;
+      if (kindSelect) kindSelect.value = nextKind;
       paginationState.audit = 1;
       if (tableCache.audit) renderAudit(tableCache.audit);
     });
-  }
+  });
 }
 
 function updateNavHelper(button) {

@@ -431,8 +431,17 @@
               </select>
             </label>
             <label>검색
-              <input id="auditSearchInput" placeholder="job_id / request_id / owner / kind" />
+              <div class="audit-search-wrap">
+                <input id="auditSearchInput" placeholder="job_id / request_id / owner / kind / 상세 JSON" />
+                <button id="auditSearchClear" type="button" class="ghost">초기화</button>
+              </div>
             </label>
+            <div id="auditQuickFilters" class="audit-quick-filters" aria-label="빠른 필터">
+              <button type="button" class="ghost active" data-kind="all">전체</button>
+              <button type="button" class="ghost" data-kind="post_job_audit">완료 후 감사</button>
+              <button type="button" class="ghost" data-kind="job_done">작업 완료</button>
+              <button type="button" class="ghost" data-kind="job_failed">작업 실패</button>
+            </div>
             <p id="auditFilterStats" class="muted">필터: 전체</p>
           </div>
           <div id="auditTable"></div>
