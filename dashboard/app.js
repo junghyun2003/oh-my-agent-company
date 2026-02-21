@@ -15,6 +15,19 @@ const settingsSaveUrl = "/api/settings/save";
 
 let timer = null;
 const requestLookup = new Map();
+const PIPELINE_STEPS = [
+  { id: "pm", label: "PM", desc: "요청 스코프 확정" },
+  { id: "cto", label: "CTO", desc: "기술 아키텍처" },
+  { id: "pre_approval", label: "변경 전 승인", desc: "Owner 확인" },
+  { id: "dev", label: "Dev", desc: "병렬 구현" },
+  { id: "post_approval", label: "변경 후 승인", desc: "Owner 검수" },
+  { id: "qa", label: "QA", desc: "회귀 테스트" },
+  { id: "report", label: "Report", desc: "결과 보고" }
+];
+const RUNNING_STATUSES = new Set(["in_progress"]);
+const RUNNING_STAGES = new Set(PIPELINE_STEPS.map((step) => step.id));
+const APPROVAL_WAIT_STATUSES = new Set(["waiting_pre_approval", "waiting_post_approval"]);
+const QUEUED_STATUSES = new Set(["queued", "dispatching"]);
 
 function rememberRequests(requests = []) {
   requestLookup.clear();
@@ -344,8 +357,157 @@ function renderRequests(payload) {
   autoFillRefinedRequest({ requestId: requestSelect.value });
 }
 
+function describeJob(job) {
+  const meta = [job.work_type, job.mission].map((value) => normalizeWhitespace(value)).filter(Boolean);
+  return meta.join(" · ");
+}
+
+function pickActiveJob(jobs = []) {
+  if (!jobs.length) return null;
+  const priority = jobs.find((job) => RUNNING_STATUSES.has(job.status) || APPROVAL_WAIT_STATUSES.has(job.status) || QUEUED_STATUSES.has(job.status));
+  if (priority) return priority;
+  const ongoing = jobs.find((job) => job.status && !["done", "failed", "responded"].includes(job.status));
+  return ongoing || jobs[0] || null;
+}
+
+function renderPipeline(job) {
+  const stepsEl = document.getElementById("pipelineSteps");
+  const emptyEl = document.getElementById("pipelineEmptyState");
+  const titleEl = document.getElementById("activeJobTitle");
+  const metaEl = document.getElementById("activeJobMeta");
+  const stageEl = document.getElementById("activeJobStage");
+  const statusEl = document.getElementById("activeJobStatus");
+  if (!stepsEl) return;
+
+  if (!job) {
+    stepsEl.innerHTML = "";
+    if (titleEl) titleEl.textContent = "실행중인 작업이 없습니다.";
+    if (metaEl) metaEl.textContent = "새로운 작업을 할당하면 상태가 여기에 표시됩니다.";
+    if (stageEl) stageEl.textContent = "--";
+    if (statusEl) {
+      statusEl.textContent = "--";
+      statusEl.classList.remove("status-ok", "status-warn", "status-bad");
+    }
+    if (emptyEl) emptyEl.classList.remove("is-hidden");
+    return;
+  }
+
+  const activeIdx = PIPELINE_STEPS.findIndex((step) => step.id === job.stage);
+  const safeIdx = activeIdx >= 0 ? activeIdx : -1;
+  stepsEl.innerHTML = PIPELINE_STEPS.map((step, idx) => {
+    const state = safeIdx === -1 ? (idx === 0 ? "current" : "upcoming") : idx < safeIdx ? "complete" : idx === safeIdx ? "current" : "upcoming";
+    return `
+      <li class="pipeline-step ${state}">
+        <span class="step-index">${idx + 1}</span>
+        <div>
+          <strong>${esc(step.label)}</strong>
+          <small>${esc(step.desc)}</small>
+        </div>
+      </li>
+    `;
+  }).join("");
+
+  if (titleEl) {
+    const client = job.client_name ? ` · ${job.client_name}` : "";
+    titleEl.textContent = `${job.id}${client}`;
+  }
+  if (metaEl) {
+    metaEl.textContent = describeJob(job) || "정제된 작업 내용을 확인하세요.";
+  }
+  if (stageEl) {
+    stageEl.textContent = statusKo(job.stage);
+  }
+  if (statusEl) {
+    statusEl.textContent = statusKo(job.status);
+    statusEl.classList.toggle("status-warn", APPROVAL_WAIT_STATUSES.has(job.status));
+    statusEl.classList.toggle("status-bad", job.status === "failed");
+    statusEl.classList.toggle("status-ok", job.status === "done");
+  }
+  if (emptyEl) emptyEl.classList.add("is-hidden");
+}
+
+function formatTimelineTime(value) {
+  if (!value) return "--";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function eventTimestamp(value) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+function renderTimeline(job) {
+  const listEl = document.getElementById("timelineList");
+  const emptyEl = document.getElementById("timelineEmptyState");
+  if (!listEl) return;
+  if (!job || !Array.isArray(job.timeline) || !job.timeline.length) {
+    listEl.innerHTML = "";
+    if (emptyEl) emptyEl.classList.remove("is-hidden");
+    return;
+  }
+  const events = [...job.timeline]
+    .sort((a, b) => eventTimestamp(b.at) - eventTimestamp(a.at))
+    .slice(0, 6);
+  listEl.innerHTML = events
+    .map(
+      (event) => `
+        <li class="timeline-item">
+          <span class="timeline-time">${esc(formatTimelineTime(event.at))}</span>
+          <p>${esc(event.message || "-")}</p>
+        </li>
+      `
+    )
+    .join("");
+  if (emptyEl) emptyEl.classList.add("is-hidden");
+}
+
+function renderStatusMetrics(jobs = []) {
+  const root = document.getElementById("statusMetrics");
+  if (!root) return;
+  if (!jobs.length) {
+    root.innerHTML = `<p class="muted">파이프라인에 등록된 작업이 없습니다.</p>`;
+    return;
+  }
+  let running = 0;
+  let approvals = 0;
+  let queued = 0;
+  let failed = 0;
+  jobs.forEach((job) => {
+    if (APPROVAL_WAIT_STATUSES.has(job.status)) {
+      approvals += 1;
+    } else if (QUEUED_STATUSES.has(job.status)) {
+      queued += 1;
+    } else if (job.status === "failed") {
+      failed += 1;
+    } else if (RUNNING_STATUSES.has(job.status) || (RUNNING_STAGES.has(job.stage) && !["done", "failed"].includes(job.status))) {
+      running += 1;
+    }
+  });
+
+  const items = [
+    { label: "실행중", value: running, helper: "파이프라인 내 진행중" },
+    { label: "승인 대기", value: approvals, helper: "수동 게이트 필요" },
+    { label: "대기열", value: queued, helper: "할당됨 · 시작 전" },
+    { label: "실패/중단", value: failed, helper: "운영 개입 필요" }
+  ];
+  root.innerHTML = items
+    .map(
+      (item) => `
+        <div class="metric-card">
+          <div class="metric-value">${esc(item.value)}</div>
+          <div class="metric-label">${esc(item.label)}</div>
+          <p>${esc(item.helper)}</p>
+        </div>
+      `
+    )
+    .join("");
+}
+
 function renderJobs(payload) {
-  const jobs = [...(payload.jobs || [])].reverse();
+  const originalJobs = payload.jobs || [];
+  const jobs = [...originalJobs].reverse();
   const root = document.getElementById("jobsTable");
   if (!jobs.length) {
     root.innerHTML = `<p class="muted">할당된 작업이 없습니다.</p>`;
@@ -376,6 +538,11 @@ function renderJobs(payload) {
     .map((j) => `<option value="${esc(j.id)}">${esc(j.id)} | ${esc(j.status)}</option>`)
     .join("")
   );
+
+  const activeJob = pickActiveJob(originalJobs);
+  renderPipeline(activeJob);
+  renderTimeline(activeJob);
+  renderStatusMetrics(originalJobs);
 }
 
 function renderPolicy(data) {
