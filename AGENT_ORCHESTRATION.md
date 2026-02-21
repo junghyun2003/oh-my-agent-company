@@ -143,7 +143,7 @@
 
 ## 9) 로컬 운영 통제 모델
 
-- Owner Mode: `state/owner_config.json` 기준으로 Owner(조중현) 식별을 강제한다.
+- Owner Mode: `state/owner_config.json` 기준으로 Owner(`owner_id=owner`) 식별을 강제한다.
 - Repository Policy: `state/repo_policies.json`에서 허용 저장소/수정경로/액션을 통제한다.
 - Pipeline Standard: `PM -> CTO -> Dev(병렬) -> QA -> Report` 고정 파이프라인으로 실행한다.
 - Approval Gates: `auto/manual_pre/manual_post/manual_both`를 지원한다.

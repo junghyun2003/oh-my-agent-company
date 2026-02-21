@@ -22,7 +22,7 @@
 - `Risk`: 리스크와 완화 전략
 
 ## Universal Control Rules
-- Owner identity: `owner_id=조중현` 기준 실행
+- Owner identity: `owner_id=owner` 기준 실행
 - Pipeline order: `PM -> CTO -> Dev(병렬) -> QA -> Report`
 - Approval gates: `auto/manual_pre/manual_post/manual_both`
 - Repo policy: 허용 저장소/허용 액션/수정 경로 강제

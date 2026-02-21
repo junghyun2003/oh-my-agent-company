@@ -204,7 +204,7 @@ def seed_defaults():
     if not q1("SELECT id FROM owner_config WHERE id = 1"):
         exec_sql(
             "INSERT INTO owner_config (id, owner_mode_enabled, owner_id, owner_token_required, owner_token, role) VALUES (1,1,?,?,?,?)",
-            ("조중현", 0, "", "OWNER"),
+            ("owner", 0, "", "OWNER"),
         )
 
     if not q1("SELECT path FROM repo_policies LIMIT 1"):
