@@ -1,9 +1,9 @@
-# Personal Agent Company (Local Codex)
+# oh-my-agnet-company (Local Codex)
 
 개인이 로컬 PC에서 클라이언트 요청을 접수하고, 에이전트 조직으로 처리한 뒤, 승인/응대까지 완료할 수 있도록 만든 운영 템플릿입니다.
 
 ## Global Pitch (EN)
-- Run a local "AI agent company" with clear governance.
+- Run `oh-my-agnet-company` locally with clear governance.
 - Turn client requests into traceable delivery via a structured pipeline.
 - Keep speed and reliability together with approvals, audits, and client-ready reporting.
 

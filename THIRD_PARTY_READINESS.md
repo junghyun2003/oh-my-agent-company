@@ -1,7 +1,7 @@
 # Third-Party Readiness Framework
 
 ## 목적
-- `oh-my-agent-company`를 제3자가 바로 설치/운영/확장할 수 있는 상태를 유지한다.
+- `oh-my-agnet-company`를 제3자가 바로 설치/운영/확장할 수 있는 상태를 유지한다.
 - 기능 추가보다 먼저 "이해 가능성/재현 가능성/운영 안정성"을 관리한다.
 
 ## 검토 주기

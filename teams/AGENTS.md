@@ -1,6 +1,6 @@
 # Team Agent Assignment
 
-팀별 `AGENTS.md`는 로컬 에이전트 회사 운영의 공식 역할 문서다.
+팀별 `AGENTS.md`는 `oh-my-agnet-company` 운영의 공식 역할 문서다.
 
 ## Team Files
 - `teams/executive-ceo/AGENTS.md`

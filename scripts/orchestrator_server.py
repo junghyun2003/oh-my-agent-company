@@ -629,10 +629,10 @@ def apply_work_intake_menu(repo_path):
         raise RuntimeError("dashboard files missing")
     idx_txt = idx.read_text(encoding="utf-8")
     css_txt = css.read_text(encoding="utf-8")
-    if "id=\"intakePresets\"" not in idx_txt and "2) 에이전트 회사에 작업 할당" in idx_txt:
+    if "id=\"intakePresets\"" not in idx_txt and "2) oh-my-agnet-company에 작업 할당" in idx_txt:
         idx_txt = idx_txt.replace(
-            "<h2>2) 에이전트 회사에 작업 할당</h2>",
-            "<h2>2) 에이전트 회사에 작업 할당</h2>\n      <div class=\"intake-presets\" id=\"intakePresets\"></div>",
+            "<h2>2) oh-my-agnet-company에 작업 할당</h2>",
+            "<h2>2) oh-my-agnet-company에 작업 할당</h2>\n      <div class=\"intake-presets\" id=\"intakePresets\"></div>",
             1,
         )
     if ".intake-presets" not in css_txt:
@@ -728,7 +728,7 @@ def execute_actions_with_codex(job, policy):
 
     before = snapshot_writable_files(policy["writable_paths"])
     prompt = (
-        "You are the Dev team in a local agent company.\\n"
+        "You are the Dev team in oh-my-agnet-company.\\n"
         "Task: apply the refined request below and edit files directly in the repository.\\n"
         "Follow constraints strictly:\\n"
         f"- Repository root: {repo_path}\\n"
