@@ -1383,14 +1383,35 @@ function applyAuditFilter(events = []) {
   return events.filter((event) => {
     const kind = String(event.kind || "");
     const owner = String(event.owner_id || "");
-    const jobId = String(event.job_id || "");
+    const jobIds = extractAuditJobIds(event);
     const requestId = String(event.request_id || "");
     const details = JSON.stringify(event || {});
-    const text = `${kind} ${owner} ${jobId} ${requestId} ${details}`.toLowerCase();
+    const text = `${kind} ${owner} ${jobIds.join(" ")} ${requestId} ${details}`.toLowerCase();
     const kindOk = auditFilterState.kind === "all" || kind === auditFilterState.kind;
     const queryOk = !auditFilterState.q || text.includes(auditFilterState.q);
     return kindOk && queryOk;
   });
+}
+
+function extractAuditJobIds(event) {
+  const detail = event?.detail && typeof event.detail === "object" ? event.detail : {};
+  const nestedJob = detail?.job && typeof detail.job === "object" ? detail.job : {};
+  const candidates = [
+    event?.job_id,
+    detail?.job_id,
+    detail?.jobId,
+    nestedJob?.id,
+    nestedJob?.job_id,
+    nestedJob?.jobId,
+  ];
+  const seen = new Set();
+  return candidates
+    .map((value) => String(value || "").trim())
+    .filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
 }
 
 function highlightAuditValue(value, query) {
@@ -1436,7 +1457,11 @@ function renderAudit(payload) {
     <div class="table-wrap"><table class="table">
       <thead><tr><th>시각</th><th>종류</th><th>운영자</th><th>작업</th><th>요청</th><th>상세</th></tr></thead>
       <tbody>
-        ${rows.map((e) => `<tr><td>${highlightAuditValue(e.at, query)}</td><td>${highlightAuditValue(e.kind || "-", query)}</td><td>${highlightAuditValue(e.owner_id || "-", query)}</td><td>${highlightAuditValue(e.job_id || "-", query)}</td><td>${highlightAuditValue(e.request_id || "-", query)}</td><td class="audit-detail"><pre><code>${escapeHtml(JSON.stringify(e, null, 2))}</code></pre></td></tr>`).join("")}
+        ${rows.map((e) => {
+          const jobIds = extractAuditJobIds(e);
+          const jobLabel = jobIds.length ? jobIds.join(", ") : "-";
+          return `<tr><td>${highlightAuditValue(e.at, query)}</td><td>${highlightAuditValue(e.kind || "-", query)}</td><td>${highlightAuditValue(e.owner_id || "-", query)}</td><td>${highlightAuditValue(jobLabel, query)}</td><td>${highlightAuditValue(e.request_id || "-", query)}</td><td class="audit-detail"><pre><code>${escapeHtml(JSON.stringify(e, null, 2))}</code></pre></td></tr>`;
+        }).join("")}
       </tbody>
     </table></div>`;
   renderPaginationControls("audit", pagination);
