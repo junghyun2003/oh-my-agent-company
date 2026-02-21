@@ -11,6 +11,7 @@ const usageUrl = "/api/usage";
 const assignUrl = "/api/jobs/from-request";
 const approveUrl = "/api/jobs/approve";
 const settingsSaveUrl = "/api/settings/save";
+const fallbackCodexModels = ["gpt-5", "gpt-5-mini", "gpt-4.1", "o4-mini"];
 const THEME_STORAGE_KEY = "omac-theme-mode";
 
 let timer = null;
@@ -362,8 +363,9 @@ function fillCodexModelSelect(models, selected) {
 }
 
 function ownerPayload() {
+  const ownerId = document.getElementById("ownerId").value.trim() || "local-owner";
   return {
-    owner_id: document.getElementById("ownerId").value.trim(),
+    owner_id: ownerId,
     owner_token: document.getElementById("ownerToken").value.trim()
   };
 }
@@ -602,6 +604,20 @@ function renderOffice(agents) {
     if (score >= 70) return "warn";
     return "bad";
   };
+  const emoteForAgent = (agent, index) => {
+    const st = String(agent.status || "idle");
+    if (st === "critical") return "ALERT";
+    if (st === "warning") return index % 2 === 0 ? "FIXING" : "CHECK";
+    if (st === "healthy") return index % 3 === 0 ? "FOCUS" : index % 3 === 1 ? "BUILD" : "SYNC";
+    return "IDLE";
+  };
+  const monitorState = (agent) => {
+    const st = String(agent.status || "idle");
+    if (st === "critical") return "incident";
+    if (st === "warning") return "review";
+    if (st === "healthy") return "typing...";
+    return "standby";
+  };
 
   const healthy = agents.filter((a) => a.status === "healthy").length;
   const warning = agents.filter((a) => a.status === "warning").length;
@@ -654,12 +670,22 @@ function renderOffice(agents) {
             <span class="pixel-signal ${statusClass(agent.status)}">${esc(statusSignal(agent.status))}</span>
           </header>
           <div class="pixel-station">
-            <div class="pixel-monitor">${esc(agent.team || "Team")}</div>
-            <div
-              class="pixel-avatar ${roleClass} ${statusClass(agent.status)}"
-              role="img"
-              aria-label="${esc(agent.name)} pixel avatar (${esc(agent.team || "team")})"
-            ></div>
+            <div class="pixel-monitor ${statusClass(agent.status)}">
+              <span class="monitor-title">${esc(agent.team || "Team")}</span>
+              <span class="monitor-state">${esc(monitorState(agent))}</span>
+            </div>
+            <div class="pixel-worker">
+              <span class="pixel-emote ${statusClass(agent.status)}">${esc(emoteForAgent(agent, index))}</span>
+              <div
+                class="pixel-avatar ${roleClass} ${statusClass(agent.status)}"
+                role="img"
+                aria-label="${esc(agent.name)} pixel avatar (${esc(agent.team || "team")})"
+              ></div>
+            </div>
+            <div class="pixel-props" aria-hidden="true">
+              <span class="pixel-mug"></span>
+              <span class="pixel-lamp"></span>
+            </div>
           </div>
           <p class="pixel-task">${esc(agent.current_task || "업무 대기중")}</p>
           <div class="pixel-kpis">
@@ -2118,12 +2144,20 @@ async function loadSettings() {
 
 async function loadCodexModels(refresh = false, selected = "") {
   const result = document.getElementById("modelRefreshResult");
-  const suffix = refresh ? "&refresh=1" : "";
-  const res = await fetch(`${codexModelsUrl}?t=${Date.now()}${suffix}`);
-  const data = await res.json();
-  fillCodexModelSelect(data.models || [], selected);
-  if (result) {
-    result.textContent = refresh ? `모델 목록 갱신 완료 (${(data.models || []).length}개)` : "";
+  try {
+    const suffix = refresh ? "&refresh=1" : "";
+    const res = await fetch(`${codexModelsUrl}?t=${Date.now()}${suffix}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    fillCodexModelSelect(data.models || [], selected);
+    if (result) {
+      result.textContent = refresh ? `모델 목록 갱신 완료 (${(data.models || []).length}개)` : "";
+    }
+  } catch (error) {
+    fillCodexModelSelect(fallbackCodexModels, selected);
+    if (result) {
+      result.textContent = `모델 목록 로딩 실패: ${error.message} (기본 목록 사용)`;
+    }
   }
 }
 
@@ -2170,6 +2204,7 @@ async function submitOwnerSettings(event) {
   const result = document.getElementById("ownerSaveResult");
   const payload = {
     ...ownerPayload(),
+    local_trust_mode: true,
     owner_token_required: document.getElementById("ownerTokenRequired").checked,
     execution_mode: document.getElementById("executionMode").value,
     codex_model: document.getElementById("codexModel").value,
@@ -2199,6 +2234,21 @@ async function autoAssignJobFromRequest(_request) {
   return;
 }
 
+function explainApiError(error) {
+  const msg = String(error?.message || "").trim();
+  if (!msg) return "알 수 없는 오류";
+  if (msg.includes("owner mismatch")) {
+    return `${msg} · 운영 설정의 owner_id와 현재 입력값을 일치시켜 주세요.`;
+  }
+  if (msg.includes("owner token required")) {
+    return `${msg} · 운영 설정에서 owner token을 입력해 주세요.`;
+  }
+  if (msg.toLowerCase().includes("failed to fetch")) {
+    return "서버 연결 실패: `./scripts/infra_server_ctl.sh ensure` 후 `doctor`로 점검해 주세요.";
+  }
+  return msg;
+}
+
 async function submitRequest(event) {
   event.preventDefault();
   const result = document.getElementById("requestSubmitResult");
@@ -2222,7 +2272,7 @@ async function submitRequest(event) {
     await loadAll();
     await autoAssignJobFromRequest(data.request);
   } catch (error) {
-    result.textContent = `실패: ${error.message}`;
+    result.textContent = `실패: ${explainApiError(error)}`;
   }
 }
 
@@ -2255,7 +2305,7 @@ async function submitJob(event) {
     await loadRepositories();
     await loadAll();
   } catch (error) {
-    result.textContent = `실패: ${error.message}`;
+    result.textContent = `실패: ${explainApiError(error)}`;
   }
 }
 
@@ -2281,7 +2331,7 @@ async function approveJob(event) {
     document.getElementById("approveForm").reset();
     await loadAll();
   } catch (error) {
-    result.textContent = `실패: ${error.message}`;
+    result.textContent = `실패: ${explainApiError(error)}`;
   }
 }
 
@@ -2316,4 +2366,10 @@ setupThemeMode();
 loadOwnerInfo()
   .then(loadSettings)
   .then(loadRepositories)
-  .then(loadAll);
+  .then(loadAll)
+  .catch((error) => {
+    const alerts = document.getElementById("alerts");
+    if (alerts) {
+      alerts.innerHTML = `<div class="alert">초기 로딩 실패: ${esc(error.message)} · 서버 상태를 확인하세요.</div>`;
+    }
+  });
