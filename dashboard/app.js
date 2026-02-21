@@ -834,7 +834,7 @@ function renderRequests(payload) {
     requestSelect,
     "요청 선택",
     requests
-    .filter((r) => r.status === "received" || r.status === "completed")
+    .filter((r) => r.status === "received")
     .map((r) => `<option value="${esc(r.id)}">${esc(r.id)} | ${esc(r.client_name)} | ${esc(r.status)}</option>`)
     .join("")
   );
