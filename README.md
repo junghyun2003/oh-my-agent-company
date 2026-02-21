@@ -32,6 +32,13 @@ cd <repo-root>
 python3 scripts/orchestrator_server.py
 ```
 
+권장(인프라 안전 실행):
+```bash
+./scripts/infra_server_ctl.sh start
+./scripts/infra_server_ctl.sh status
+./scripts/infra_server_ctl.sh restart
+```
+
 대시보드:
 - `http://localhost:18765/`
 - `http://localhost:18765/dashboard/`
@@ -104,6 +111,10 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
   - `pkill -f scripts/orchestrator_server.py`
 - 대시보드 갱신 이상: 새로고침 후 `감사 로그`/`사용량` API 확인
 - 정책 오류: `state/agent_company.db (table: repo_policies + app_settings)` 경로/권한 재검토
+- 개발 중 접속 불가: 안전 재시작 사용
+  - `./scripts/infra_server_ctl.sh restart`
+  - 이 명령은 문법 검사 실패 시 기존 서버를 내리지 않고 재시작을 중단합니다.
+  - 헬스체크: `./scripts/infra_server_ctl.sh health`
 
 ## 9) 다른 사용자 적용 방법
 1. 저장소 복제

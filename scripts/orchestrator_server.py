@@ -1369,6 +1369,15 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/usage":
             with LOCK:
                 return self._send_json(usage_snapshot())
+        if path == "/api/health":
+            return self._send_json(
+                {
+                    "ok": True,
+                    "service": "orchestrator",
+                    "port": PORT,
+                    "time": utc_now(),
+                }
+            )
         return super().do_GET()
 
     def do_POST(self):

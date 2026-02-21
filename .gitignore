@@ -7,3 +7,5 @@ state/*.db
 state/*.db-*
 state/*.json
 state/*.jsonl
+state/orchestrator.pid
+state/orchestrator.log

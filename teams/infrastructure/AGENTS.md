@@ -27,6 +27,8 @@
 - 기본 포트는 `18765` 사용
 - 데이터 파일 손상 시 안전 복구 후 재시작
 - 헬스체크는 `process + port + api` 3단계로 표준화
+- 서버 운영 명령은 `scripts/infra_server_ctl.sh`를 기본 사용 (`start/status/restart/health`)
+- 재시작은 safe restart 원칙(문법 오류 시 기존 프로세스 유지)으로 수행
 
 ## Team Lead Role
 - Infrastructure 팀장은 운영/신뢰성 레퍼런스를 기반으로 장애 대응 정책과 런북을 정제한다.
