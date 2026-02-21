@@ -18,6 +18,7 @@ python3 scripts/orchestrator_server.py
 ```
 
 대시보드:
+- `http://localhost:18765/`
 - `http://localhost:18765/dashboard/`
 
 포트 변경:

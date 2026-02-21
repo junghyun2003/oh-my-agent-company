@@ -1143,6 +1143,13 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
+        # Human-friendly entry: open dashboard from root URL.
+        if path in ["/", "/index.html"]:
+            self.path = "/dashboard/"
+            return super().do_GET()
+        if path == "/dashboard":
+            self.path = "/dashboard/"
+            return super().do_GET()
         if path.startswith("/api/"):
             with LOCK:
                 touch_api_usage("GET", path)
