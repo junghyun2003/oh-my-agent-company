@@ -1525,7 +1525,7 @@ button.ghost {
 
 .kanban-board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.65rem;
   margin-bottom: 0.8rem;
 }
@@ -1538,6 +1538,7 @@ button.ghost {
   display: grid;
   gap: 0.42rem;
   min-height: 210px;
+  min-width: 0;
 }
 
 .kanban-column header {
@@ -1560,6 +1561,7 @@ button.ghost {
   padding: 0.45rem 0.5rem;
   display: grid;
   gap: 0.25rem;
+  min-width: 0;
 }
 
 .kanban-card.priority-urgent { border-left-color: #b63636; }
@@ -1571,18 +1573,28 @@ button.ghost {
   display: flex;
   justify-content: space-between;
   gap: 0.3rem;
-  align-items: center;
+  align-items: flex-start;
+}
+
+.kanban-card-top code {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kanban-card p {
   margin: 0;
   font-size: 0.84rem;
   color: #333b45;
+  overflow-wrap: anywhere;
 }
 
 .kanban-card small {
   color: #606873;
   font-size: 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 .pagination {
@@ -1834,7 +1846,9 @@ button.ghost {
 :root[data-theme="dark"] .pixel-desk,
 :root[data-theme="dark"] .pixel-station,
 :root[data-theme="dark"] .office,
-:root[data-theme="dark"] .market-card {
+:root[data-theme="dark"] .market-card,
+:root[data-theme="dark"] .kanban-column,
+:root[data-theme="dark"] .kanban-card {
   background: #182231 !important;
   border-color: var(--line-strong) !important;
 }
