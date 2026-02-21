@@ -32,6 +32,7 @@
 - 승인 게이트(`manual_*`) 우회 금지
 - 월 1회 이상 최신 경제지표/UX 레퍼런스를 확인하고 UX 점검센터에 반영
 - 공통 컴포넌트 분리/재사용 정책과 컴포넌트 레지스트리를 Frontend와 공동 관리
+- 테마 정책은 `teams/design-ops/THEME_POLICY.md`를 기준으로 검토/갱신
 
 ## Team Lead Role
 - Design Ops 팀장은 외부 UI/UX 레퍼런스를 기반으로 팀 정책을 정제하고 공통 컴포넌트 표준을 리드한다.
