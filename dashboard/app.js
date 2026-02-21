@@ -11,6 +11,7 @@ const usageUrl = "/api/usage";
 const assignUrl = "/api/jobs/from-request";
 const approveUrl = "/api/jobs/approve";
 const settingsSaveUrl = "/api/settings/save";
+const THEME_STORAGE_KEY = "omac-theme-mode";
 
 let timer = null;
 let auditSearchTimer = null;
@@ -79,6 +80,8 @@ let reposCache = [];
 let conversationLangMode = "kor";
 let lastClientDigestText = "";
 let lastPolicySnapshotHtml = "";
+let themeMode = "system";
+const themeMediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
 const TRANSLATION_RULES = [
   { pattern: /\bclient\b/gi, replacement: "클라이언트" },
   { pattern: /\bowner\b/gi, replacement: "운영자" },
@@ -108,6 +111,62 @@ function rememberRequests(requests = []) {
       requestLookup.set(String(req.id), req);
     }
   });
+}
+
+function normalizeThemeMode(mode) {
+  return ["light", "dark", "system"].includes(mode) ? mode : "system";
+}
+
+function resolveTheme(mode) {
+  if (mode === "light") return "light";
+  if (mode === "dark") return "dark";
+  return themeMediaQuery?.matches ? "dark" : "light";
+}
+
+function applyTheme(mode, options = {}) {
+  const safeMode = normalizeThemeMode(mode);
+  const persist = options.persist !== false;
+  themeMode = safeMode;
+  const resolved = resolveTheme(safeMode);
+  const root = document.documentElement;
+  root.setAttribute("data-theme", resolved);
+  root.setAttribute("data-theme-mode", safeMode);
+  const select = document.getElementById("themeMode");
+  if (select && select.value !== safeMode) select.value = safeMode;
+  if (persist) {
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, safeMode);
+    } catch (_) {
+      // ignore storage failures in private/locked environments
+    }
+  }
+}
+
+function setupThemeMode() {
+  const select = document.getElementById("themeMode");
+  if (!select) return;
+  let saved = "system";
+  try {
+    saved = normalizeThemeMode(window.localStorage.getItem(THEME_STORAGE_KEY) || "system");
+  } catch (_) {
+    saved = "system";
+  }
+  applyTheme(saved, { persist: false });
+
+  select.addEventListener("change", () => {
+    applyTheme(select.value, { persist: true });
+  });
+
+  if (themeMediaQuery) {
+    const handler = () => {
+      if (themeMode === "system") applyTheme("system", { persist: false });
+    };
+    if (typeof themeMediaQuery.addEventListener === "function") {
+      themeMediaQuery.addEventListener("change", handler);
+    } else if (typeof themeMediaQuery.addListener === "function") {
+      themeMediaQuery.addListener(handler);
+    }
+  }
 }
 
 function applyPagination(key, list) {
@@ -2127,6 +2186,7 @@ setupIntakePresets();
 setupAuditControls();
 setupConversationLangToggle();
 setupClientDigestCopyButton();
+setupThemeMode();
 loadOwnerInfo()
   .then(loadSettings)
   .then(loadRepositories)

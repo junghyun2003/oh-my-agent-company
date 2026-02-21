@@ -1,5 +1,6 @@
 :root {
   --bg: #f7f7f5;
+  --body-bg: radial-gradient(circle at top right, #faf9f6 0%, #f5f4f1 40%, #f1efea 100%);
   --panel: #ffffff;
   --text: #2b2f32;
   --subtle: #6d737a;
@@ -12,12 +13,28 @@
   --idle: #8a8f97;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f141b;
+  --body-bg: radial-gradient(circle at top right, #1a2431 0%, #121922 45%, #0d131b 100%);
+  --panel: #171f2a;
+  --text: #e4ecf7;
+  --subtle: #a3b0c2;
+  --line: #2b3442;
+  --line-strong: #3a4658;
+  --accent: #7fb3ff;
+  --ok: #4dc07b;
+  --warn: #e2a94f;
+  --bad: #e77272;
+  --idle: #8f9db2;
+}
+
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
   color: var(--text);
-  background: radial-gradient(circle at top right, #faf9f6 0%, #f5f4f1 40%, #f1efea 100%);
+  background: var(--body-bg);
   font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   line-height: 1.45;
 }
@@ -232,6 +249,24 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
+}
+
+.theme-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 92%, var(--accent) 8%);
+  padding: 0.2rem 0.4rem 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  color: var(--subtle);
+}
+
+.theme-control select {
+  min-width: 84px;
+  border-radius: 999px;
+  padding: 0.18rem 0.45rem;
 }
 
 .mode-badge,
@@ -1772,6 +1807,66 @@ button.ghost {
 }
 
 .hidden-panel { display: none; }
+
+:root[data-theme="dark"] .sidebar,
+:root[data-theme="dark"] .nav-stack,
+:root[data-theme="dark"] .nav-helper,
+:root[data-theme="dark"] .topbar,
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .policy-card,
+:root[data-theme="dark"] .timeline-card,
+:root[data-theme="dark"] .status-pipeline,
+:root[data-theme="dark"] .status-metrics,
+:root[data-theme="dark"] .report-badge,
+:root[data-theme="dark"] .agent,
+:root[data-theme="dark"] .market-brief,
+:root[data-theme="dark"] .reference-links,
+:root[data-theme="dark"] .conversation-main,
+:root[data-theme="dark"] .conversation-sidebar {
+  background: #141c26 !important;
+  border-color: var(--line) !important;
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .sidebar-note,
+:root[data-theme="dark"] .pixel-banner,
+:root[data-theme="dark"] .pixel-desk,
+:root[data-theme="dark"] .pixel-station,
+:root[data-theme="dark"] .office,
+:root[data-theme="dark"] .market-card {
+  background: #182231 !important;
+  border-color: var(--line-strong) !important;
+}
+
+:root[data-theme="dark"] .nav-item { color: #cfd9ea; }
+
+:root[data-theme="dark"] .nav-item.active {
+  background: linear-gradient(90deg, #1d2d44, #1a273b);
+  color: #d9e7ff;
+  box-shadow: inset 0 0 0 1px #334661;
+}
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] button {
+  background: #0f1823;
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] button:hover { background: #172232; }
+:root[data-theme="dark"] button.ghost { background: #131d2b; }
+:root[data-theme="dark"] .muted { color: var(--subtle); }
+:root[data-theme="dark"] a { color: #9ec2ff; }
+:root[data-theme="dark"] .mode-badge,
+:root[data-theme="dark"] .pill { background: #1a2534; color: #c6d4e9; }
+:root[data-theme="dark"] #missionText,
+:root[data-theme="dark"] #lastUpdated,
+:root[data-theme="dark"] #usageStamp { color: var(--subtle); }
+:root[data-theme="dark"] .table th,
+:root[data-theme="dark"] .table td { border-color: var(--line); }
 
 @media (max-width: 1080px) {
   .app-shell { grid-template-columns: 1fr; }
