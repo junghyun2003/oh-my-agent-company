@@ -291,6 +291,9 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: color-mix(in srgb, var(--panel) 92%, var(--accent) 8%);
