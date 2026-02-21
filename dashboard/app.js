@@ -583,15 +583,18 @@ function renderDesignBoard(state) {
   const profileRoot = document.getElementById("designProfile");
   if (!rolesRoot || !statsRoot || !profileRoot) return;
 
-  rolesRoot.innerHTML = DESIGN_OPEN_ROLES.map((role) => `<li class="design-role"><strong>${esc(role.title)}</strong><span>${esc(role.focus)}</span><em>채용중</em></li>`).join("");
-
   const agents = Array.isArray(state.agents) ? state.agents.filter((agent) => /design/i.test(agent.team || "")) : [];
+  const isOperational = agents.length > 0;
+  rolesRoot.innerHTML = DESIGN_OPEN_ROLES
+    .map((role) => `<li class="design-role"><strong>${esc(role.title)}</strong><span>${esc(role.focus)}</span><em>${isOperational ? "운영중" : "즉시 신설 필요"}</em></li>`)
+    .join("");
+
   const unavailable = agents.filter((agent) => agent.status !== "healthy").length;
   const issueCount = Math.max(1, Number(state.summary?.warning || 0) + Number(state.summary?.critical || 0));
   const stats = [
     { label: "현 디자인 인원", value: `${agents.length}명`, helper: unavailable ? `${unavailable}명 이슈 해결중` : "모두 가용" },
     { label: "UI 결함 추적", value: `${issueCount}건`, helper: "경고/위험 지표 기준" },
-    { label: "필수 채용", value: `${DESIGN_OPEN_ROLES.length}명`, helper: "역할별 1명" }
+    { label: "운영 역할", value: `${DESIGN_OPEN_ROLES.length}개`, helper: isOperational ? "역할별 운영중" : "역할별 즉시 구성 필요" }
   ];
   statsRoot.innerHTML = stats
     .map(
@@ -609,12 +612,12 @@ function renderDesignBoard(state) {
     profileRoot.innerHTML = `
       <div class="design-profile-card is-empty">
         <p class="eyebrow">Design Agent Team</p>
-        <h4>신설 대기</h4>
-        <p class="muted">디자인 전담 에이전트가 아직 없습니다. Owner가 승인하면 아래 역할이 즉시 투입됩니다.</p>
+        <h4>즉시 신설 필요</h4>
+        <p class="muted">디자인 전담 에이전트가 감지되지 않았습니다. 정책 기준상 즉시 운영 조직을 활성화해야 합니다.</p>
         <ul class="profile-list">
           ${DESIGN_OPEN_ROLES.map((role) => `<li>${esc(role.title)} · ${esc(role.focus)}</li>`).join("")}
         </ul>
-        <div class="profile-note">승인 후 Dev 단계에서 병렬 투입됩니다.</div>
+        <div class="profile-note">Design Ops와 Frontend가 공통 컴포넌트 레지스트리를 즉시 구성합니다.</div>
       </div>
     `;
   } else {
