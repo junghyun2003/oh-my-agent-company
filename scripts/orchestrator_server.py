@@ -381,9 +381,21 @@ def seed_defaults():
 def list_git_repositories():
     repos = []
     candidates = [ROOT] + [p for p in ROOT.iterdir() if p.is_dir() and not p.name.startswith(".")]
+
+    # Include policy-managed paths even when they are outside ROOT.
+    try:
+        policy_paths = [Path(row["path"]).expanduser() for row in q("SELECT path FROM repo_policies WHERE enabled=1")]
+    except Exception:
+        policy_paths = []
+    candidates.extend(policy_paths)
+
     for directory in candidates:
-        if (directory / ".git").is_dir():
-            repos.append({"name": directory.name, "path": str(directory.resolve())})
+        try:
+            resolved = directory.resolve()
+        except Exception:
+            continue
+        if (resolved / ".git").is_dir():
+            repos.append({"name": resolved.name, "path": str(resolved)})
     seen = set()
     out = []
     for item in repos:
