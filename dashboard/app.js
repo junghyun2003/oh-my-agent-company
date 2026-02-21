@@ -1524,23 +1524,52 @@ function setupSnbNavigation() {
   const navItems = Array.from(document.querySelectorAll(".nav-item"));
   if (!navItems.length) return;
   const panels = Array.from(document.querySelectorAll("main .panel"));
+
+  const normalizeTarget = (target) => {
+    if (!target) return "all";
+    if (target === "all") return "all";
+    return panels.some((panel) => panel.id === target) ? target : "all";
+  };
+
+  const routeTarget = () => {
+    const raw = decodeURIComponent((window.location.hash || "").replace(/^#/, "")).trim();
+    return normalizeTarget(raw || "all");
+  };
+
+  const setRoute = (target) => {
+    const next = `#${normalizeTarget(target)}`;
+    if (window.location.hash === next) return;
+    window.history.replaceState(null, "", next);
+  };
+
+  const applyTarget = (target) => {
+    const safeTarget = normalizeTarget(target);
+    const activeBtn =
+      navItems.find((btn) => btn.dataset.target === safeTarget) ||
+      navItems.find((btn) => btn.dataset.target === "all") ||
+      navItems[0];
+
+    navItems.forEach((btn) => btn.classList.toggle("active", btn === activeBtn));
+    panels.forEach((panel) => {
+      if (safeTarget === "all") {
+        panel.classList.remove("hidden-panel");
+      } else {
+        panel.classList.toggle("hidden-panel", panel.id !== safeTarget);
+      }
+    });
+    updateNavHelper(activeBtn);
+  };
+
   navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
-      const target = btn.dataset.target;
-      navItems.forEach((v) => v.classList.remove("active"));
-      btn.classList.add("active");
-      panels.forEach((panel) => {
-        if (target === "all") {
-          panel.classList.remove("hidden-panel");
-          return;
-        }
-        panel.classList.toggle("hidden-panel", panel.id !== target);
-      });
-      updateNavHelper(btn);
+      const target = normalizeTarget(btn.dataset.target);
+      setRoute(target);
+      applyTarget(target);
     });
   });
-  const active = navItems.find((btn) => btn.classList.contains("active"));
-  if (active) updateNavHelper(active);
+
+  window.addEventListener("hashchange", () => applyTarget(routeTarget()));
+  applyTarget(routeTarget());
 }
 
 function setupFlowTabs() {
@@ -1549,17 +1578,14 @@ function setupFlowTabs() {
   tabsRoot.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-target]");
     if (!btn) return;
-    const navAll = document.querySelector('.nav-item[data-target="all"]');
-    if (navAll && !navAll.classList.contains("active")) {
-      navAll.click();
-    }
     const target = btn.dataset.target;
     if (!target) return;
-    const panel = document.getElementById(target);
-    if (panel) {
-      panel.classList.remove("hidden-panel");
-      panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    const navBtn = document.querySelector(`.nav-item[data-target="${target}"]`);
+    if (navBtn) {
+      navBtn.click();
     }
+    const panel = document.getElementById(target);
+    if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 }
 
