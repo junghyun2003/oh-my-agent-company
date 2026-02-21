@@ -394,13 +394,48 @@ function renderAgents(agents) {
 
 function renderOffice(agents) {
   const root = document.getElementById("officeView");
-  root.innerHTML = agents.map((agent) => `
-    <div class="desk ${statusClass(agent.status)}">
-      <div><strong>${esc(agent.name)}</strong></div>
-      <div class="worker" aria-hidden="true">🧑‍💻</div>
-      <div class="muted">${esc(agent.current_task)}</div>
+  if (!agents.length) {
+    root.innerHTML = `<p class="muted">픽셀 오피스를 렌더링할 에이전트가 없습니다.</p>`;
+    return;
+  }
+
+  const desks = agents
+    .map((agent, index) => {
+      const col = (index * 2) % 10;
+      const row = Math.floor(index / 5) % 4;
+      return `
+        <article class="pixel-desk ${statusClass(agent.status)}">
+          <header>
+            <strong>${esc(agent.name)}</strong>
+            <span class="tag">${esc(statusKo(agent.status))}</span>
+          </header>
+          <div class="pixel-station">
+            <div class="pixel-monitor">${esc(agent.team || "Team")}</div>
+            <div
+              class="pixel-avatar ${statusClass(agent.status)}"
+              style="--sprite-x:${col}; --sprite-y:${row};"
+              role="img"
+              aria-label="${esc(agent.name)} pixel avatar"
+            ></div>
+          </div>
+          <p class="muted">${esc(agent.current_task || "대기중")}</p>
+        </article>
+      `;
+    })
+    .join("");
+
+  root.innerHTML = `
+    <div class="pixel-office-scene">
+      <div class="pixel-office-topline">
+        <div class="pixel-building" aria-hidden="true"></div>
+        <div class="pixel-banner">
+          <strong>oh-my-agnet-company 픽셀 오피스</strong>
+          <small>클라이언트가 실시간으로 팀 좌석/업무를 확인하는 뷰</small>
+        </div>
+      </div>
+      <div class="pixel-desks">${desks}</div>
     </div>
-  `).join("");
+  `;
 }
 
 function renderTeamHealth(agents) {
