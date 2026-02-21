@@ -1601,6 +1601,31 @@ function setupIntakePresets() {
   });
 }
 
+function setupConversationLangToggle() {
+  const root = document.getElementById("conversationLangToggle");
+  if (!root) return;
+
+  const applyActive = () => {
+    const buttons = Array.from(root.querySelectorAll(".lang-btn"));
+    buttons.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.mode === conversationLangMode);
+    });
+  };
+
+  root.addEventListener("click", (event) => {
+    const btn = event.target.closest(".lang-btn[data-mode]");
+    if (!btn) return;
+    const mode = btn.dataset.mode;
+    if (!["kor", "bilingual", "eng"].includes(mode)) return;
+    conversationLangMode = mode;
+    applyActive();
+    const jobs = tableCache.jobs?.jobs || [];
+    renderConversation(pickActiveJob(jobs));
+  });
+
+  applyActive();
+}
+
 async function loadRepositories() {
   const res = await fetch(`${reposUrl}?t=${Date.now()}`);
   const data = await res.json();
@@ -1833,6 +1858,7 @@ setupFlowTabs();
 setupPaginationDelegation();
 setupIntakePresets();
 setupAuditControls();
+setupConversationLangToggle();
 loadOwnerInfo()
   .then(loadSettings)
   .then(loadRepositories)
