@@ -77,6 +77,7 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - 팀별 역할: `teams/*/AGENTS.md`
 - 운영 정책 검토: `POLICY_REVIEW.md`
 - 마케팅 실행 가이드: `MARKETING_PLAYBOOK.md`
+- 공통 컴포넌트 정책: `COMPONENT_REGISTRY.md`
 
 ## 7) 기본 운영 원칙
 - Owner 검증 실패 요청은 거부
@@ -90,6 +91,9 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - 클라이언트 응답은 4블록 템플릿(변경점/영향/리스크/다음 조치)을 사용
 - 무리한 클라이언트 요구에도 거절 대신 범위 분해/단계 납품/MDR 제시를 기본 정책으로 적용
 - 디자인/마케팅 팀은 월 1회 이상 공식 경제지표(BLS/BEA/Federal Reserve)와 UX 레퍼런스를 업데이트해 UI/메시지 의사결정에 반영
+- C-Level 제외 모든 팀은 팀장(Lead Agent)을 두고, 외부 레퍼런스 기반 정책/업무 정제를 수행
+- Tech Leader Agent가 전사 기술 리딩과 문서 업데이트(팀별 AGENTS.md 정합성)를 총괄
+- Design Ops + Frontend는 공통 컴포넌트 레지스트리를 유지해 재사용성과 UI 일관성을 관리
 
 ## OSS 라이선스
 - License: `MIT`

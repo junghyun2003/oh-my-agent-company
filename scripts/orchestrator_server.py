@@ -325,41 +325,50 @@ def seed_defaults():
             (utc_now(), 0, "", "", ""),
         )
 
+    now = utc_now()
+    base_agents = [
+        ("ceo", "CEO Agent", "Executive", "healthy", "대기", "Priority governance", "Board", now, 120, 0.01, "CTO Agent", None),
+        ("cto", "CTO Agent", "Executive", "healthy", "대기", "Technical governance", "Engineering", now, 150, 0.01, "Product Planning Agent", None),
+        ("strategy", "Business Strategy Agent", "Business", "healthy", "대기", "Opportunity mapping", "Growth", now, 170, 0.01, "Marketing Agent", None),
+        ("marketing", "Marketing Agent", "Business", "healthy", "대기", "Demand planning", "Demand Gen", now, 180, 0.01, "Product Planning Agent", None),
+        ("product", "Product Planning Agent", "Product", "healthy", "대기", "Scope quality", "PM", now, 190, 0.01, "Frontend Agent", None),
+        ("backend", "Backend Agent", "Engineering", "healthy", "대기", "Service reliability", "Backend Squad", now, 200, 0.01, "QA Agent", None),
+        ("frontend", "Frontend Agent", "Engineering", "healthy", "대기", "UX integrity", "Web Squad", now, 210, 0.01, "QA Agent", None),
+        ("app", "App Agent", "Engineering", "healthy", "대기", "Mobile quality", "Mobile Squad", now, 190, 0.01, "QA Agent", None),
+        ("design", "Design Ops Agent", "Design", "healthy", "대기", "UI coherence", "Design Ops", now, 180, 0.01, "Frontend Agent", None),
+        ("security", "Security Agent", "Security", "healthy", "대기", "Secure delivery", "Security Ops", now, 175, 0.01, "QA Agent", None),
+        ("qa", "QA Agent", "Reliability", "healthy", "대기", "Release confidence", "QA Team", now, 160, 0.01, "Infrastructure Agent", None),
+        ("infra", "Infrastructure Agent", "Reliability", "healthy", "대기", "SLO protection", "SRE", now, 170, 0.01, "CTO Agent", None),
+    ]
+    lead_agents = [
+        ("lead-business", "Business Team Lead", "Business", "healthy", "대기", "External strategy research", "Business Lead", now, 165, 0.01, "Business Strategy Agent", None),
+        ("lead-marketing", "Marketing Team Lead", "Business", "healthy", "대기", "Market messaging refinement", "Marketing Lead", now, 165, 0.01, "Marketing Agent", None),
+        ("lead-product", "Product Team Lead", "Product", "healthy", "대기", "Requirement governance", "Product Lead", now, 165, 0.01, "Product Planning Agent", None),
+        ("lead-backend", "Backend Team Lead", "Engineering", "healthy", "대기", "Backend standards refinement", "Backend Lead", now, 165, 0.01, "Backend Agent", None),
+        ("lead-frontend", "Frontend Team Lead", "Engineering", "healthy", "대기", "UI component governance", "Frontend Lead", now, 165, 0.01, "Frontend Agent", None),
+        ("lead-app", "App Team Lead", "Engineering", "healthy", "대기", "App impact standards", "App Lead", now, 165, 0.01, "App Agent", None),
+        ("lead-design", "Design Team Lead", "Design", "healthy", "대기", "Design system and component registry", "Design Lead", now, 165, 0.01, "Design Ops Agent", None),
+        ("lead-security", "Security Team Lead", "Security", "healthy", "대기", "Security policy curation", "Security Lead", now, 165, 0.01, "Security Agent", None),
+        ("lead-qa", "QA Team Lead", "Reliability", "healthy", "대기", "Quality gate refinement", "QA Lead", now, 165, 0.01, "QA Agent", None),
+        ("lead-infra", "Infrastructure Team Lead", "Reliability", "healthy", "대기", "Ops runbook governance", "Infra Lead", now, 165, 0.01, "Infrastructure Agent", None),
+        ("tech-lead", "Tech Leader Agent", "Technology", "healthy", "대기", "Tech trend and cross-team architecture leadership", "Technology Leadership", now, 160, 0.01, "CTO Agent", None),
+    ]
+    bootstrap_agents = base_agents + lead_agents
+
     if not q1("SELECT id FROM agent_status LIMIT 1"):
-        now = utc_now()
-        agents = [
-            ("ceo", "CEO Agent", "Executive", "healthy", "대기", "Priority governance", "Board", now, 120, 0.01, "CTO Agent", None),
-            ("cto", "CTO Agent", "Executive", "healthy", "대기", "Technical governance", "Engineering", now, 150, 0.01, "Product Planning Agent", None),
-            ("strategy", "Business Strategy Agent", "Business", "healthy", "대기", "Opportunity mapping", "Growth", now, 170, 0.01, "Marketing Agent", None),
-            ("marketing", "Marketing Agent", "Business", "healthy", "대기", "Demand planning", "Demand Gen", now, 180, 0.01, "Product Planning Agent", None),
-            ("product", "Product Planning Agent", "Product", "healthy", "대기", "Scope quality", "PM", now, 190, 0.01, "Frontend Agent", None),
-            ("backend", "Backend Agent", "Engineering", "healthy", "대기", "Service reliability", "Backend Squad", now, 200, 0.01, "QA Agent", None),
-            ("frontend", "Frontend Agent", "Engineering", "healthy", "대기", "UX integrity", "Web Squad", now, 210, 0.01, "QA Agent", None),
-            ("app", "App Agent", "Engineering", "healthy", "대기", "Mobile quality", "Mobile Squad", now, 190, 0.01, "QA Agent", None),
-            ("design", "Design Ops Agent", "Design", "healthy", "대기", "UI coherence", "Design Ops", now, 180, 0.01, "Frontend Agent", None),
-            ("security", "Security Agent", "Security", "healthy", "대기", "Secure delivery", "Security Ops", now, 175, 0.01, "QA Agent", None),
-            ("qa", "QA Agent", "Reliability", "healthy", "대기", "Release confidence", "QA Team", now, 160, 0.01, "Infrastructure Agent", None),
-            ("infra", "Infrastructure Agent", "Reliability", "healthy", "대기", "SLO protection", "SRE", now, 170, 0.01, "CTO Agent", None),
-        ]
         DB.executemany(
             "INSERT INTO agent_status (id,name,team,status,current_task,initiative,owner,last_update,latency_ms,error_rate,next_handoff,blocker) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            agents,
+            bootstrap_agents,
         )
         DB.commit()
     else:
-        # Backward-compatible bootstrap: add new team agents if this DB was seeded before.
-        if not q1("SELECT id FROM agent_status WHERE id='design'"):
-            now = utc_now()
-            exec_sql(
-                "INSERT INTO agent_status (id,name,team,status,current_task,initiative,owner,last_update,latency_ms,error_rate,next_handoff,blocker) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                ("design", "Design Ops Agent", "Design", "healthy", "대기", "UI coherence", "Design Ops", now, 180, 0.01, "Frontend Agent", None),
-            )
-        if not q1("SELECT id FROM agent_status WHERE id='security'"):
-            now = utc_now()
-            exec_sql(
-                "INSERT INTO agent_status (id,name,team,status,current_task,initiative,owner,last_update,latency_ms,error_rate,next_handoff,blocker) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                ("security", "Security Agent", "Security", "healthy", "대기", "Secure delivery", "Security Ops", now, 175, 0.01, "QA Agent", None),
-            )
+        # Backward-compatible bootstrap: add missing agents for existing DB.
+        for row in bootstrap_agents:
+            if not q1("SELECT id FROM agent_status WHERE id=?", (row[0],)):
+                exec_sql(
+                    "INSERT INTO agent_status (id,name,team,status,current_task,initiative,owner,last_update,latency_ms,error_rate,next_handoff,blocker) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    row,
+                )
 
     if not q1("SELECT key FROM state_meta WHERE key='company_mission'"):
         exec_sql("INSERT INTO state_meta (key, value) VALUES (?,?)", ("company_mission", "클라이언트 요청 대기"))
@@ -1081,12 +1090,14 @@ def run_pipeline(job):
     set_meta("updated_at", utc_now())
 
     update_agent("product", status="warning", current_task="PM scoping", initiative="Scope lock", latency_ms=320, error_rate=0.03, blocker=None)
+    update_agent("lead-product", status="warning", current_task="PM policy refinement", initiative="Team leadership", latency_ms=300, error_rate=0.03, blocker=None)
     set_job_fields(job["id"], {"status": "in_progress", "stage": "pm", "started_at": utc_now()})
     add_timeline(job["id"], "PM stage started.")
     pm_notes = [agent_note("Product Planning", "PM", job["refined_request"])]
     set_job_fields(job["id"], {"pm_notes": pm_notes})
 
     update_agent("cto", status="warning", current_task="CTO architecture review", initiative="Feasibility", latency_ms=330, error_rate=0.04, blocker=None)
+    update_agent("tech-lead", status="warning", current_task="Cross-team technical review", initiative="Technology leadership", latency_ms=310, error_rate=0.03, blocker=None)
     set_job_fields(job["id"], {"stage": "cto"})
     add_timeline(job["id"], "CTO stage started.")
     cto_notes = [agent_note("CTO", "CTO", job["refined_request"])]
@@ -1105,6 +1116,14 @@ def run_pipeline(job):
         ("design", "Design system alignment"),
         ("security", "Security review and hardening"),
         ("infra", "Infra deployment prep"),
+        ("lead-backend", "Backend standards leadership"),
+        ("lead-frontend", "Frontend component leadership"),
+        ("lead-app", "App standards leadership"),
+        ("lead-design", "Design system leadership"),
+        ("lead-security", "Security policy leadership"),
+        ("lead-infra", "Infrastructure runbook leadership"),
+        ("lead-business", "Business prioritization leadership"),
+        ("lead-marketing", "Marketing message leadership"),
     ]:
         update_agent(aid, status="warning", current_task=task, initiative="Dev stage", latency_ms=340, error_rate=0.04, blocker=None)
     set_job_fields(job["id"], {"stage": "dev"})
@@ -1140,6 +1159,7 @@ def run_pipeline(job):
         wait_for_approval(job["id"], "post")
 
     update_agent("qa", status="warning", current_task="QA validation", initiative="Release gate", latency_ms=300, error_rate=0.03, blocker=None)
+    update_agent("lead-qa", status="warning", current_task="QA policy leadership", initiative="Quality governance", latency_ms=280, error_rate=0.03, blocker=None)
     set_job_fields(job["id"], {"stage": "qa"})
     add_timeline(job["id"], "QA stage started.")
     qa_notes = [agent_note("QA", "QA", "Regression and release checks")]
@@ -1147,9 +1167,13 @@ def run_pipeline(job):
     post_audit = build_post_completion_audit(job)
     report_path = write_report(job, actions, changed_files, pm_notes + cto_notes + dev_notes + qa_notes, post_audit=post_audit)
 
-    for aid in ["ceo", "cto", "strategy", "marketing", "product", "backend", "frontend", "app", "design", "security", "qa", "infra"]:
+    for aid in [
+        "ceo", "cto", "strategy", "marketing", "product", "backend", "frontend", "app", "design", "security", "qa", "infra",
+        "lead-business", "lead-marketing", "lead-product", "lead-backend", "lead-frontend", "lead-app", "lead-design", "lead-security", "lead-qa", "lead-infra", "tech-lead",
+    ]:
         update_agent(aid, status="healthy", latency_ms=170, error_rate=0.01, blocker=None)
     update_agent("ceo", current_task="Client delivery report", initiative="Owner briefing")
+    update_agent("tech-lead", current_task="Tech trend scan and policy updates", initiative="Technology leadership")
     set_meta("updated_at", utc_now())
 
     client_message = build_client_delivery_message(job, actions, changed_files, post_audit)

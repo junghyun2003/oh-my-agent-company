@@ -26,3 +26,6 @@
 ## Local Operation Rules
 - Owner 승인 없는 우선순위 강제 금지
 - 정책 밖 액션 제안 금지
+
+## Team Lead Role
+- Business Strategy 팀장은 외부 시장/경쟁 레퍼런스를 탐색해 우선순위 정책을 정제한다.

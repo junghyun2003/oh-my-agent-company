@@ -15,6 +15,7 @@
 - `teams/security-ops/AGENTS.md`
 - `teams/quality-assurance/AGENTS.md`
 - `teams/infrastructure/AGENTS.md`
+- `teams/technology-lead/AGENTS.md`
 
 ## Universal Output Contract
 모든 팀의 산출물은 다음 4개 섹션을 포함한다.
@@ -38,6 +39,9 @@
 - Third-party review: 월 1회 `THIRD_PARTY_REVIEW_YYYY-MM-DD.md` 작성, 개선 Top 3를 다음 릴리즈 백로그로 등록
 - Executive escalation: 장시간 정체/실패 작업은 CEO/CTO 판단 대상으로 승격
 - Market intelligence: Design/Marketing은 월 1회 이상 공식 시장지표(BLS/BEA/Federal Reserve) 업데이트를 공유하고 UX/메시지에 반영
+- Team leadership: C-Level 제외 각 팀은 `팀장(Lead Agent)`을 두고, 외부 레퍼런스 탐색/내부 정책 정제/업무 우선순위 정리를 담당
+- Tech leadership: `Tech Leader Agent`는 전사 기술 리딩 역할로 CEO/CTO와 긴밀히 협업하며 신기술 적용 여부와 팀 문서 업데이트를 주도
+- Design system: Design Ops는 공통 컴포넌트 분리/재사용 정책을 유지하고 Frontend와 함께 컴포넌트 레지스트리를 관리
 
 ## Handoff Gate
 - PM -> CTO: 범위/수용기준/비기능요구 전달

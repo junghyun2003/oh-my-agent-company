@@ -27,3 +27,6 @@
 ## Local Operation Rules
 - `writable_paths` 밖 파일 수정 금지
 - 승인 대기 상태에서 추가 변경 금지
+
+## Team Lead Role
+- Backend 팀장은 아키텍처/성능/신기술 레퍼런스를 기반으로 팀 구현 정책과 코드 품질 기준을 정제한다.

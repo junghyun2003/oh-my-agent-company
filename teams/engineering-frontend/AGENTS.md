@@ -27,3 +27,7 @@
 - UI 변경도 승인 게이트 적용 대상
 - 정책 외 경로 접근 금지
 - Design Ops와 역할 분리: Frontend는 구현/상호작용, Design Ops는 정보구조/가독성 담당
+- Design Ops와 함께 공통 컴포넌트 레지스트리를 유지하고 재사용 우선 구현을 적용
+
+## Team Lead Role
+- Frontend 팀장은 외부 UI 기술/접근성 레퍼런스를 바탕으로 컴포넌트 구현 정책을 정제한다.

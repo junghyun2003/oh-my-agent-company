@@ -23,3 +23,6 @@
 
 ## Local Operation Rules
 - 앱 코드 변경 시 별도 정책 경로 필요
+
+## Team Lead Role
+- App 팀장은 모바일 기술 동향/품질 기준 레퍼런스를 수집해 앱 영향 평가 정책을 정제한다.

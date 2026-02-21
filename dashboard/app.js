@@ -435,7 +435,11 @@ function renderAgents(agents) {
     <article class="agent">
       <header>
         <div>
-          <div><span class="status-dot ${statusClass(agent.status)}"></span><strong>${esc(agent.name)}</strong></div>
+          <div>
+            <span class="status-dot ${statusClass(agent.status)}"></span>
+            <strong>${esc(agent.name)}</strong>
+            ${String(agent.id || "").startsWith("lead-") || String(agent.id || "") === "tech-lead" ? `<span class="tag priority-high">팀장</span>` : ""}
+          </div>
           <small>${esc(agent.team)}</small>
         </div>
         <small>${esc(String(agent.status || "").toUpperCase())}</small>

@@ -29,3 +29,6 @@
 ## Local Operation Rules
 - `manual_post/manual_both` 모드에서는 post 승인 전 완료 처리 금지
 - QA 결과에는 고객 관점 영향(무엇이 개선/제한되는지)을 1줄로 포함
+
+## Team Lead Role
+- QA 팀장은 품질/테스트 레퍼런스를 기반으로 검증 정책과 게이트 기준을 정제한다.
