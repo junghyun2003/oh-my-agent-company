@@ -1170,10 +1170,10 @@ button.ghost {
   border: 2px solid #2d3f57;
   border-radius: 4px;
   position: relative;
-  background-image: url("assets/pixel/avatar_sheet_cc0.png");
+  background-image: var(--avatar-image, url("assets/pixel/generated/general.svg"));
   background-repeat: no-repeat;
-  background-size: 600px 192px;
-  background-position: calc(var(--sprite-x, 0) * -50px) calc(var(--sprite-y, 0) * -48px);
+  background-size: cover;
+  background-position: center;
   background-color: #e8edf7;
   image-rendering: pixelated;
   animation: avatar-work 1.2s steps(2) infinite;
@@ -1189,28 +1189,15 @@ button.ghost {
   background: rgba(23, 39, 61, 0.24);
 }
 
-.pixel-avatar::before {
-  content: "";
-  position: absolute;
-  left: 8px;
-  top: 8px;
-  width: 10px;
-  height: 10px;
-  box-shadow:
-    0 0 0 2px var(--avatar-main, #f5ca99),
-    14px 0 0 2px var(--avatar-main, #f5ca99),
-    7px 12px 0 5px var(--avatar-accent, #496ca1);
-}
-
-.pixel-avatar.role-design { --avatar-main: #f3c39d; --avatar-accent: #cb5f7d; }
-.pixel-avatar.role-dev { --avatar-main: #f0bf95; --avatar-accent: #4c7dd1; }
-.pixel-avatar.role-qa { --avatar-main: #f2c79d; --avatar-accent: #4da67a; }
-.pixel-avatar.role-infra { --avatar-main: #efc096; --avatar-accent: #6279a3; }
-.pixel-avatar.role-security { --avatar-main: #f0be90; --avatar-accent: #7f63b8; }
-.pixel-avatar.role-marketing { --avatar-main: #f4cba5; --avatar-accent: #d2773f; }
-.pixel-avatar.role-pm { --avatar-main: #f3c89f; --avatar-accent: #4b8fa4; }
-.pixel-avatar.role-lead { --avatar-main: #f2c69f; --avatar-accent: #5166b3; }
-.pixel-avatar.role-general { --avatar-main: #efc39f; --avatar-accent: #6680a6; }
+.pixel-avatar.role-design { --avatar-image: url("assets/pixel/generated/design.svg"); }
+.pixel-avatar.role-dev { --avatar-image: url("assets/pixel/generated/dev.svg"); }
+.pixel-avatar.role-qa { --avatar-image: url("assets/pixel/generated/qa.svg"); }
+.pixel-avatar.role-infra { --avatar-image: url("assets/pixel/generated/infra.svg"); }
+.pixel-avatar.role-security { --avatar-image: url("assets/pixel/generated/security.svg"); }
+.pixel-avatar.role-marketing { --avatar-image: url("assets/pixel/generated/marketing.svg"); }
+.pixel-avatar.role-pm { --avatar-image: url("assets/pixel/generated/pm.svg"); }
+.pixel-avatar.role-lead { --avatar-image: url("assets/pixel/generated/lead.svg"); }
+.pixel-avatar.role-general { --avatar-image: url("assets/pixel/generated/general.svg"); }
 
 .pixel-task {
   margin: 0;
@@ -1276,11 +1263,9 @@ button.ghost {
 @keyframes avatar-work {
   0%, 100% {
     transform: translateY(0);
-    background-position: calc(var(--sprite-x, 0) * -50px) calc(var(--sprite-y, 0) * -48px);
   }
   50% {
     transform: translateY(-2px);
-    background-position: calc((var(--sprite-x, 0) + 1) * -50px) calc(var(--sprite-y, 0) * -48px);
   }
 }
 

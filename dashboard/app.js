@@ -548,8 +548,6 @@ function renderOffice(agents) {
 
   const desks = agents
     .map((agent, index) => {
-      const col = (index * 2) % 10;
-      const row = Math.floor(index / 5) % 4;
       const score = weightedAgentScore(agent);
       const roleClass = roleClassForTeam(agent.team);
       return `
@@ -562,7 +560,6 @@ function renderOffice(agents) {
             <div class="pixel-monitor">${esc(agent.team || "Team")}</div>
             <div
               class="pixel-avatar ${roleClass} ${statusClass(agent.status)}"
-              style="--sprite-x:${col}; --sprite-y:${row};"
               role="img"
               aria-label="${esc(agent.name)} pixel avatar (${esc(agent.team || "team")})"
             ></div>
