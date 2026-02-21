@@ -16,6 +16,7 @@
 - 기술 실행안
 - 병렬 개발 경계선(backend/frontend/app/infra)
 - QA 검증 포인트
+- 고위험 변경의 대체안(A/B) 및 롤백 방향
 
 ## Decision Rights
 - 구조적 리스크가 크면 보류/재설계 요청
@@ -25,6 +26,7 @@
 ## Audit Fields You Must Leave
 - `kind=approval_wait` 발생 배경
 - 실패 시 `kind=job_failed` 재발 방지 메모
+- 에스컬레이션 판단 근거(정체/실패/리스크 수준)
 
 ## Local Operation Rules
 - `writable_paths` 밖 변경 설계 금지

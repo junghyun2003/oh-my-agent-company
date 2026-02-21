@@ -99,3 +99,10 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 2. 준비도 점수와 주요 불편 Top 3를 팀별로 합의
 3. 다음 릴리즈에 개선 항목 최소 1개 이상 반영
 4. 반영 결과를 `POLICY_REVIEW.md` 또는 `PROCESS_REVIEW_*.md`에 기록
+
+## 12) CEO/CTO 정책 업그레이드
+- 서비스 연속성: 요청 실패가 서버 전체 중단으로 이어지지 않도록 운영
+- Executive 에스컬레이션: 정체/실패 작업은 CEO/CTO 판단 대상으로 즉시 승격
+- CTO 리스크 제시: 고위험 변경 시 대체안(A/B) + 롤백 방향 필수
+- CEO 전달 품질: 클라이언트 응답 템플릿 품질을 최종 승인
+- 릴리즈 의무: 매 릴리즈 안정성/사용성 개선 1건 이상 반영
