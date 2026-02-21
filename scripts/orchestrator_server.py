@@ -1286,6 +1286,11 @@ class Handler(SimpleHTTPRequestHandler):
         raw = self.rfile.read(length).decode("utf-8")
         return json.loads(raw)
 
+    def _redirect(self, location, status=HTTPStatus.FOUND):
+        self.send_response(status)
+        self.send_header("Location", location)
+        self.end_headers()
+
     def _owner_guard(self, payload):
         ok, reason = validate_owner(payload)
         if ok:
@@ -1297,13 +1302,12 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
-        # Human-friendly entry: open dashboard from root URL.
+        # Human-friendly entry: redirect root URL to dashboard URL
+        # so relative CSS/JS asset paths resolve correctly in the browser.
         if path in ["/", "/index.html"]:
-            self.path = "/dashboard/"
-            return super().do_GET()
+            return self._redirect("/dashboard/")
         if path == "/dashboard":
-            self.path = "/dashboard/"
-            return super().do_GET()
+            return self._redirect("/dashboard/")
         if path.startswith("/api/"):
             with LOCK:
                 touch_api_usage("GET", path)

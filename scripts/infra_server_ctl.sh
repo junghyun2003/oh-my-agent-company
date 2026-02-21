@@ -15,8 +15,16 @@ is_running() {
   fi
   local pid
   pid="$(cat "${PID_FILE}" 2>/dev/null || true)"
-  [[ -n "${pid}" ]] || return 1
-  ps -p "${pid}" > /dev/null 2>&1
+  if [[ -z "${pid}" ]]; then
+    rm -f "${PID_FILE}"
+    return 1
+  fi
+  if ps -p "${pid}" > /dev/null 2>&1; then
+    return 0
+  fi
+  # stale pid file
+  rm -f "${PID_FILE}"
+  return 1
 }
 
 wait_health() {
@@ -45,11 +53,16 @@ start_server() {
   echo "${pid}" > "${PID_FILE}"
 
   if wait_health; then
-    echo "started: pid ${pid} port ${PORT}"
-    return 0
+    # Stability check: ensure process survives a short warm-up window.
+    sleep 1
+    if is_running && curl -fsS "${health_url}" > /dev/null 2>&1; then
+      echo "started: pid ${pid} port ${PORT}"
+      return 0
+    fi
   fi
 
   echo "failed to start; check ${LOG_FILE}" >&2
+  rm -f "${PID_FILE}"
   tail -n 80 "${LOG_FILE}" >&2 || true
   return 1
 }
