@@ -13,7 +13,8 @@
 
 [optional body]
 
-[optional footer]
+Change-Origin: upstream|custom
+Upstream-Ref: <tag-or-sha-or-none>
 ```
 
 ## Team Scope Standard (Required)
@@ -56,6 +57,8 @@
 4. 모든 작업은 로컬에만 두지 말고 완료 단위마다 원격에 푸시한다.
 5. 팀 관련 변경은 반드시 `type(<team-scope>): ...` 형식으로 작성한다.
 6. 다중 팀 변경은 커밋을 분리한다. (예: `frontend`와 `design` 분리)
+7. 모든 커밋은 `Change-Origin` 푸터를 남긴다. (`upstream` 또는 `custom`)
+8. `Change-Origin: custom`인 경우 `Upstream-Ref`를 함께 남긴다.
 
 ## Push Cadence
 1. 화면/기능 단위 완료 시 즉시 `commit + push`

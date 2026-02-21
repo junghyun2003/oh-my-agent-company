@@ -57,9 +57,9 @@ cd oh-my-agent-company
 ./scripts/infra_server_ctl.sh status
 ```
 
-3. Open dashboard
-- `http://localhost:18765/`
+3. Open dashboard (canonical URL)
 - `http://localhost:18765/dashboard/`
+- `http://localhost:18765/`, `http://localhost:18765/dashboard`, `http://localhost:18765/dashboard/index.html` are redirected to this canonical URL.
 
 4. Verify health
 ```bash
@@ -162,6 +162,22 @@ Tech Leader audit:
 ## Open Source Collaboration
 - How to contribute: `/Users/junghyen2003/Documents/oh-my-agent-company/CONTRIBUTING.md`
 - Security reporting: `/Users/junghyen2003/Documents/oh-my-agent-company/SECURITY.md`
+- Fork policy: `/Users/junghyen2003/Documents/oh-my-agent-company/FORK_CUSTOMIZATION_POLICY.md`
+- Upstream baseline: `/Users/junghyen2003/Documents/oh-my-agent-company/UPSTREAM_BASELINE.env`
+- Custom log: `/Users/junghyen2003/Documents/oh-my-agent-company/CUSTOMIZATION_LOG.md`
+
+## Fork Users: Distinguish Original vs Customized
+If you allow public forks, keep original/custom changes separate with the baseline flow:
+
+1. Set your baseline in `UPSTREAM_BASELINE.env`
+2. Record custom changes in `CUSTOMIZATION_LOG.md`
+3. Use commit footer:
+   - `Change-Origin: upstream|custom`
+   - `Upstream-Ref: <tag-or-sha-or-none>`
+4. Run diff report before release:
+```bash
+./scripts/fork_diff_report.sh
+```
 
 ## Troubleshooting
 - Browser cannot connect:

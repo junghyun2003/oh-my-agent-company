@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "state" / "agent_company.db"
 DELIVERABLE_DIR = ROOT / "deliverables"
 PORT = int(os.environ.get("ORCHESTRATOR_PORT", "18765"))
+CANONICAL_DASHBOARD_PATH = "/dashboard/"
 LOCK = threading.Lock()
 DB = None
 DEFAULT_CODEX_MODELS = ["gpt-5-codex", "gpt-5", "o4-mini", "o3"]
@@ -1331,12 +1332,9 @@ class Handler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
         query = parse_qs(parsed.query)
-        # Human-friendly entry: redirect root URL to dashboard URL
-        # so relative CSS/JS asset paths resolve correctly in the browser.
-        if path in ["/", "/index.html"]:
-            return self._redirect("/dashboard/")
-        if path == "/dashboard":
-            return self._redirect("/dashboard/")
+        # Canonicalize dashboard entry URL so every entry path is unified.
+        if path in ["/", "/index.html", "/dashboard", "/dashboard/index.html"]:
+            return self._redirect(CANONICAL_DASHBOARD_PATH, status=HTTPStatus.MOVED_PERMANENTLY)
         if path.startswith("/api/"):
             with LOCK:
                 touch_api_usage("GET", path)

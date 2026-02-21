@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_PATH="${ROOT_DIR}/scripts/infra_server_ctl.sh"
 PORT="${ORCHESTRATOR_PORT:-18765}"
 PID_FILE="${ROOT_DIR}/state/orchestrator.pid"
 WATCHDOG_PID_FILE="${ROOT_DIR}/state/orchestrator_watchdog.pid"
@@ -11,6 +12,7 @@ SERVER_PY="${ROOT_DIR}/scripts/orchestrator_server.py"
 
 health_url="http://localhost:${PORT}/api/health"
 LOCK_DIR="${ROOT_DIR}/state/.infra_ctl.lock"
+LOCK_PID_FILE="${LOCK_DIR}/pid"
 
 get_port_pid() {
   lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true
@@ -45,8 +47,22 @@ wait_port_release() {
 }
 
 with_lock() {
+  mkdir -p "${ROOT_DIR}/state"
   local i=0
   while ! mkdir "${LOCK_DIR}" 2>/dev/null; do
+    # Recover stale lock: lock owner PID is missing or invalid.
+    if [[ -f "${LOCK_PID_FILE}" ]]; then
+      local lock_pid
+      lock_pid="$(cat "${LOCK_PID_FILE}" 2>/dev/null || true)"
+      if [[ -z "${lock_pid}" ]] || ! ps -p "${lock_pid}" > /dev/null 2>&1; then
+        rm -rf "${LOCK_DIR}" >/dev/null 2>&1 || true
+        continue
+      fi
+    else
+      # Lock directory exists without owner metadata.
+      rm -rf "${LOCK_DIR}" >/dev/null 2>&1 || true
+      continue
+    fi
     i=$((i + 1))
     if [[ "${i}" -ge 50 ]]; then
       echo "infra control lock busy: ${LOCK_DIR}" >&2
@@ -54,8 +70,9 @@ with_lock() {
     fi
     sleep 0.1
   done
+  echo "$$" > "${LOCK_PID_FILE}"
   # shellcheck disable=SC2064
-  trap "rmdir \"${LOCK_DIR}\" >/dev/null 2>&1 || true" EXIT
+  trap "rm -f \"${LOCK_PID_FILE}\" >/dev/null 2>&1 || true; rmdir \"${LOCK_DIR}\" >/dev/null 2>&1 || true" EXIT
   "$@"
 }
 
@@ -273,7 +290,7 @@ watchdog_start() {
   touch "${WATCHDOG_LOG_FILE}"
   nohup bash -c "
     while true; do
-      '${0}' ensure >> '${WATCHDOG_LOG_FILE}' 2>&1 || true
+      '${SCRIPT_PATH}' ensure >> '${WATCHDOG_LOG_FILE}' 2>&1 || true
       sleep 5
     done
   " >> "${WATCHDOG_LOG_FILE}" 2>&1 < /dev/null &

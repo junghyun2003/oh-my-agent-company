@@ -23,6 +23,14 @@ Thank you for contributing to `oh-my-agent-company`.
 - Prefer concise conventional-style messages
 - Example: `feat(infra): add safe restart guard`
 - Team rulebook: `/Users/junghyen2003/Documents/oh-my-agent-company/COMMIT_PUSH_RULES.md`
+- For forked repositories, include provenance footers:
+  - `Change-Origin: upstream|custom`
+  - `Upstream-Ref: <tag-or-sha-or-none>`
+
+## Fork Provenance
+- Maintain baseline metadata in `/Users/junghyen2003/Documents/oh-my-agent-company/UPSTREAM_BASELINE.env`
+- Record custom-only changes in `/Users/junghyen2003/Documents/oh-my-agent-company/CUSTOMIZATION_LOG.md`
+- Use `/Users/junghyen2003/Documents/oh-my-agent-company/scripts/fork_diff_report.sh` before release
 
 ## Code of Collaboration
 - Be direct, specific, and respectful

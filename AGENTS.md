@@ -76,6 +76,7 @@
 - Design Ops는 공통 컴포넌트 분리/재사용 정책을 유지하고 Frontend와 함께 컴포넌트 레지스트리를 운영한다.
 - 테마 모드(`system/light/dark`)는 Design Ops 테마 정책(`teams/design-ops/THEME_POLICY.md`)을 따른다.
 - 커밋/푸시 운영은 `COMMIT_PUSH_RULES.md`를 기본 규약으로 사용한다.
+- 포크 커스터마이징 추적은 `FORK_CUSTOMIZATION_POLICY.md`, `UPSTREAM_BASELINE.env`, `CUSTOMIZATION_LOG.md`를 함께 사용한다.
 - 요청 접수 시 우선순위 필드(`긴급도/중요도/의존성`)를 필수 입력으로 관리한다.
 - 상태 전이(요청/작업/승인) 규칙은 문서와 테스트로 동기화해 변경 시 동시 갱신한다.
 - 핵심 릴리즈 게이트는 `정책(문서) - 코드(구현) - 검증(스크립트/체크)` 3축으로 운영한다.
@@ -128,3 +129,4 @@
 5. `THIRD_PARTY_READINESS.md`
 6. 대외 메시지 변경 시 `MARKETING_PLAYBOOK.md`
 7. 근거 자료 업데이트 시 `GOVERNANCE_SOURCES_YYYY-MM-DD.md`
+8. 포크/업스트림 추적 변경 시 `FORK_CUSTOMIZATION_POLICY.md`, `UPSTREAM_BASELINE.env`, `CUSTOMIZATION_LOG.md`
