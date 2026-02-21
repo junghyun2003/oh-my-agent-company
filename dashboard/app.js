@@ -860,6 +860,21 @@ function renderUsage(usage) {
   document.getElementById("usageStamp").textContent = stamp;
 }
 
+function formatDateTimeFull(value) {
+  if (!value) return "--";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  });
+}
+
 function renderRequests(payload) {
   tableCache.requests = payload;
   const requests = [...(payload.requests || [])].reverse();
@@ -874,10 +889,10 @@ function renderRequests(payload) {
     root.innerHTML = `
       <div class="table-wrap"><table class="table">
         <thead>
-          <tr><th>요청 ID</th><th>클라이언트</th><th>상태</th><th>원본 요청</th><th>연결 작업</th></tr>
+          <tr><th>요청 ID</th><th>접수 시각</th><th>클라이언트</th><th>상태</th><th>원본 요청</th><th>연결 작업</th></tr>
         </thead>
         <tbody>
-          ${rows.map((r) => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.client_name)}</td><td><span class="tag">${esc(statusKo(r.status))}</span></td><td>${esc(r.raw_request)}</td><td>${r.linked_job_id ? `<code>${esc(r.linked_job_id)}</code>` : "-"}</td></tr>`).join("")}
+          ${rows.map((r) => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(formatDateTimeFull(r.created_at))}</td><td>${esc(r.client_name)}</td><td><span class="tag">${esc(statusKo(r.status))}</span></td><td>${esc(r.raw_request)}</td><td>${r.linked_job_id ? `<code>${esc(r.linked_job_id)}</code>` : "-"}</td></tr>`).join("")}
         </tbody>
       </table></div>`;
     renderPaginationControls("requests", pagination);
@@ -1517,7 +1532,7 @@ function renderAudit(payload) {
         ${rows.map((e) => {
           const jobIds = extractAuditJobIds(e);
           const jobLabel = jobIds.length ? jobIds.join(", ") : "-";
-          return `<tr><td>${highlightAuditValue(e.at, query)}</td><td>${highlightAuditValue(e.kind || "-", query)}</td><td>${highlightAuditValue(e.owner_id || "-", query)}</td><td>${highlightAuditValue(jobLabel, query)}</td><td>${highlightAuditValue(e.request_id || "-", query)}</td><td class="audit-detail"><pre><code>${escapeHtml(JSON.stringify(e, null, 2))}</code></pre></td></tr>`;
+          return `<tr><td>${highlightAuditValue(formatDateTimeFull(e.at), query)}</td><td>${highlightAuditValue(e.kind || "-", query)}</td><td>${highlightAuditValue(e.owner_id || "-", query)}</td><td>${highlightAuditValue(jobLabel, query)}</td><td>${highlightAuditValue(e.request_id || "-", query)}</td><td class="audit-detail"><pre><code>${escapeHtml(JSON.stringify(e, null, 2))}</code></pre></td></tr>`;
         }).join("")}
       </tbody>
     </table></div>`;
