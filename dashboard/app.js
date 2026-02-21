@@ -32,12 +32,98 @@ const DESIGN_OPEN_ROLES = [
   { title: "Design Technologist", focus: "컴포넌트 프로토타이핑" },
   { title: "Brand Illustrator", focus: "에이전트 팀 비주얼" }
 ];
+const TABLE_PAGINATION = {
+  requests: { size: 5, containerId: "requestsPagination" },
+  jobs: { size: 5, containerId: "jobsPagination" },
+  audit: { size: 8, containerId: "auditPagination" }
+};
+const paginationState = { requests: 1, jobs: 1, audit: 1 };
+const tableCache = { requests: null, jobs: null, audit: null };
+const auditFilterState = { kind: "all", q: "" };
+let reposCache = [];
+let conversationLangMode = "bilingual";
+let lastClientDigestText = "";
+const TRANSLATION_RULES = [
+  { pattern: /\bclient\b/gi, replacement: "클라이언트" },
+  { pattern: /\bowner\b/gi, replacement: "운영자" },
+  { pattern: /\brequest\b/gi, replacement: "요청" },
+  { pattern: /\bassign(ed)?\b/gi, replacement: "할당" },
+  { pattern: /\bupdate(d)?\b/gi, replacement: "업데이트" },
+  { pattern: /\bissue(s)?\b/gi, replacement: "이슈" },
+  { pattern: /\bplan(s|ned)?\b/gi, replacement: "계획" },
+  { pattern: /\bprogress\b/gi, replacement: "진행" },
+  { pattern: /\bqa\b/gi, replacement: "QA" },
+  { pattern: /\breport\b/gi, replacement: "리포트" }
+];
+const STAGE_FALLBACK_KO = {
+  pm: "PM 팀이 요청 범위를 정리했습니다.",
+  cto: "CTO 단계에서 기술 검토를 완료했습니다.",
+  dev: "개발 팀이 구현 세부 사항을 공유했습니다.",
+  qa: "QA 팀이 검증 상황을 보고했습니다.",
+  report: "Report 단계에서 납품 준비를 안내했습니다.",
+  pre_approval: "변경 전 승인 단계 안내입니다.",
+  post_approval: "변경 후 승인 결과입니다."
+};
 
 function rememberRequests(requests = []) {
   requestLookup.clear();
   requests.forEach((req) => {
     if (req && typeof req.id !== "undefined") {
       requestLookup.set(String(req.id), req);
+    }
+  });
+}
+
+function applyPagination(key, list) {
+  const config = TABLE_PAGINATION[key];
+  if (!config) {
+    return { pageItems: list, page: 1, totalPages: 1, totalItems: list.length };
+  }
+  const totalItems = list.length;
+  const totalPages = Math.max(1, Math.ceil(Math.max(0, totalItems) / config.size));
+  const current = Math.min(Math.max(1, paginationState[key] || 1), totalPages);
+  paginationState[key] = current;
+  const start = (current - 1) * config.size;
+  return { pageItems: list.slice(start, start + config.size), page: current, totalPages, totalItems };
+}
+
+function renderPaginationControls(key, meta) {
+  const config = TABLE_PAGINATION[key];
+  if (!config) return;
+  const root = document.getElementById(config.containerId);
+  if (!root) return;
+  if (meta.totalItems <= config.size) {
+    root.innerHTML = "";
+    return;
+  }
+  const prevPage = Math.max(1, meta.page - 1);
+  const nextPage = Math.min(meta.totalPages, meta.page + 1);
+  const prevDisabled = meta.page <= 1 ? "disabled" : "";
+  const nextDisabled = meta.page >= meta.totalPages ? "disabled" : "";
+  root.innerHTML = `
+    <div class="pagination-inner">
+      <button type="button" ${prevDisabled} data-pagination="1" data-key="${esc(key)}" data-page="${prevPage}">이전</button>
+      <span class="pagination-info">페이지 ${esc(meta.page)} / ${esc(meta.totalPages)} · 총 ${esc(meta.totalItems)}건</span>
+      <button type="button" ${nextDisabled} data-pagination="1" data-key="${esc(key)}" data-page="${nextPage}">다음</button>
+    </div>
+  `;
+}
+
+function setupPaginationDelegation() {
+  document.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-pagination]");
+    if (!btn) return;
+    event.preventDefault();
+    const key = btn.dataset.key;
+    const page = Number(btn.dataset.page);
+    if (!key || Number.isNaN(page) || !TABLE_PAGINATION[key]) return;
+    paginationState[key] = page;
+    if (key === "requests" && tableCache.requests) {
+      renderRequests(tableCache.requests);
+    } else if (key === "jobs" && tableCache.jobs) {
+      renderJobs(tableCache.jobs);
+    } else if (key === "audit" && tableCache.audit) {
+      renderAudit(tableCache.audit);
     }
   });
 }
@@ -225,6 +311,27 @@ function statusKo(status) {
   return map[status] || status || "-";
 }
 
+function translateToKorean(text) {
+  return TRANSLATION_RULES.reduce((acc, rule) => acc.replace(rule.pattern, rule.replacement), text);
+}
+
+function renderConversationLine(event) {
+  const message = event.message || "-";
+  const stage = event.stage || "";
+  const english = esc(message);
+  const fallback = STAGE_FALLBACK_KO[stage] || "팀에서 남긴 메시지를 확인하세요.";
+  const translated = translateToKorean(message);
+  let korean = translated;
+  if (translated === message) {
+    korean = fallback;
+  }
+  const showKor = conversationLangMode === "kor" || conversationLangMode === "bilingual";
+  const showEng = conversationLangMode === "eng" || conversationLangMode === "bilingual";
+  const korLine = showKor ? `<p>${esc(korean)}</p>` : "";
+  const engLine = showEng ? `<p class="en-line">${english}</p>` : "";
+  return `${korLine}${engLine}` || `<p>${esc(message)}</p>`;
+}
+
 function weightedAgentScore(agent) {
   const scoreByStatus = { healthy: 95, warning: 70, critical: 35, idle: 85 };
   const statusScore = scoreByStatus[agent.status] ?? 60;
@@ -313,7 +420,8 @@ function renderTeamHealth(agents) {
 function renderDesignBoard(state) {
   const rolesRoot = document.getElementById("designOpenRoles");
   const statsRoot = document.getElementById("designStats");
-  if (!rolesRoot || !statsRoot) return;
+  const profileRoot = document.getElementById("designProfile");
+  if (!rolesRoot || !statsRoot || !profileRoot) return;
 
   rolesRoot.innerHTML = DESIGN_OPEN_ROLES.map((role) => `<li class="design-role"><strong>${esc(role.title)}</strong><span>${esc(role.focus)}</span><em>채용중</em></li>`).join("");
 
@@ -336,6 +444,37 @@ function renderDesignBoard(state) {
       `
     )
     .join("");
+
+  if (!agents.length) {
+    profileRoot.innerHTML = `
+      <div class="design-profile-card is-empty">
+        <p class="eyebrow">Design Agent Team</p>
+        <h4>신설 대기</h4>
+        <p class="muted">디자인 전담 에이전트가 아직 없습니다. Owner가 승인하면 아래 역할이 즉시 투입됩니다.</p>
+        <ul class="profile-list">
+          ${DESIGN_OPEN_ROLES.map((role) => `<li>${esc(role.title)} · ${esc(role.focus)}</li>`).join("")}
+        </ul>
+        <div class="profile-note">승인 후 Dev 단계에서 병렬 투입됩니다.</div>
+      </div>
+    `;
+  } else {
+    const sorted = [...agents].sort((a, b) => weightedAgentScore(b) - weightedAgentScore(a));
+    const lead = sorted[0];
+    profileRoot.innerHTML = `
+      <div class="design-profile-card">
+        <p class="eyebrow">Design Ops Lead</p>
+        <h4>${esc(lead.name)}</h4>
+        <p>${esc(lead.current_task || "UI 재구성 진행중")}</p>
+        <ul class="profile-list">
+          <li>팀: ${esc(lead.team)}</li>
+          <li>지연: ${esc(lead.latency_ms)} ms</li>
+          <li>에러율: ${esc(fmtPct(lead.error_rate))}</li>
+          <li>다음 핸드오프: ${esc(lead.next_handoff || "-")}</li>
+        </ul>
+        <div class="profile-note">가중치 ${weightedAgentScore(lead)}점 · ${esc(statusKo(lead.status))}</div>
+      </div>
+    `;
+  }
 }
 
 function setTimestamp(isoString) {
@@ -349,21 +488,26 @@ function renderUsage(usage) {
 }
 
 function renderRequests(payload) {
+  tableCache.requests = payload;
   const requests = [...(payload.requests || [])].reverse();
   rememberRequests(requests);
   const root = document.getElementById("requestsTable");
   if (!requests.length) {
     root.innerHTML = `<p class="muted">접수된 클라이언트 요청이 없습니다.</p>`;
+    renderPaginationControls("requests", { page: 1, totalPages: 1, totalItems: 0 });
   } else {
+    const pagination = applyPagination("requests", requests);
+    const rows = pagination.pageItems;
     root.innerHTML = `
       <div class="table-wrap"><table class="table">
         <thead>
           <tr><th>요청 ID</th><th>클라이언트</th><th>상태</th><th>원본 요청</th><th>연결 작업</th></tr>
         </thead>
         <tbody>
-          ${requests.map((r) => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.client_name)}</td><td><span class="tag">${esc(statusKo(r.status))}</span></td><td>${esc(r.raw_request)}</td><td>${r.linked_job_id ? `<code>${esc(r.linked_job_id)}</code>` : "-"}</td></tr>`).join("")}
+          ${rows.map((r) => `<tr><td><code>${esc(r.id)}</code></td><td>${esc(r.client_name)}</td><td><span class="tag">${esc(statusKo(r.status))}</span></td><td>${esc(r.raw_request)}</td><td>${r.linked_job_id ? `<code>${esc(r.linked_job_id)}</code>` : "-"}</td></tr>`).join("")}
         </tbody>
       </table></div>`;
+    renderPaginationControls("requests", pagination);
   }
 
   const requestSelect = document.getElementById("requestSelect");
@@ -506,6 +650,10 @@ function renderConversation(job) {
   const emptyEl = document.getElementById("conversationEmptyState");
   const summaryEl = document.getElementById("conversationSummary");
   const filtersEl = document.getElementById("conversationFilters");
+  const clientEl = document.getElementById("conversationClient");
+  const clientDigestList = document.getElementById("clientDigestList");
+  const clientEmpty = document.getElementById("clientDigestEmpty");
+  const clientStatus = document.getElementById("clientDigestStatus");
   if (!titleEl || !metaEl || !stageEl || !feedEl || !emptyEl || !summaryEl || !filtersEl) return;
 
   if (!job) {
@@ -516,6 +664,9 @@ function renderConversation(job) {
     emptyEl.classList.remove("is-hidden");
     summaryEl.innerHTML = `<p class=\"muted\">대화 요약을 위해 실행중인 작업이 필요합니다.</p>`;
     filtersEl.innerHTML = "";
+    if (clientDigestList) clientDigestList.innerHTML = "";
+    if (clientStatus) clientStatus.textContent = "";
+    if (clientEmpty) clientEmpty.classList.remove("is-hidden");
     return;
   }
 
@@ -530,6 +681,9 @@ function renderConversation(job) {
   if (!events.length) {
     feedEl.innerHTML = "";
     emptyEl.classList.remove("is-hidden");
+    if (clientDigestList) clientDigestList.innerHTML = "";
+    if (clientStatus) clientStatus.textContent = "대상 이벤트가 없어 요약을 생성하지 않았습니다.";
+    if (clientEmpty) clientEmpty.classList.remove("is-hidden");
   } else {
     feedEl.innerHTML = events
       .map(
@@ -537,12 +691,14 @@ function renderConversation(job) {
           <li class="conversation-item">
             <strong>${esc(event.stage ? statusKo(event.stage) : event.actor || "시스템")}</strong>
             <small>${esc(formatTimelineTime(event.at))}</small>
-            <p>${esc(event.message || "-")}</p>
+            ${renderConversationLine(event)}
           </li>
         `
       )
       .join("");
     emptyEl.classList.add("is-hidden");
+    renderClientDigest(events, job);
+    if (clientEmpty) clientEmpty.classList.add("is-hidden");
   }
 
   const summaryRows = [
@@ -569,6 +725,10 @@ function renderConversation(job) {
       }).join("")}
     </ul>
   `;
+
+  if (clientEl) {
+    clientEl.classList.toggle("is-hidden", !job);
+  }
 }
 
 function renderReportHub(jobs = []) {
@@ -658,19 +818,23 @@ function renderStatusMetrics(jobs = []) {
 }
 
 function renderJobs(payload) {
+  tableCache.jobs = payload;
   const originalJobs = payload.jobs || [];
   const jobs = [...originalJobs].reverse();
   const root = document.getElementById("jobsTable");
   if (!jobs.length) {
     root.innerHTML = `<p class="muted">할당된 작업이 없습니다.</p>`;
+    renderPaginationControls("jobs", { page: 1, totalPages: 1, totalItems: 0 });
   } else {
+    const pagination = applyPagination("jobs", jobs);
+    const rows = pagination.pageItems;
     root.innerHTML = `
       <div class="table-wrap"><table class="table">
         <thead>
           <tr><th>작업 ID</th><th>상태</th><th>단계</th><th>승인 모드</th><th>실행 액션</th><th>변경 파일 수</th><th>리포트</th></tr>
         </thead>
         <tbody>
-          ${jobs.map((j) => {
+          ${rows.map((j) => {
             const approval = j.approval_mode || "auto";
             const actions = esc((j.executed_actions || []).join(", ") || "-");
             const changed = (j.changed_files || []).length;
@@ -679,6 +843,7 @@ function renderJobs(payload) {
           }).join("")}
         </tbody>
       </table></div>`;
+    renderPaginationControls("jobs", pagination);
   }
 
   const approveJobSelect = document.getElementById("approveJobSelect");
@@ -709,20 +874,77 @@ function renderPolicy(data) {
   root.innerHTML = `<div>기본 승인 모드: <strong>${esc(data.default_approval_mode || "auto")}</strong></div>${lines.join("")}`;
 }
 
+function pickDefaultRepoPath() {
+  if (!Array.isArray(reposCache) || !reposCache.length) return "";
+  return reposCache[0]?.path || "";
+}
+
+function applyAuditFilter(events = []) {
+  return events.filter((event) => {
+    const kind = String(event.kind || "");
+    const owner = String(event.owner_id || "");
+    const jobId = String(event.job_id || "");
+    const requestId = String(event.request_id || "");
+    const text = `${kind} ${owner} ${jobId} ${requestId}`.toLowerCase();
+    const kindOk = auditFilterState.kind === "all" || kind === auditFilterState.kind;
+    const queryOk = !auditFilterState.q || text.includes(auditFilterState.q);
+    return kindOk && queryOk;
+  });
+}
+
 function renderAudit(payload) {
-  const events = [...(payload.events || [])].reverse();
+  tableCache.audit = payload;
+  const allEvents = [...(payload.events || [])].reverse();
+  const events = applyAuditFilter(allEvents);
+  const statsEl = document.getElementById("auditFilterStats");
+  if (statsEl) {
+    const kindLabel = auditFilterState.kind === "all" ? "전체" : auditFilterState.kind;
+    const qLabel = auditFilterState.q ? `, 검색어="${auditFilterState.q}"` : "";
+    statsEl.textContent = `필터: ${kindLabel}${qLabel} · ${events.length} / ${allEvents.length}건`;
+  }
   const root = document.getElementById("auditTable");
   if (!events.length) {
     root.innerHTML = `<p class="muted">감사 로그 이벤트가 없습니다.</p>`;
+    renderPaginationControls("audit", { page: 1, totalPages: 1, totalItems: 0 });
     return;
   }
+  const pagination = applyPagination("audit", events);
+  const rows = pagination.pageItems;
   root.innerHTML = `
     <div class="table-wrap"><table class="table">
       <thead><tr><th>시각</th><th>종류</th><th>운영자</th><th>작업</th><th>요청</th><th>상세</th></tr></thead>
       <tbody>
-        ${events.map((e) => `<tr><td>${esc(e.at)}</td><td>${esc(e.kind || "-")}</td><td>${esc(e.owner_id || "-")}</td><td>${esc(e.job_id || "-")}</td><td>${esc(e.request_id || "-")}</td><td class="audit-detail"><pre><code>${escapeHtml(JSON.stringify(e, null, 2))}</code></pre></td></tr>`).join("")}
+        ${rows.map((e) => `<tr><td>${esc(e.at)}</td><td>${esc(e.kind || "-")}</td><td>${esc(e.owner_id || "-")}</td><td>${esc(e.job_id || "-")}</td><td>${esc(e.request_id || "-")}</td><td class="audit-detail"><pre><code>${escapeHtml(JSON.stringify(e, null, 2))}</code></pre></td></tr>`).join("")}
       </tbody>
     </table></div>`;
+  renderPaginationControls("audit", pagination);
+}
+
+function setupAuditControls() {
+  const kindSelect = document.getElementById("auditKindFilter");
+  const searchInput = document.getElementById("auditSearchInput");
+  if (kindSelect) {
+    kindSelect.addEventListener("change", () => {
+      auditFilterState.kind = kindSelect.value || "all";
+      paginationState.audit = 1;
+      if (tableCache.audit) renderAudit(tableCache.audit);
+    });
+  }
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      auditFilterState.q = String(searchInput.value || "").trim().toLowerCase();
+      paginationState.audit = 1;
+      if (tableCache.audit) renderAudit(tableCache.audit);
+    });
+  }
+}
+
+function updateNavHelper(button) {
+  const titleEl = document.getElementById("navHelperTitle");
+  const descEl = document.getElementById("navHelperDesc");
+  if (!titleEl || !descEl || !button) return;
+  titleEl.textContent = button.textContent.trim();
+  descEl.textContent = button.dataset.desc || "세부 설명이 없습니다.";
 }
 
 function setupSnbNavigation() {
@@ -741,7 +963,30 @@ function setupSnbNavigation() {
         }
         panel.classList.toggle("hidden-panel", panel.id !== target);
       });
+      updateNavHelper(btn);
     });
+  });
+  const active = navItems.find((btn) => btn.classList.contains("active"));
+  if (active) updateNavHelper(active);
+}
+
+function setupFlowTabs() {
+  const tabsRoot = document.getElementById("flowTabs");
+  if (!tabsRoot) return;
+  tabsRoot.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-target]");
+    if (!btn) return;
+    const navAll = document.querySelector('.nav-item[data-target="all"]');
+    if (navAll && !navAll.classList.contains("active")) {
+      navAll.click();
+    }
+    const target = btn.dataset.target;
+    if (!target) return;
+    const panel = document.getElementById(target);
+    if (panel) {
+      panel.classList.remove("hidden-panel");
+      panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   });
 }
 
@@ -892,6 +1137,7 @@ async function submitRequest(event) {
     result.textContent = `요청 접수 완료: ${data.request.id}`;
     document.getElementById("requestForm").reset();
     await loadAll();
+    await autoAssignJobFromRequest(data.request);
   } catch (error) {
     result.textContent = `실패: ${error.message}`;
   }
@@ -975,7 +1221,10 @@ document.getElementById("refreshModelsBtn").addEventListener("click", () => load
 
 setupAutoRefineControls();
 setupSnbNavigation();
+setupFlowTabs();
+setupPaginationDelegation();
 setupIntakePresets();
+setupAuditControls();
 loadOwnerInfo()
   .then(loadSettings)
   .then(loadRepositories)

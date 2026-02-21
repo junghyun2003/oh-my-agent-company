@@ -5,10 +5,10 @@
 ## What This System Does
 - 클라이언트 요청 접수
 - Owner(운영자)가 요청을 정제해 작업 할당
-- 파이프라인 실행: `PM -> CTO -> Dev(병렬) -> QA -> Report`
+- 파이프라인 실행: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Infra) -> QA -> Report`
 - 수동 승인 게이트(전/후) 처리
 - 작업 완료 후 클라이언트 응대
-- 전체 이벤트 감사로그 기록
+- 전체 이벤트 감사로그 기록 + 작업 완료 직후 `post_job_audit` 자동 생성
 
 ## Runtime Components
 - Orchestrator Server: `scripts/orchestrator_server.py`
@@ -27,6 +27,7 @@
 - 저장소 수정은 `state/agent_company.db`의 `repo_policies`/`app_settings` 정책을 따른다.
 - 승인 모드(`auto/manual_pre/manual_post/manual_both`)를 작업마다 적용한다.
 - 감사로그는 `state/agent_company.db`의 `audit_events` 테이블에 append-only로 기록한다.
+- 작업이 완료(`job_done`)되면 같은 작업 ID에 대해 `post_job_audit` 이벤트를 추가로 기록한다.
 
 ## Team Structure
 - `teams/AGENTS.md`: 팀 전체 규약 및 인덱스

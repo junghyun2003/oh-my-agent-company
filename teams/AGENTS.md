@@ -11,6 +11,7 @@
 - `teams/engineering-backend/AGENTS.md`
 - `teams/engineering-frontend/AGENTS.md`
 - `teams/engineering-app/AGENTS.md`
+- `teams/design-ops/AGENTS.md`
 - `teams/quality-assurance/AGENTS.md`
 - `teams/infrastructure/AGENTS.md`
 
@@ -23,7 +24,7 @@
 
 ## Universal Control Rules
 - Owner identity: `owner_id=owner` 기준 실행
-- Pipeline order: `PM -> CTO -> Dev(병렬) -> QA -> Report`
+- Pipeline order: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Infra) -> QA -> Report`
 - Approval gates: `auto/manual_pre/manual_post/manual_both`
 - Repo policy: 허용 저장소/허용 액션/수정 경로 강제
 - Audit: 주요 이벤트는 `state/agent_company.db (table: audit_events)` 기록

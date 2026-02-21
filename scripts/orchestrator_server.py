@@ -274,6 +274,7 @@ def seed_defaults():
             ("backend", "Backend Agent", "Engineering", "healthy", "대기", "Service reliability", "Backend Squad", now, 200, 0.01, "QA Agent", None),
             ("frontend", "Frontend Agent", "Engineering", "healthy", "대기", "UX integrity", "Web Squad", now, 210, 0.01, "QA Agent", None),
             ("app", "App Agent", "Engineering", "healthy", "대기", "Mobile quality", "Mobile Squad", now, 190, 0.01, "QA Agent", None),
+            ("design", "Design Ops Agent", "Design", "healthy", "대기", "UI coherence", "Design Ops", now, 180, 0.01, "Frontend Agent", None),
             ("qa", "QA Agent", "Reliability", "healthy", "대기", "Release confidence", "QA Team", now, 160, 0.01, "Infrastructure Agent", None),
             ("infra", "Infrastructure Agent", "Reliability", "healthy", "대기", "SLO protection", "SRE", now, 170, 0.01, "CTO Agent", None),
         ]
@@ -282,6 +283,14 @@ def seed_defaults():
             agents,
         )
         DB.commit()
+    else:
+        # Backward-compatible bootstrap: add new team agents if this DB was seeded before.
+        if not q1("SELECT id FROM agent_status WHERE id='design'"):
+            now = utc_now()
+            exec_sql(
+                "INSERT INTO agent_status (id,name,team,status,current_task,initiative,owner,last_update,latency_ms,error_rate,next_handoff,blocker) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                ("design", "Design Ops Agent", "Design", "healthy", "대기", "UI coherence", "Design Ops", now, 180, 0.01, "Frontend Agent", None),
+            )
 
     if not q1("SELECT key FROM state_meta WHERE key='company_mission'"):
         exec_sql("INSERT INTO state_meta (key, value) VALUES (?,?)", ("company_mission", "클라이언트 요청 대기"))
@@ -761,7 +770,81 @@ def agent_note(role, stage, text):
     return {"role": role, "stage": stage, "note": f"{role} {stage}: {text[:120]}", "at": utc_now()}
 
 
-def write_report(job, actions, changed_files, notes):
+def parse_utc(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def build_post_completion_audit(job):
+    recent_rows = [dict(r) for r in q("SELECT id,status,created_at,started_at,completed_at FROM jobs ORDER BY created_at DESC LIMIT 20")]
+    total_recent = len(recent_rows)
+    done_recent = len([r for r in recent_rows if r.get("status") == "done"])
+    failed_recent = len([r for r in recent_rows if r.get("status") == "failed"])
+
+    durations = []
+    for row in recent_rows:
+        if row.get("status") != "done":
+            continue
+        started_at = parse_utc(row.get("started_at"))
+        completed_at = parse_utc(row.get("completed_at"))
+        if started_at and completed_at and completed_at >= started_at:
+            durations.append(int((completed_at - started_at).total_seconds()))
+
+    avg_duration_sec = int(sum(durations) / len(durations)) if durations else None
+    failure_rate = round((failed_recent / total_recent), 3) if total_recent else 0.0
+
+    now_utc = datetime.now(timezone.utc)
+    queue_backlog = []
+    running_backlog = []
+    for row in q("SELECT id,status,stage,created_at,started_at FROM jobs WHERE status IN ('queued','dispatching','in_progress','waiting_pre_approval','waiting_post_approval') ORDER BY created_at"):
+        item = dict(row)
+        base_ts = parse_utc(item.get("started_at")) or parse_utc(item.get("created_at"))
+        if not base_ts:
+            continue
+        age_sec = int((now_utc - base_ts).total_seconds())
+        out = {
+            "id": item["id"],
+            "status": item["status"],
+            "stage": item["stage"],
+            "age_sec": age_sec,
+        }
+        if item["status"] == "queued":
+            queue_backlog.append(out)
+        else:
+            running_backlog.append(out)
+
+    recommendations = []
+    if failure_rate >= 0.2:
+        recommendations.append("최근 실패율이 높습니다. 입력 프롬프트 정제 규칙과 Codex 인자 검증을 강화하세요.")
+    if any(x["age_sec"] > 600 for x in running_backlog):
+        recommendations.append("10분 이상 진행 중인 작업이 있습니다. 단계별 타임아웃/재시도 규칙을 추가하세요.")
+    if any(x["age_sec"] > 300 for x in queue_backlog):
+        recommendations.append("5분 이상 대기 큐가 있습니다. 워커 상태 점검 후 재디스패치 정책을 적용하세요.")
+    if not recommendations:
+        recommendations.append("현재 상태는 안정적입니다. 기존 승인 게이트와 감사로그 정책을 유지하세요.")
+
+    summary = {
+        "generated_at": utc_now(),
+        "subject_job_id": job["id"],
+        "recent_window": {
+            "jobs": total_recent,
+            "done": done_recent,
+            "failed": failed_recent,
+            "failure_rate": failure_rate,
+            "avg_done_duration_sec": avg_duration_sec,
+        },
+        "running_backlog": running_backlog[:5],
+        "queue_backlog": queue_backlog[:5],
+        "recommendations": recommendations,
+    }
+    return summary
+
+
+def write_report(job, actions, changed_files, notes, post_audit=None):
     repo_path = Path(job["repository"])
     DELIVERABLE_DIR.mkdir(parents=True, exist_ok=True)
     report_path = DELIVERABLE_DIR / f"job-{job['id']}.md"
@@ -788,6 +871,26 @@ def write_report(job, actions, changed_files, notes):
         lines.extend([f"  - {x}" for x in display_paths(changed_files)])
     else:
         lines.append("  - (none)")
+    lines.extend(["", "## Post-Completion Audit"])
+    if post_audit:
+        window = post_audit.get("recent_window", {})
+        lines.extend(
+            [
+                f"- Jobs (window): {window.get('jobs', 0)}",
+                f"- Done: {window.get('done', 0)}",
+                f"- Failed: {window.get('failed', 0)}",
+                f"- Failure Rate: {window.get('failure_rate', 0.0)}",
+                f"- Avg Done Duration (sec): {window.get('avg_done_duration_sec', '-')}",
+                "- Recommendations:",
+            ]
+        )
+        recs = post_audit.get("recommendations", [])
+        if recs:
+            lines.extend([f"  - {r}" for r in recs])
+        else:
+            lines.append("  - (none)")
+    else:
+        lines.append("- (audit unavailable)")
     lines.extend(["", "## Working Tree", f"- Branch: {branch}", "```text", status or "(clean)", "```"])
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return display_path(report_path)
@@ -832,13 +935,24 @@ def run_pipeline(job):
         append_audit("approval_wait", owner_id=job["owner_id"], job_id=job["id"], phase="pre")
         wait_for_approval(job["id"], "pre")
 
-    for aid, task in [("backend", "Backend implementation"), ("frontend", "Frontend implementation"), ("app", "App impact validation"), ("infra", "Infra deployment prep")]:
+    for aid, task in [
+        ("backend", "Backend implementation"),
+        ("frontend", "Frontend implementation"),
+        ("app", "App impact validation"),
+        ("design", "Design system alignment"),
+        ("infra", "Infra deployment prep"),
+    ]:
         update_agent(aid, status="warning", current_task=task, initiative="Dev stage", latency_ms=340, error_rate=0.04, blocker=None)
     set_job_fields(job["id"], {"stage": "dev"})
     add_timeline(job["id"], "Dev stage started in parallel.")
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        dev_notes = list(pool.map(lambda role: agent_note(role, "Dev", job["refined_request"]), ["Backend", "Frontend", "App", "Infrastructure"]))
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        dev_notes = list(
+            pool.map(
+                lambda role: agent_note(role, "Dev", job["refined_request"]),
+                ["Backend", "Frontend", "App", "Design", "Infrastructure"],
+            )
+        )
 
     actions = []
     changed_files = []
@@ -866,9 +980,10 @@ def run_pipeline(job):
     add_timeline(job["id"], "QA stage started.")
     qa_notes = [agent_note("QA", "QA", "Regression and release checks")]
 
-    report_path = write_report(job, actions, changed_files, pm_notes + cto_notes + dev_notes + qa_notes)
+    post_audit = build_post_completion_audit(job)
+    report_path = write_report(job, actions, changed_files, pm_notes + cto_notes + dev_notes + qa_notes, post_audit=post_audit)
 
-    for aid in ["ceo", "cto", "strategy", "marketing", "product", "backend", "frontend", "app", "qa", "infra"]:
+    for aid in ["ceo", "cto", "strategy", "marketing", "product", "backend", "frontend", "app", "design", "qa", "infra"]:
         update_agent(aid, status="healthy", latency_ms=170, error_rate=0.01, blocker=None)
     update_agent("ceo", current_task="Client delivery report", initiative="Owner briefing")
     set_meta("updated_at", utc_now())
@@ -891,6 +1006,16 @@ def run_pipeline(job):
         repository=display_path(job["repository"]),
         detail={"executed_actions": actions, "changed_files": changed_display},
     )
+    append_audit(
+        "post_job_audit",
+        owner_id=job["owner_id"],
+        job_id=job["id"],
+        request_id=job["request_id"],
+        repository=display_path(job["repository"]),
+        phase="post_completion",
+        detail=post_audit,
+    )
+    add_timeline(job["id"], "Post-completion audit generated.")
 
 
 def worker_loop():

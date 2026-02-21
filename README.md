@@ -4,10 +4,11 @@
 
 ## 1) 핵심 개념
 - 운영자(Owner): 기본 `owner` (대시보드에서 변경 가능)
-- 파이프라인: `PM -> CTO -> Dev(병렬) -> QA -> Report`
+- 파이프라인: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Infra) -> QA -> Report`
 - 승인 게이트: `auto`, `manual_pre`, `manual_post`, `manual_both`
 - 권한정책: 허용 저장소/수정경로/허용 액션 통제
 - 감사로그: 누가/무엇을/어떻게 변경했는지 추적
+- 완료 후 감사: 각 작업 완료 직후 `post_job_audit` 자동 생성
 
 ## 2) 빠른 시작
 ```bash
@@ -57,6 +58,7 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - 총괄: `AGENTS.md`
 - 팀 인덱스: `teams/AGENTS.md`
 - 팀별 역할: `teams/*/AGENTS.md`
+- 운영 정책 검토: `POLICY_REVIEW.md`
 
 ## 7) 기본 운영 원칙
 - Owner 검증 실패 요청은 거부
