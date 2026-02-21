@@ -22,6 +22,7 @@ Thank you for contributing to `oh-my-agent-company`.
 ## Commit Style
 - Prefer concise conventional-style messages
 - Example: `feat(infra): add safe restart guard`
+- Team rulebook: `/Users/junghyen2003/Documents/oh-my-agent-company/COMMIT_PUSH_RULES.md`
 
 ## Code of Collaboration
 - Be direct, specific, and respectful
