@@ -1028,21 +1028,24 @@ function renderReportHub(jobs = []) {
     </ul>
   `;
 
-  const latest = [...jobs].sort((a, b) => jobTimestamp(b) - jobTimestamp(a))[0];
-  const reportReady = latest.status === "done" && !!latest.report_path;
+  const sorted = [...jobs].sort((a, b) => jobTimestamp(b) - jobTimestamp(a));
+  const latest = sorted[0];
+  const latestDoneReport = sorted.find((job) => job.status === "done" && !!job.report_path);
+  const target = latestDoneReport || latest;
+  const reportReady = target.status === "done" && !!target.report_path;
   const reportHint = reportReady
-    ? "리포트 파일이 준비되었습니다."
-    : `현재 상태: ${statusKo(latest.status)} (${statusKo(latest.stage)}) · Report 단계 완료 후 생성됩니다.`;
-  const files = Array.isArray(latest.changed_files) ? latest.changed_files : [];
-  const actions = Array.isArray(latest.executed_actions) ? latest.executed_actions : [];
-  const qaNote = latest.qa_result || latest.qa_summary || "QA 결과 수집중";
+    ? "최근 완료 리포트를 표시중입니다."
+    : `현재 상태: ${statusKo(target.status)} (${statusKo(target.stage)}) · Report 단계 완료 후 생성됩니다.`;
+  const files = Array.isArray(target.changed_files) ? target.changed_files : [];
+  const actions = Array.isArray(target.executed_actions) ? target.executed_actions : [];
+  const qaNote = target.qa_result || target.qa_summary || "QA 결과 수집중";
   const filePreview = files.slice(0, 3).map((file) => `<code>${esc(file)}</code>`).join(", ") || "-";
-  const reportHref = reportPathToHref(latest.report_path);
-  const reportLine = latest.report_path
-    ? `<a href="${esc(reportHref)}" target="_blank" rel="noopener noreferrer">${esc(latest.report_path)}</a>`
+  const reportHref = reportPathToHref(target.report_path);
+  const reportLine = target.report_path
+    ? `<a href="${esc(reportHref)}" target="_blank" rel="noopener noreferrer">${esc(target.report_path)}</a>`
     : "아직 리포트 경로가 없습니다.";
   evidenceRoot.innerHTML = `
-    <h3>최근 리포트 · ${esc(latest.id || "-")}</h3>
+    <h3>최근 리포트 · ${esc(target.id || "-")}</h3>
     <p class="muted">${reportLine}</p>
     <p class="muted">${esc(reportHint)}</p>
     <ul class="report-list">
