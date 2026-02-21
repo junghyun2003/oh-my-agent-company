@@ -4,13 +4,70 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PORT="${ORCHESTRATOR_PORT:-18765}"
 PID_FILE="${ROOT_DIR}/state/orchestrator.pid"
+WATCHDOG_PID_FILE="${ROOT_DIR}/state/orchestrator_watchdog.pid"
 LOG_FILE="${ROOT_DIR}/state/orchestrator.log"
+WATCHDOG_LOG_FILE="${ROOT_DIR}/state/orchestrator_watchdog.log"
 SERVER_PY="${ROOT_DIR}/scripts/orchestrator_server.py"
 
 health_url="http://localhost:${PORT}/api/health"
+LOCK_DIR="${ROOT_DIR}/state/.infra_ctl.lock"
+
+get_port_pid() {
+  lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true
+}
+
+process_cmd() {
+  local pid="${1:-}"
+  if [[ -z "${pid}" ]]; then
+    return 1
+  fi
+  ps -p "${pid}" -o command= 2>/dev/null || true
+}
+
+is_orchestrator_pid() {
+  local pid="${1:-}"
+  local cmd
+  cmd="$(process_cmd "${pid}")"
+  [[ -n "${cmd}" && "${cmd}" == *"orchestrator_server.py"* ]]
+}
+
+wait_port_release() {
+  local tries="${1:-25}"
+  local i=0
+  while [[ "${i}" -lt "${tries}" ]]; do
+    if [[ -z "$(get_port_pid)" ]]; then
+      return 0
+    fi
+    sleep 0.2
+    i=$((i + 1))
+  done
+  return 1
+}
+
+with_lock() {
+  local i=0
+  while ! mkdir "${LOCK_DIR}" 2>/dev/null; do
+    i=$((i + 1))
+    if [[ "${i}" -ge 50 ]]; then
+      echo "infra control lock busy: ${LOCK_DIR}" >&2
+      return 1
+    fi
+    sleep 0.1
+  done
+  # shellcheck disable=SC2064
+  trap "rmdir \"${LOCK_DIR}\" >/dev/null 2>&1 || true" EXIT
+  "$@"
+}
 
 is_running() {
   if [[ ! -f "${PID_FILE}" ]]; then
+    # PID file can be lost; recover from listening socket when possible.
+    local port_pid
+    port_pid="$(get_port_pid)"
+    if [[ -n "${port_pid}" ]] && is_orchestrator_pid "${port_pid}" && curl -fsS "${health_url}" > /dev/null 2>&1; then
+      echo "${port_pid}" > "${PID_FILE}"
+      return 0
+    fi
     return 1
   fi
   local pid
@@ -46,10 +103,39 @@ start_server() {
     return 0
   fi
 
+  # Recover from orphaned process on the target port before starting a new one.
+  local port_pid
+  port_pid="$(get_port_pid)"
+  if [[ -n "${port_pid}" ]]; then
+    if is_orchestrator_pid "${port_pid}"; then
+      if curl -fsS "${health_url}" > /dev/null 2>&1; then
+        echo "${port_pid}" > "${PID_FILE}"
+        echo "already running (recovered): pid ${port_pid}"
+        return 0
+      fi
+      echo "found unhealthy orchestrator pid ${port_pid}; restarting..." >&2
+      kill "${port_pid}" || true
+      sleep 0.4
+      if ps -p "${port_pid}" > /dev/null 2>&1; then
+        kill -9 "${port_pid}" || true
+      fi
+      if ! wait_port_release; then
+        echo "port ${PORT} did not release after stopping pid ${port_pid}" >&2
+        return 1
+      fi
+    else
+      echo "port ${PORT} is already in use by pid ${port_pid}" >&2
+      echo "cmd: $(process_cmd "${port_pid}")" >&2
+      echo "abort start to avoid killing unrelated process" >&2
+      return 1
+    fi
+  fi
+
   mkdir -p "${ROOT_DIR}/state"
-  : > "${LOG_FILE}"
+  touch "${LOG_FILE}"
   nohup env ORCHESTRATOR_PORT="${PORT}" python3 "${SERVER_PY}" >> "${LOG_FILE}" 2>&1 < /dev/null &
   local pid=$!
+  disown "${pid}" 2>/dev/null || true
   echo "${pid}" > "${PID_FILE}"
 
   if wait_health; then
@@ -68,18 +154,28 @@ start_server() {
 }
 
 stop_server() {
-  if ! is_running; then
-    echo "not running"
-    rm -f "${PID_FILE}"
-    return 0
+  local pid=""
+  if is_running; then
+    pid="$(cat "${PID_FILE}")"
+  else
+    pid="$(get_port_pid)"
+    if [[ -z "${pid}" ]]; then
+      echo "not running"
+      rm -f "${PID_FILE}"
+      return 0
+    fi
+    if ! is_orchestrator_pid "${pid}"; then
+      echo "port ${PORT} is used by non-orchestrator pid ${pid}; skip stop" >&2
+      return 1
+    fi
   fi
-  local pid
-  pid="$(cat "${PID_FILE}")"
+
   kill "${pid}" || true
   sleep 0.5
   if ps -p "${pid}" > /dev/null 2>&1; then
     kill -9 "${pid}" || true
   fi
+  wait_port_release 20 || true
   rm -f "${PID_FILE}"
   echo "stopped: pid ${pid}"
 }
@@ -110,11 +206,120 @@ status_server() {
   fi
 }
 
+ensure_server() {
+  if status_server > /dev/null 2>&1; then
+    echo "healthy: pid $(cat "${PID_FILE}") port ${PORT}"
+    return 0
+  fi
+  echo "recovering server on port ${PORT}..."
+  local port_pid
+  port_pid="$(get_port_pid)"
+  if [[ -n "${port_pid}" ]] && is_orchestrator_pid "${port_pid}"; then
+    echo "stopping unhealthy orchestrator pid ${port_pid} before restart..."
+    kill "${port_pid}" || true
+    sleep 0.4
+    if ps -p "${port_pid}" > /dev/null 2>&1; then
+      kill -9 "${port_pid}" || true
+    fi
+    wait_port_release 20 || true
+  fi
+  start_server
+}
+
+doctor_server() {
+  local pid_file_pid=""
+  local port_pid=""
+  [[ -f "${PID_FILE}" ]] && pid_file_pid="$(cat "${PID_FILE}" 2>/dev/null || true)"
+  port_pid="$(get_port_pid)"
+
+  echo "port=${PORT}"
+  echo "pid_file=${PID_FILE}"
+  echo "pid_file_pid=${pid_file_pid:-none}"
+  echo "port_pid=${port_pid:-none}"
+  if [[ -n "${port_pid}" ]]; then
+    echo "port_cmd=$(process_cmd "${port_pid}")"
+  fi
+  if curl -fsS "${health_url}" > /dev/null 2>&1; then
+    echo "health=ok"
+  else
+    echo "health=fail"
+    return 1
+  fi
+}
+
+is_watchdog_running() {
+  if [[ ! -f "${WATCHDOG_PID_FILE}" ]]; then
+    return 1
+  fi
+  local pid
+  pid="$(cat "${WATCHDOG_PID_FILE}" 2>/dev/null || true)"
+  if [[ -z "${pid}" ]]; then
+    rm -f "${WATCHDOG_PID_FILE}"
+    return 1
+  fi
+  if ps -p "${pid}" > /dev/null 2>&1; then
+    return 0
+  fi
+  rm -f "${WATCHDOG_PID_FILE}"
+  return 1
+}
+
+watchdog_start() {
+  if is_watchdog_running; then
+    echo "watchdog already running: pid $(cat "${WATCHDOG_PID_FILE}")"
+    return 0
+  fi
+  mkdir -p "${ROOT_DIR}/state"
+  touch "${WATCHDOG_LOG_FILE}"
+  nohup bash -c "
+    while true; do
+      '${0}' ensure >> '${WATCHDOG_LOG_FILE}' 2>&1 || true
+      sleep 5
+    done
+  " >> "${WATCHDOG_LOG_FILE}" 2>&1 < /dev/null &
+  local pid=$!
+  disown "${pid}" 2>/dev/null || true
+  echo "${pid}" > "${WATCHDOG_PID_FILE}"
+  echo "watchdog started: pid ${pid}"
+}
+
+watchdog_stop() {
+  if ! is_watchdog_running; then
+    echo "watchdog not running"
+    rm -f "${WATCHDOG_PID_FILE}"
+    return 0
+  fi
+  local pid
+  pid="$(cat "${WATCHDOG_PID_FILE}")"
+  kill "${pid}" || true
+  sleep 0.3
+  if ps -p "${pid}" > /dev/null 2>&1; then
+    kill -9 "${pid}" || true
+  fi
+  rm -f "${WATCHDOG_PID_FILE}"
+  echo "watchdog stopped: pid ${pid}"
+}
+
+watchdog_status() {
+  if is_watchdog_running; then
+    echo "watchdog running: pid $(cat "${WATCHDOG_PID_FILE}")"
+  else
+    echo "watchdog not running"
+    return 1
+  fi
+}
+
 case "${1:-}" in
-  start) start_server ;;
-  stop) stop_server ;;
-  restart) safe_restart ;;
+  start) with_lock start_server ;;
+  stop) with_lock stop_server ;;
+  restart) with_lock safe_restart ;;
   status) status_server ;;
+  ensure) with_lock ensure_server ;;
+  doctor) doctor_server ;;
+  watch-start) watchdog_start ;;
+  watch-stop) watchdog_stop ;;
+  watch-status) watchdog_status ;;
+  watch-logs) tail -n "${2:-120}" "${WATCHDOG_LOG_FILE}" || true ;;
   health)
     curl -fsS "${health_url}" | sed 's/^/health: /'
     ;;
@@ -122,7 +327,7 @@ case "${1:-}" in
     tail -n "${2:-120}" "${LOG_FILE}" || true
     ;;
   *)
-    echo "usage: $0 {start|stop|restart|status|health|logs [n]}" >&2
+    echo "usage: $0 {start|stop|restart|status|ensure|doctor|watch-start|watch-stop|watch-status|watch-logs [n]|health|logs [n]}" >&2
     exit 2
     ;;
 esac

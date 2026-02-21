@@ -9,3 +9,6 @@ state/*.json
 state/*.jsonl
 state/orchestrator.pid
 state/orchestrator.log
+state/orchestrator_watchdog.pid
+state/orchestrator_watchdog.log
+dashboard/assets/pixel/vendor/

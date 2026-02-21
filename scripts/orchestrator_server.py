@@ -318,6 +318,8 @@ def seed_defaults():
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("codex_model", ""))
     if not q1("SELECT key FROM app_settings WHERE key='codex_timeout_sec'"):
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("codex_timeout_sec", "900"))
+    if not q1("SELECT key FROM app_settings WHERE key='local_trust_mode'"):
+        exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("local_trust_mode", "1"))
 
     if not q1("SELECT id FROM usage_stats WHERE id = 1"):
         exec_sql(
@@ -331,7 +333,8 @@ def seed_defaults():
         ("cto", "CTO Agent", "Executive", "healthy", "대기", "Technical governance", "Engineering", now, 150, 0.01, "Product Planning Agent", None),
         ("strategy", "Business Strategy Agent", "Business", "healthy", "대기", "Opportunity mapping", "Growth", now, 170, 0.01, "Marketing Agent", None),
         ("marketing", "Marketing Agent", "Business", "healthy", "대기", "Demand planning", "Demand Gen", now, 180, 0.01, "Product Planning Agent", None),
-        ("product", "Product Planning Agent", "Product", "healthy", "대기", "Scope quality", "PM", now, 190, 0.01, "Frontend Agent", None),
+        ("product", "Product Planning Agent", "Product", "healthy", "대기", "Requirement refinement", "Product Planning", now, 190, 0.01, "Project Manager Agent", None),
+        ("pm", "Project Manager Agent", "Product", "healthy", "대기", "PM stage orchestration", "PMO", now, 185, 0.01, "CTO Agent", None),
         ("backend", "Backend Agent", "Engineering", "healthy", "대기", "Service reliability", "Backend Squad", now, 200, 0.01, "QA Agent", None),
         ("frontend", "Frontend Agent", "Engineering", "healthy", "대기", "UX integrity", "Web Squad", now, 210, 0.01, "QA Agent", None),
         ("app", "App Agent", "Engineering", "healthy", "대기", "Mobile quality", "Mobile Squad", now, 190, 0.01, "QA Agent", None),
@@ -434,6 +437,8 @@ def owner_config():
 
 
 def validate_owner(payload):
+    if app_setting("local_trust_mode", "1") == "1":
+        return True, ""
     cfg = owner_config()
     if not cfg["owner_mode_enabled"]:
         return True, ""
@@ -443,6 +448,14 @@ def validate_owner(payload):
     if cfg["owner_token_required"] and (payload.get("owner_token") or "") != cfg["owner_token"]:
         return False, "invalid owner token"
     return True, ""
+
+
+def effective_owner_id(payload):
+    owner = (payload.get("owner_id") or "").strip()
+    if owner:
+        return owner
+    cfg_owner = (owner_config().get("owner_id") or "").strip()
+    return cfg_owner or "local-owner"
 
 
 def repo_policy(path):
@@ -1101,11 +1114,15 @@ def run_pipeline(job):
     set_meta("work_type", job["work_type"])
     set_meta("updated_at", utc_now())
 
-    update_agent("product", status="warning", current_task="PM scoping", initiative="Scope lock", latency_ms=320, error_rate=0.03, blocker=None)
+    update_agent("product", status="warning", current_task="Requirement refinement", initiative="Scope lock", latency_ms=320, error_rate=0.03, blocker=None)
+    update_agent("pm", status="warning", current_task="PM orchestration", initiative="Stage ownership", latency_ms=310, error_rate=0.03, blocker=None)
     update_agent("lead-product", status="warning", current_task="PM policy refinement", initiative="Team leadership", latency_ms=300, error_rate=0.03, blocker=None)
     set_job_fields(job["id"], {"status": "in_progress", "stage": "pm", "started_at": utc_now()})
     add_timeline(job["id"], "PM stage started.")
-    pm_notes = [agent_note("Product Planning", "PM", job["refined_request"])]
+    pm_notes = [
+        agent_note("Product Planning", "PM", job["refined_request"]),
+        agent_note("Project Manager", "PM", "Scope/priority/dependency locked and handoff prepared"),
+    ]
     set_job_fields(job["id"], {"pm_notes": pm_notes})
 
     update_agent("cto", status="warning", current_task="CTO architecture review", initiative="Feasibility", latency_ms=330, error_rate=0.04, blocker=None)
@@ -1180,7 +1197,7 @@ def run_pipeline(job):
     report_path = write_report(job, actions, changed_files, pm_notes + cto_notes + dev_notes + qa_notes, post_audit=post_audit)
 
     for aid in [
-        "ceo", "cto", "strategy", "marketing", "product", "backend", "frontend", "app", "design", "security", "qa", "infra",
+        "ceo", "cto", "strategy", "marketing", "product", "pm", "backend", "frontend", "app", "design", "security", "qa", "infra",
         "lead-business", "lead-marketing", "lead-product", "lead-backend", "lead-frontend", "lead-app", "lead-design", "lead-security", "lead-qa", "lead-infra", "tech-lead",
     ]:
         update_agent(aid, status="healthy", latency_ms=170, error_rate=0.01, blocker=None)
@@ -1409,29 +1426,31 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/requests":
             if not self._owner_guard(payload):
                 return
-            required = ["owner_id", "client_name", "raw_request"]
+            required = ["client_name", "raw_request"]
             missing = [x for x in required if not payload.get(x)]
             if missing:
                 return self._send_json({"error": f"missing fields: {', '.join(missing)}"}, status=HTTPStatus.BAD_REQUEST)
 
             request_id = f"req-{int(time.time())}-{random.randint(100,999)}"
+            owner_id = effective_owner_id(payload)
             with LOCK:
                 exec_sql(
                     "INSERT INTO requests (id, owner_id, client_name, raw_request, status, created_at) VALUES (?,?,?,?,?,?)",
-                    (request_id, payload["owner_id"].strip(), payload["client_name"].strip(), payload["raw_request"].strip(), "received", utc_now()),
+                    (request_id, owner_id, payload["client_name"].strip(), payload["raw_request"].strip(), "received", utc_now()),
                 )
-                append_audit("request_received", owner_id=payload["owner_id"].strip(), request_id=request_id, client=payload["client_name"].strip())
+                append_audit("request_received", owner_id=owner_id, request_id=request_id, client=payload["client_name"].strip())
                 req = q1("SELECT * FROM requests WHERE id=?", (request_id,))
                 return self._send_json({"ok": True, "request": dict(req)}, status=HTTPStatus.CREATED)
 
         if path == "/api/jobs/from-request":
             if not self._owner_guard(payload):
                 return
-            required = ["owner_id", "request_id", "work_type", "mission", "repository", "refined_request"]
+            required = ["request_id", "work_type", "mission", "repository", "refined_request"]
             missing = [x for x in required if not payload.get(x)]
             if missing:
                 return self._send_json({"error": f"missing fields: {', '.join(missing)}"}, status=HTTPStatus.BAD_REQUEST)
 
+            owner_id = effective_owner_id(payload)
             with LOCK:
                 req = q1("SELECT * FROM requests WHERE id=?", (payload["request_id"],))
                 if not req:
@@ -1456,7 +1475,7 @@ class Handler(SimpleHTTPRequestHandler):
                     """,
                     (
                         job_id,
-                        payload["owner_id"].strip(),
+                        owner_id,
                         payload["request_id"].strip(),
                         req["client_name"],
                         payload["work_type"].strip(),
@@ -1475,7 +1494,7 @@ class Handler(SimpleHTTPRequestHandler):
                 update_request(payload["request_id"].strip(), {"status": "in_company", "linked_job_id": job_id, "assigned_at": utc_now()})
                 append_audit(
                     "job_assigned",
-                    owner_id=payload["owner_id"].strip(),
+                    owner_id=owner_id,
                     job_id=job_id,
                     request_id=payload["request_id"].strip(),
                     repository=display_path(payload["repository"].strip()),
@@ -1488,7 +1507,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/jobs/approve":
             if not self._owner_guard(payload):
                 return
-            required = ["owner_id", "job_id", "phase"]
+            required = ["job_id", "phase"]
             missing = [x for x in required if not payload.get(x)]
             if missing:
                 return self._send_json({"error": f"missing fields: {', '.join(missing)}"}, status=HTTPStatus.BAD_REQUEST)
@@ -1506,13 +1525,13 @@ class Handler(SimpleHTTPRequestHandler):
                     fields = {"post_approved": 1, "post_approved_at": utc_now()}
                 set_job_fields(payload["job_id"], fields)
                 add_timeline(payload["job_id"], f"Owner approved {phase}-change gate")
-                append_audit("job_approved", owner_id=payload["owner_id"].strip(), job_id=payload["job_id"].strip(), phase=phase)
+                append_audit("job_approved", owner_id=effective_owner_id(payload), job_id=payload["job_id"].strip(), phase=phase)
                 return self._send_json({"ok": True})
 
         if path == "/api/requests/respond":
             if not self._owner_guard(payload):
                 return
-            required = ["owner_id", "request_id", "response_note"]
+            required = ["request_id", "response_note"]
             missing = [x for x in required if not payload.get(x)]
             if missing:
                 return self._send_json({"error": f"missing fields: {', '.join(missing)}"}, status=HTTPStatus.BAD_REQUEST)
@@ -1524,7 +1543,7 @@ class Handler(SimpleHTTPRequestHandler):
                 update_request(payload["request_id"], {"status": "responded", "response_note": response_note, "responded_at": utc_now()})
                 append_audit(
                     "client_responded",
-                    owner_id=payload["owner_id"].strip(),
+                    owner_id=effective_owner_id(payload),
                     request_id=payload["request_id"].strip(),
                     detail={"template_enforced": True},
                 )
@@ -1534,9 +1553,7 @@ class Handler(SimpleHTTPRequestHandler):
             if not self._owner_guard(payload):
                 return
             with LOCK:
-                owner_id = (payload.get("owner_id") or "").strip()
-                if not owner_id:
-                    return self._send_json({"error": "owner_id is required"}, status=HTTPStatus.BAD_REQUEST)
+                owner_id = (payload.get("owner_id") or "").strip() or owner_config().get("owner_id") or "local-owner"
 
                 approval = (payload.get("default_approval_mode") or "").strip() or "manual_post"
                 if approval not in ["auto", "manual_pre", "manual_post", "manual_both"]:
@@ -1558,6 +1575,8 @@ class Handler(SimpleHTTPRequestHandler):
                     "UPDATE owner_config SET owner_id=?, owner_token_required=?, owner_token=? WHERE id=1",
                     (owner_id, token_required, token),
                 )
+                if payload.get("local_trust_mode") is not None:
+                    set_app_setting("local_trust_mode", "1" if bool(payload.get("local_trust_mode")) else "0")
                 set_app_setting("default_approval_mode", approval)
                 set_app_setting("execution_mode", execution_mode)
                 set_app_setting("codex_model", codex_model)

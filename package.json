@@ -1,0 +1,14 @@
+{
+  "name": "oh-my-agent-company",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local orchestration dashboard and policy-driven multi-agent workflow",
+  "scripts": {
+    "install:local": "bash ./scripts/npm_support.sh",
+    "server:start": "bash ./scripts/infra_server_ctl.sh start",
+    "server:status": "bash ./scripts/infra_server_ctl.sh status",
+    "server:ensure": "bash ./scripts/infra_server_ctl.sh ensure",
+    "server:watch": "bash ./scripts/infra_server_ctl.sh watch-start",
+    "server:health": "bash ./scripts/infra_server_ctl.sh health"
+  }
+}
