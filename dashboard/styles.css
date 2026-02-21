@@ -1332,6 +1332,92 @@ button.ghost {
   font-size: 0.8rem;
 }
 
+.tag.priority-urgent {
+  background: rgba(182, 54, 54, 0.14);
+  border-color: rgba(182, 54, 54, 0.45);
+  color: #9e1f1f;
+}
+
+.tag.priority-high {
+  background: rgba(202, 122, 27, 0.14);
+  border-color: rgba(202, 122, 27, 0.45);
+  color: #8b520f;
+}
+
+.tag.priority-normal {
+  background: rgba(47, 111, 235, 0.12);
+  border-color: rgba(47, 111, 235, 0.35);
+  color: #274a93;
+}
+
+.tag.priority-low {
+  background: rgba(31, 143, 79, 0.12);
+  border-color: rgba(31, 143, 79, 0.35);
+  color: #1f7444;
+}
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.8rem;
+}
+
+.kanban-column {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.42rem;
+  min-height: 210px;
+}
+
+.kanban-column header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.kanban-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.kanban-card {
+  border: 1px solid var(--line);
+  border-left-width: 5px;
+  border-radius: 10px;
+  background: #fdfdfd;
+  padding: 0.45rem 0.5rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.kanban-card.priority-urgent { border-left-color: #b63636; }
+.kanban-card.priority-high { border-left-color: #ca7a1b; }
+.kanban-card.priority-normal { border-left-color: #2f6feb; }
+.kanban-card.priority-low { border-left-color: #1f8f4f; }
+
+.kanban-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.kanban-card p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #333b45;
+}
+
+.kanban-card small {
+  color: #606873;
+  font-size: 0.75rem;
+}
+
 .pagination {
   display: flex;
   justify-content: center;
@@ -1534,6 +1620,10 @@ button.ghost {
   .status-board {
     grid-template-columns: 1fr;
   }
+
+  .kanban-board {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
 }
 
 @media (max-width: 700px) {
@@ -1565,5 +1655,9 @@ button.ghost {
 
   .market-brief-header {
     flex-direction: column;
+  }
+
+  .kanban-board {
+    grid-template-columns: 1fr;
   }
 }

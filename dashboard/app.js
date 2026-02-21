@@ -345,6 +345,31 @@ function statusKo(status) {
   return map[status] || status || "-";
 }
 
+function priorityKo(priority) {
+  const map = {
+    urgent: "최우선",
+    high: "높음",
+    normal: "기본",
+    low: "낮음"
+  };
+  return map[priority] || "기본";
+}
+
+function normalizePriority(priority) {
+  const token = String(priority || "").toLowerCase();
+  if (["urgent", "high", "normal", "low"].includes(token)) return token;
+  return "normal";
+}
+
+function priorityClass(priority) {
+  return `priority-${normalizePriority(priority)}`;
+}
+
+function priorityOrder(priority) {
+  const map = { urgent: 0, high: 1, normal: 2, low: 3 };
+  return map[normalizePriority(priority)];
+}
+
 function translateToKorean(text) {
   return TRANSLATION_RULES.reduce((acc, rule) => acc.replace(rule.pattern, rule.replacement), text);
 }
@@ -659,6 +684,13 @@ function describeJob(job) {
   return meta.join(" · ");
 }
 
+function shortRepoName(path) {
+  const token = String(path || "").trim();
+  if (!token) return "-";
+  const parts = token.split("/");
+  return parts[parts.length - 1] || token;
+}
+
 function reportPathToHref(pathValue) {
   const raw = String(pathValue || "").trim();
   if (!raw) return "";
@@ -971,6 +1003,62 @@ function renderStatusMetrics(jobs = []) {
     .join("");
 }
 
+function renderJobsKanban(jobs = []) {
+  const root = document.getElementById("jobsKanban");
+  if (!root) return;
+  if (!jobs.length) {
+    root.innerHTML = `<p class="muted">칸반에 표시할 작업이 없습니다.</p>`;
+    return;
+  }
+
+  const columns = [
+    { key: "backlog", title: "백로그", statuses: ["queued", "dispatching"] },
+    { key: "active", title: "진행중", statuses: ["in_progress", "waiting_pre_approval", "waiting_post_approval"] },
+    { key: "done", title: "완료", statuses: ["done"] },
+    { key: "failed", title: "실패", statuses: ["failed"] }
+  ];
+
+  root.innerHTML = columns
+    .map((column) => {
+      const items = jobs
+        .filter((job) => column.statuses.includes(job.status))
+        .sort((a, b) => {
+          const p = priorityOrder(a.priority) - priorityOrder(b.priority);
+          if (p !== 0) return p;
+          return eventTimestamp(b.created_at) - eventTimestamp(a.created_at);
+        });
+      return `
+        <article class="kanban-column">
+          <header>
+            <strong>${esc(column.title)}</strong>
+            <span class="tag">${esc(items.length)}건</span>
+          </header>
+          <div class="kanban-list">
+            ${
+              items.length
+                ? items
+                    .map(
+                      (job) => `
+                        <div class="kanban-card ${priorityClass(job.priority)}">
+                          <div class="kanban-card-top">
+                            <code>${esc(job.id)}</code>
+                            <span class="tag ${priorityClass(job.priority)}">${esc(priorityKo(job.priority))}</span>
+                          </div>
+                          <p>${esc(job.mission || job.work_type || "-")}</p>
+                          <small>${esc(shortRepoName(job.repository))} · ${esc(statusKo(job.stage || "-"))}</small>
+                        </div>
+                      `
+                    )
+                    .join("")
+                : `<p class="muted">작업 없음</p>`
+            }
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderJobs(payload) {
   tableCache.jobs = payload;
   const originalJobs = payload.jobs || [];
@@ -985,7 +1073,7 @@ function renderJobs(payload) {
     root.innerHTML = `
       <div class="table-wrap"><table class="table">
         <thead>
-          <tr><th>작업 ID</th><th>상태</th><th>단계</th><th>승인 모드</th><th>실행 액션</th><th>변경 파일 수</th><th>리포트</th></tr>
+          <tr><th>작업 ID</th><th>우선순위</th><th>상태</th><th>단계</th><th>저장소</th><th>승인 모드</th><th>실행 액션</th><th>변경 파일 수</th><th>리포트</th></tr>
         </thead>
         <tbody>
           ${rows.map((j) => {
@@ -996,7 +1084,7 @@ function renderJobs(payload) {
             const report = j.report_path
               ? `<a href="${esc(reportHref)}" target="_blank" rel="noopener noreferrer"><code>${esc(j.report_path)}</code></a>`
               : "-";
-            return `<tr><td><code>${esc(j.id)}</code></td><td><span class="tag">${esc(statusKo(j.status))}</span></td><td>${esc(statusKo(j.stage || "-"))}</td><td>${esc(approval)}</td><td>${actions}</td><td>${changed}</td><td>${report}</td></tr>`;
+            return `<tr><td><code>${esc(j.id)}</code></td><td><span class="tag ${priorityClass(j.priority)}">${esc(priorityKo(j.priority))}</span></td><td><span class="tag">${esc(statusKo(j.status))}</span></td><td>${esc(statusKo(j.stage || "-"))}</td><td><code>${esc(shortRepoName(j.repository))}</code></td><td>${esc(approval)}</td><td>${actions}</td><td>${changed}</td><td>${report}</td></tr>`;
           }).join("")}
         </tbody>
       </table></div>`;
@@ -1019,6 +1107,7 @@ function renderJobs(payload) {
   renderStatusMetrics(originalJobs);
   renderConversation(activeJob);
   renderReportHub(originalJobs);
+  renderJobsKanban(originalJobs);
 }
 
 function renderPolicy(data) {
@@ -1367,6 +1456,7 @@ async function submitDesignTask(event) {
       work_type: "디자인팀 전면 UX 점검",
       mission: "전 페이지 사용자 친화성 개선",
       repository,
+      priority: "high",
       refined_request: [
         `[요청 ID] ${reqData.request.id} · 내부 운영(Design Ops)`,
         `[요약] 전 페이지 UI/UX 검토, 깨짐/가독성/흐름 단절 해결`,
@@ -1597,6 +1687,11 @@ async function submitOwnerSettings(event) {
   }
 }
 
+async function autoAssignJobFromRequest(_request) {
+  // Auto-assign is intentionally disabled to keep intake decisions explicit.
+  return;
+}
+
 async function submitRequest(event) {
   event.preventDefault();
   const result = document.getElementById("requestSubmitResult");
@@ -1633,6 +1728,7 @@ async function submitJob(event) {
     work_type: document.getElementById("workTypeInput").value.trim(),
     mission: document.getElementById("missionInput").value.trim(),
     repository: document.getElementById("repoSelect").value,
+    priority: document.getElementById("jobPriority").value,
     refined_request: document.getElementById("refinedRequestInput").value.trim(),
     apply_changes: document.getElementById("applyChanges").checked,
     approval_mode: document.getElementById("approvalMode").value

@@ -25,6 +25,7 @@ DB = None
 DEFAULT_CODEX_MODELS = ["gpt-5-codex", "gpt-5", "o4-mini", "o3"]
 DB_RETRY_ATTEMPTS = 5
 DB_RETRY_SLEEP_SEC = 0.15
+JOB_PRIORITIES = ["urgent", "high", "normal", "low"]
 
 
 def utc_now():
@@ -57,6 +58,13 @@ def display_path(value):
 
 def display_paths(values):
     return [display_path(v) for v in (values or [])]
+
+
+def normalize_job_priority(value):
+    token = str(value or "").strip().lower()
+    if token in JOB_PRIORITIES:
+        return token
+    return "normal"
 
 
 def db_connect():
@@ -187,6 +195,7 @@ def init_db():
           refined_request TEXT NOT NULL,
           apply_changes INTEGER NOT NULL,
           approval_mode TEXT NOT NULL,
+          priority TEXT NOT NULL DEFAULT 'normal',
           status TEXT NOT NULL,
           stage TEXT NOT NULL,
           created_at TEXT NOT NULL,
@@ -246,6 +255,11 @@ def init_db():
 
 
 def seed_defaults():
+    job_cols = {r["name"] for r in q("PRAGMA table_info(jobs)")}
+    if "priority" not in job_cols:
+        exec_sql("ALTER TABLE jobs ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'")
+    exec_sql("UPDATE jobs SET priority='normal' WHERE priority IS NULL OR TRIM(priority)=''")
+
     default_actions = ["dashboard_snb", "work_intake_menu", "audit_log_readability"]
     default_writable = [str((ROOT / "dashboard").resolve())]
 
@@ -565,6 +579,7 @@ def jobs_snapshot():
     for row in rows:
         for key in ["executed_actions", "changed_files", "pm_notes", "cto_notes", "dev_notes", "qa_notes", "timeline"]:
             row[key] = parse_json(row.get(key), [])
+        row["priority"] = normalize_job_priority(row.get("priority"))
         row["apply_changes"] = bool(row.get("apply_changes"))
         row["pre_approved"] = bool(row.get("pre_approved"))
         row["post_approved"] = bool(row.get("post_approved"))
@@ -1180,7 +1195,22 @@ def run_pipeline(job):
 def worker_loop():
     while True:
         try:
-            job = q1("SELECT * FROM jobs WHERE status='queued' ORDER BY created_at LIMIT 1")
+            job = q1(
+                """
+                SELECT * FROM jobs
+                WHERE status='queued'
+                ORDER BY
+                  CASE priority
+                    WHEN 'urgent' THEN 0
+                    WHEN 'high' THEN 1
+                    WHEN 'normal' THEN 2
+                    WHEN 'low' THEN 3
+                    ELSE 2
+                  END,
+                  created_at
+                LIMIT 1
+                """
+            )
             if not job:
                 time.sleep(1)
                 continue
@@ -1366,13 +1396,14 @@ class Handler(SimpleHTTPRequestHandler):
 
                 job_id = f"job-{int(time.time())}-{random.randint(100,999)}"
                 approval = payload.get("approval_mode") or default_approval_mode()
+                priority = normalize_job_priority(payload.get("priority"))
                 timeline = [{"at": utc_now(), "message": "Owner assigned request to pipeline"}]
                 exec_sql(
                     """
                     INSERT INTO jobs (
                       id, owner_id, request_id, client_name, work_type, mission, repository, refined_request,
-                      apply_changes, approval_mode, status, stage, created_at, timeline
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                      apply_changes, approval_mode, priority, status, stage, created_at, timeline
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         job_id,
@@ -1385,6 +1416,7 @@ class Handler(SimpleHTTPRequestHandler):
                         payload["refined_request"].strip(),
                         int(bool(payload.get("apply_changes", True))),
                         approval,
+                        priority,
                         "queued",
                         "queued",
                         utc_now(),
@@ -1398,7 +1430,7 @@ class Handler(SimpleHTTPRequestHandler):
                     job_id=job_id,
                     request_id=payload["request_id"].strip(),
                     repository=display_path(payload["repository"].strip()),
-                    detail={"approval_mode": approval},
+                    detail={"approval_mode": approval, "priority": priority},
                 )
                 job = dict(q1("SELECT * FROM jobs WHERE id=?", (job_id,)))
                 job["timeline"] = parse_json(job["timeline"], [])
