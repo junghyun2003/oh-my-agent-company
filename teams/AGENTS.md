@@ -21,6 +21,7 @@
 - `Decision`: 이번 단계 결정
 - `Action`: 즉시 실행 항목
 - `Risk`: 리스크와 완화 전략
+- `Client Message`: 대외 전달 시 `변경점/영향/리스크/다음 조치` 형태로 요약
 
 ## Universal Control Rules
 - Owner identity: `owner_id=owner` 기준 실행
@@ -30,6 +31,7 @@
 - Audit: 주요 이벤트는 `state/agent_company.db (table: audit_events)` 기록
 - Feedback loop: 팀 의견 수렴 결과는 `TEAM_FEEDBACK_YYYY-MM-DD.md`로 남기고 정책에 반영
 - QA output: 결과 상태를 `pass/block/waive`로 구조화
+- Client delivery: 클라이언트 응답은 4블록 템플릿으로 표준화
 
 ## Handoff Gate
 - PM -> CTO: 범위/수용기준/비기능요구 전달

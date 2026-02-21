@@ -844,6 +844,64 @@ def build_post_completion_audit(job):
     return summary
 
 
+def build_client_delivery_message(job, actions, changed_files, post_audit=None):
+    changed_display = display_paths(changed_files)
+    key_files = changed_display[:3]
+    recs = (post_audit or {}).get("recommendations", [])[:2]
+    lines = [
+        "[변경점]",
+        f"- 요청 ID: {job.get('request_id', '-')}",
+        f"- 수행 액션: {', '.join(actions) if actions else '(none)'}",
+        f"- 핵심 변경 파일: {', '.join(key_files) if key_files else '(none)'}",
+        "",
+        "[영향]",
+        "- 대시보드 운영 흐름의 가독성과 추적성이 개선되었습니다.",
+        "- 승인/감사 기준을 따라 변경 이력이 남습니다.",
+        "",
+        "[리스크]",
+    ]
+    if recs:
+        lines.extend([f"- {x}" for x in recs])
+    else:
+        lines.append("- 현재 기준 중대 리스크는 확인되지 않았습니다.")
+    lines.extend(
+        [
+            "",
+            "[다음 조치]",
+            "- 운영자가 대시보드에서 결과를 확인하고 필요 시 추가 요청을 접수합니다.",
+            "- 후속 개선 요청은 동일 요청 ID 기준으로 추적합니다.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def normalize_client_response_note(raw_note, request_row=None):
+    note = (raw_note or "").strip()
+    if not note:
+        return ""
+    required = ["[변경점]", "[영향]", "[리스크]", "[다음 조치]"]
+    if all(x in note for x in required):
+        return note
+    request_id = request_row["id"] if request_row else "-"
+    client = request_row["client_name"] if request_row else "-"
+    return "\n".join(
+        [
+            "[변경점]",
+            f"- 요청 ID: {request_id}",
+            f"- 전달 내용: {note}",
+            "",
+            "[영향]",
+            f"- {client} 요청에 대한 진행/결과를 이해하기 쉽게 요약했습니다.",
+            "",
+            "[리스크]",
+            "- 추가 확인이 필요한 항목이 있으면 운영자가 후속 점검합니다.",
+            "",
+            "[다음 조치]",
+            "- 필요 시 세부 요구사항을 추가로 전달해 주세요.",
+        ]
+    )
+
+
 def write_report(job, actions, changed_files, notes, post_audit=None):
     repo_path = Path(job["repository"])
     DELIVERABLE_DIR.mkdir(parents=True, exist_ok=True)
@@ -891,6 +949,8 @@ def write_report(job, actions, changed_files, notes, post_audit=None):
             lines.append("  - (none)")
     else:
         lines.append("- (audit unavailable)")
+    client_message = build_client_delivery_message(job, actions, changed_files, post_audit)
+    lines.extend(["", "## Client Delivery Message (Template)", "```text", client_message, "```"])
     lines.extend(["", "## Working Tree", f"- Branch: {branch}", "```text", status or "(clean)", "```"])
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return display_path(report_path)
@@ -988,6 +1048,7 @@ def run_pipeline(job):
     update_agent("ceo", current_task="Client delivery report", initiative="Owner briefing")
     set_meta("updated_at", utc_now())
 
+    client_message = build_client_delivery_message(job, actions, changed_files, post_audit)
     set_job_fields(job["id"], {
         "status": "done",
         "stage": "report",
@@ -996,7 +1057,7 @@ def run_pipeline(job):
         "report_path": report_path,
     })
     add_timeline(job["id"], "Report stage complete. Job done.")
-    update_request(job["request_id"], {"status": "completed", "completed_at": utc_now()})
+    update_request(job["request_id"], {"status": "completed", "completed_at": utc_now(), "response_note": client_message})
 
     append_audit(
         "job_done",
@@ -1013,9 +1074,18 @@ def run_pipeline(job):
         request_id=job["request_id"],
         repository=display_path(job["repository"]),
         phase="post_completion",
-        detail=post_audit,
+        detail={"audit": post_audit, "client_message_template": client_message},
     )
     add_timeline(job["id"], "Post-completion audit generated.")
+    append_audit(
+        "client_message_prepared",
+        owner_id=job["owner_id"],
+        job_id=job["id"],
+        request_id=job["request_id"],
+        repository=display_path(job["repository"]),
+        phase="report",
+        detail={"template": client_message},
+    )
 
 
 def worker_loop():
@@ -1254,8 +1324,14 @@ class Handler(SimpleHTTPRequestHandler):
                 row = q1("SELECT * FROM requests WHERE id=?", (payload["request_id"],))
                 if not row:
                     return self._send_json({"error": "request not found"}, status=HTTPStatus.NOT_FOUND)
-                update_request(payload["request_id"], {"status": "responded", "response_note": payload["response_note"].strip(), "responded_at": utc_now()})
-                append_audit("client_responded", owner_id=payload["owner_id"].strip(), request_id=payload["request_id"].strip())
+                response_note = normalize_client_response_note(payload["response_note"], row)
+                update_request(payload["request_id"], {"status": "responded", "response_note": response_note, "responded_at": utc_now()})
+                append_audit(
+                    "client_responded",
+                    owner_id=payload["owner_id"].strip(),
+                    request_id=payload["request_id"].strip(),
+                    detail={"template_enforced": True},
+                )
                 return self._send_json({"ok": True})
 
         if path == "/api/settings/save":

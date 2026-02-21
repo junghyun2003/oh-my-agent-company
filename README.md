@@ -9,6 +9,7 @@
 - 권한정책: 허용 저장소/수정경로/허용 액션 통제
 - 감사로그: 누가/무엇을/어떻게 변경했는지 추적
 - 완료 후 감사: 각 작업 완료 직후 `post_job_audit` 자동 생성
+- 클라이언트 응답 템플릿: `변경점/영향/리스크/다음 조치` 4블록 기본
 
 ## 2) 빠른 시작
 ```bash
@@ -69,6 +70,7 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 - 팀 의견 충돌 시 의사결정 우선순위는 `CEO > CTO > Product/QA > other teams`
 - Dev 착수 전 실행 커맨드/경로 검증 결과를 감사로그에 기록
 - QA 결과는 `pass/block/waive` 형태로 구조화
+- 클라이언트 응답은 4블록 템플릿(변경점/영향/리스크/다음 조치)을 사용
 
 ## 8) 트러블슈팅
 - 포트 충돌: 기존 서버 종료 후 재실행
@@ -86,3 +88,4 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 ## 10) 운영 회고 문서
 - 정책 리뷰: `POLICY_REVIEW.md`
 - 팀 의견 수렴(최신): `TEAM_FEEDBACK_2026-02-21.md`
+- 프로세스 의사결정(최신): `PROCESS_REVIEW_2026-02-21.md`

@@ -7,7 +7,7 @@
 - Owner(운영자)가 요청을 정제해 작업 할당
 - 파이프라인 실행: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Infra) -> QA -> Report`
 - 수동 승인 게이트(전/후) 처리
-- 작업 완료 후 클라이언트 응대
+- 작업 완료 후 클라이언트 응대(4블록 템플릿: 변경점/영향/리스크/다음 조치)
 - 전체 이벤트 감사로그 기록 + 작업 완료 직후 `post_job_audit` 자동 생성
 
 ## Runtime Components
@@ -32,6 +32,7 @@
 - 팀 의견 충돌 시 의사결정 우선순위는 `CEO > CTO > Product/QA > other teams`를 따른다.
 - Dev 착수 전 실행 커맨드/경로 정책 검증 결과를 감사로그에 남긴다.
 - QA 결과는 `pass/block/waive` 형태로 구조화한다.
+- 클라이언트 응답은 `변경점/영향/리스크/다음 조치` 4블록 템플릿을 기본으로 사용한다.
 
 ## Team Structure
 - `teams/AGENTS.md`: 팀 전체 규약 및 인덱스
