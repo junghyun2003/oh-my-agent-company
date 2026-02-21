@@ -78,6 +78,7 @@ const auditFilterState = { kind: "all", q: "" };
 let reposCache = [];
 let conversationLangMode = "kor";
 let lastClientDigestText = "";
+let lastPolicySnapshotHtml = "";
 const TRANSLATION_RULES = [
   { pattern: /\bclient\b/gi, replacement: "클라이언트" },
   { pattern: /\bowner\b/gi, replacement: "운영자" },
@@ -1305,12 +1306,16 @@ function renderJobs(payload) {
 
 function renderPolicy(data) {
   const root = document.getElementById("policyInfo");
+  if (!root) return;
   const lines = (data.repositories || []).map((r) => {
     const actions = (r.allowed_actions || []).join(", ") || "-";
     const writable = (r.writable_paths || []).join(", ") || "-";
     return `<div><code>${esc(r.path)}</code> | 허용 액션: ${esc(actions)} | 수정 허용 경로: ${esc(writable)}</div>`;
   });
-  root.innerHTML = `<div>기본 승인 모드: <strong>${esc(data.default_approval_mode || "auto")}</strong></div>${lines.join("")}`;
+  const nextHtml = `<div>기본 승인 모드: <strong>${esc(data.default_approval_mode || "auto")}</strong></div>${lines.join("")}`;
+  if (nextHtml === lastPolicySnapshotHtml) return;
+  root.innerHTML = nextHtml;
+  lastPolicySnapshotHtml = nextHtml;
 }
 
 function pickDefaultRepoPath() {

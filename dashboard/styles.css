@@ -301,6 +301,8 @@ main {
   padding: 0.85rem;
   background: #fffdf9;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  position: sticky;
+  top: 0.8rem;
 }
 
 .policy-card h3 {
@@ -313,6 +315,7 @@ main {
   gap: 0.45rem;
   font-size: 0.86rem;
   color: #4f5660;
+  min-height: 6.8rem;
 }
 
 .panel-title {
