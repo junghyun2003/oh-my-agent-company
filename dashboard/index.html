@@ -305,6 +305,13 @@
             </div>
             <div class="stalled-report">
               <section>
+                <p class="eyebrow">정체 원인 하이라이트</p>
+                <div id="stalledCauseHighlight" class="stalled-note cause-highlight" aria-live="polite">
+                  정체된 작업을 선택하면 최근 이벤트와 예상 원인을 한글로 요약합니다.
+                </div>
+                <p class="muted microcopy" id="stalledCauseHelper">CEO 워치 영역에서 작업을 선택하면 재처리 안내가 자동으로 채워집니다.</p>
+              </section>
+              <section>
                 <p class="eyebrow">플로우 재현 단계</p>
                 <ol id="stalledFlowSteps" class="stalled-steps"></ol>
               </section>
@@ -319,15 +326,92 @@
                   <dd>활성화된 정체 작업이 없으면 비어 있습니다.</dd>
                 </dl>
               </section>
-              <section>
-                <p class="eyebrow">재처리 기록 템플릿</p>
-                <div id="stalledRecoveryTemplate" class="stalled-note"></div>
+              <section class="template-section">
+                <div class="template-header">
+                  <p class="eyebrow">재처리 기록 템플릿</p>
+                  <button type="button" class="copy-btn" data-copy-target="stalledRecoveryTemplate" data-status-target="copyStatusRecovery">복사</button>
+                </div>
+                <div id="stalledRecoveryTemplate" class="stalled-note" aria-live="polite"></div>
+                <p class="copy-status muted" id="copyStatusRecovery">감사 이벤트 detail에 붙여넣을 내용을 그대로 복사합니다.</p>
               </section>
-              <section>
-                <p class="eyebrow">클라이언트 응대 (변경/영향/리스크/다음 조치)</p>
-                <div id="stalledClientTemplate" class="stalled-note"></div>
+              <section class="template-section">
+                <div class="template-header">
+                  <p class="eyebrow">클라이언트 응대 (변경/영향/리스크/다음 조치)</p>
+                  <button type="button" class="copy-btn" data-copy-target="stalledClientTemplate" data-status-target="copyStatusClient">복사</button>
+                </div>
+                <div id="stalledClientTemplate" class="stalled-note" aria-live="polite"></div>
+                <p class="copy-status muted" id="copyStatusClient">클라이언트 커뮤니케이션 4블록 템플릿을 한 번에 복사합니다.</p>
               </section>
             </div>
+          </div>
+
+          <div class="local-trust-board" id="localTrustBoard">
+            <div class="local-trust-header">
+              <div>
+                <p class="eyebrow">Local Trust Ops</p>
+                <h3>재처리 추적</h3>
+                <p class="muted">정체 복구 이력이 있는 Local Trust 미션을 별도로 추적해 원인·기록·클라이언트 응답을 즉시 준비합니다.</p>
+              </div>
+              <div class="local-trust-metrics" id="localTrustMetrics"></div>
+            </div>
+            <div id="localTrustCases" class="local-trust-cases"></div>
+            <p class="muted" id="localTrustEmpty">감시 대상 Local Trust 미션이 없습니다.</p>
+          </div>
+
+          <div class="ops-queue-board" id="opsQueueBoard">
+            <div class="ops-queue-header">
+              <div>
+                <p class="eyebrow">Ops Queue Console</p>
+                <h3>백로그/진행중/실패 운영</h3>
+                <p class="muted">인프라팀 기준으로 정체 복구, 실패 재큐잉, 우선순위 재조정을 수행합니다.</p>
+              </div>
+              <div class="ops-queue-metrics" id="opsQueueMetrics"></div>
+            </div>
+            <div class="ops-queue-columns">
+              <article class="ops-queue-column">
+                <header><h4>백로그</h4><span class="tag" id="opsBacklogTag">--</span></header>
+                <ol class="ops-queue-list" id="opsBacklogList"></ol>
+                <p class="muted" id="opsBacklogEmpty">백로그가 비어 있습니다.</p>
+              </article>
+              <article class="ops-queue-column">
+                <header><h4>진행중/승인대기</h4><span class="tag" id="opsProgressTag">--</span></header>
+                <ol class="ops-queue-list" id="opsProgressList"></ol>
+                <p class="muted" id="opsProgressEmpty">진행중인 작업이 없습니다.</p>
+              </article>
+              <article class="ops-queue-column">
+                <header><h4>실패</h4><span class="tag" id="opsFailedTag">--</span></header>
+                <ol class="ops-queue-list" id="opsFailedList"></ol>
+                <p class="muted" id="opsFailedEmpty">실패 작업이 없습니다.</p>
+              </article>
+            </div>
+            <form id="opsQueueForm" class="job-form two-col">
+              <label>실패 작업 재큐잉
+                <select id="opsFailedJobSelect">
+                  <option value="">실패 작업 선택</option>
+                </select>
+              </label>
+              <div class="action-row">
+                <button type="button" id="opsRequeueBtn">실패 작업 재큐잉</button>
+              </div>
+              <label>우선순위 변경 대상
+                <select id="opsPriorityJobSelect">
+                  <option value="">백로그/진행중 작업 선택</option>
+                </select>
+              </label>
+              <label>우선순위
+                <select id="opsPriorityValue">
+                  <option value="urgent">최우선</option>
+                  <option value="high">높음</option>
+                  <option value="normal" selected>기본</option>
+                  <option value="low">낮음</option>
+                </select>
+              </label>
+              <div class="action-row">
+                <button type="button" class="ghost" id="opsReprioritizeBtn">우선순위 변경</button>
+                <button type="button" class="ghost" id="opsRecoverBtn">정체 자동 복구 실행</button>
+              </div>
+              <span id="opsQueueResult" class="muted full"></span>
+            </form>
           </div>
 
           <div id="alerts" class="alert-stack"></div>

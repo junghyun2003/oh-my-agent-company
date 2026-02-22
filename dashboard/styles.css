@@ -1033,6 +1033,216 @@ main {
   font-family: inherit;
 }
 
+.cause-highlight {
+  border: 1px solid var(--line-strong);
+  background: linear-gradient(120deg, rgba(47, 111, 235, 0.08), rgba(47, 111, 235, 0.02));
+  color: var(--text);
+}
+
+.local-trust-board {
+  margin-top: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 1.2rem;
+  background: var(--surface-1);
+  box-shadow: 0 18px 40px rgba(30, 35, 45, 0.08);
+  display: grid;
+  gap: 1.1rem;
+}
+
+.local-trust-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.local-trust-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem;
+}
+
+.local-trust-metric {
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 0.7rem;
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.local-trust-metric strong {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.local-trust-cases {
+  display: grid;
+  gap: 1rem;
+}
+
+.local-trust-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1rem;
+  background: var(--surface-2);
+  display: grid;
+  gap: 0.8rem;
+}
+
+.local-trust-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.local-trust-tags {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.local-trust-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.8rem;
+}
+
+.local-trust-text {
+  margin: 0.2rem 0 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  white-space: pre-line;
+}
+
+.local-trust-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.9rem;
+}
+
+.local-trust-templates section {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ops-queue-board {
+  margin-top: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 1.2rem;
+  background: var(--surface-1);
+  box-shadow: 0 18px 40px rgba(30, 35, 45, 0.08);
+  display: grid;
+  gap: 1rem;
+}
+
+.ops-queue-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ops-queue-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.6rem;
+}
+
+.ops-queue-metric {
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 0.55rem;
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.ops-queue-metric strong {
+  display: block;
+  font-size: 1.15rem;
+}
+
+.ops-queue-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.ops-queue-column {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-2);
+  padding: 0.7rem;
+  min-height: 190px;
+}
+
+.ops-queue-column header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+
+.ops-queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.ops-queue-list li {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.45rem;
+  background: var(--surface-1);
+  display: grid;
+  gap: 0.14rem;
+}
+
+.ops-queue-list small {
+  color: var(--subtle);
+}
+
+.microcopy {
+  font-size: 0.78rem;
+  margin-top: 0.3rem;
+}
+
+.template-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copy-btn {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--button-bg);
+  color: var(--text);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.copy-btn:hover,
+.copy-btn:focus-visible {
+  background: var(--button-hover);
+  transform: translateY(-1px);
+}
+
+.copy-status {
+  font-size: 0.78rem;
+}
+
 .stalled-diagnosis {
   border: 1px dashed var(--line);
   border-radius: 14px;
@@ -1051,6 +1261,11 @@ main {
   margin: 0;
   color: var(--subtle);
   white-space: pre-line;
+}
+
+.stalled-diagnosis dd.is-risk {
+  color: var(--bad);
+  font-weight: 600;
 }
 
 .alert-stack {

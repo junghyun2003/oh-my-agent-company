@@ -8,6 +8,8 @@ const settingsUrl = "/api/settings";
 const codexModelsUrl = "/api/codex/models";
 const auditUrl = "/api/audit";
 const usageUrl = "/api/usage";
+const opsQueueUrl = "/api/ops/queue";
+const opsQueueManageUrl = "/api/ops/queue/manage";
 const assignUrl = "/api/jobs/from-request";
 const approveUrl = "/api/jobs/approve";
 const settingsSaveUrl = "/api/settings/save";
@@ -81,6 +83,7 @@ let lastRequestsHeadId = "";
 let lastRequestsCount = 0;
 const auditFilterState = { kind: "all", q: "" };
 let reposCache = [];
+let opsQueueCache = null;
 let conversationLangMode = "kor";
 let lastClientDigestText = "";
 let lastPolicySnapshotHtml = "";
@@ -110,6 +113,7 @@ const STAGE_FALLBACK_KO = {
 };
 const STALL_THRESHOLD_MINUTES = 30;
 const REQUEST_STALL_MINUTES = 20;
+const LOCAL_TRUST_KEYWORDS = ["local trust", "local-trust"];
 const FLOW_STEPS = [
   { label: "요청 로그 확인", detail: "감사 로그에서 job_assigned 이전 이벤트 확인" },
   { label: "파이프라인 재현", detail: "PM→CTO→Dev→Design→QA 순으로 최근 메시지 검토" },
@@ -135,6 +139,16 @@ function rememberRequests(requests = []) {
       requestLookup.set(String(req.id), req);
     }
   });
+}
+
+function findRequestById(id) {
+  if (!id) return null;
+  return requestLookup.get(String(id)) || null;
+}
+
+function safeDomId(prefix, seed) {
+  const slug = String(seed ?? "").trim().replace(/[^a-zA-Z0-9_-]/g, "-") || "x";
+  return `${prefix}-${slug}`;
 }
 
 function normalizeThemeMode(mode) {
@@ -1407,6 +1421,91 @@ function renderStatusMetrics(jobs = []) {
     .join("");
 }
 
+function renderOpsQueueMetrics(queue) {
+  const root = document.getElementById("opsQueueMetrics");
+  if (!root || !queue) return;
+  const counts = queue.counts || {};
+  const blocks = [
+    { label: "백로그", value: (counts.queued || 0) + (counts.dispatching || 0), helper: "queued+dispatching" },
+    { label: "진행중", value: (counts.in_progress || 0) + (counts.waiting_approval || 0), helper: "in progress + approval" },
+    { label: "실패", value: counts.failed || 0, helper: "retry candidates" },
+    { label: "정체", value: (counts.stalled_queue || 0) + (counts.stalled_progress || 0), helper: "threshold exceeded" }
+  ];
+  root.innerHTML = blocks
+    .map(
+      (item) => `
+        <div class="ops-queue-metric">
+          <strong>${esc(item.value)}</strong>
+          <small>${esc(item.label)}</small>
+          <p class="muted">${esc(item.helper)}</p>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function renderOpsQueueList(rootId, emptyId, tagId, rows = [], mode = "backlog") {
+  const list = document.getElementById(rootId);
+  const empty = document.getElementById(emptyId);
+  const tag = document.getElementById(tagId);
+  if (!list || !empty || !tag) return;
+  tag.textContent = `${rows.length}건`;
+  if (!rows.length) {
+    list.innerHTML = "";
+    empty.classList.remove("is-hidden");
+    return;
+  }
+  list.innerHTML = rows
+    .slice(0, 8)
+    .map((item) => {
+      const title = `${item.id} · ${statusKo(item.status || item.stage || "-")}`;
+      const mission = item.mission || "미션 미입력";
+      const age = mode === "failed" ? `${item.failed_age_min || 0}분 전 실패` : `${item.age_min || 0}분 경과`;
+      const trailing = mode === "failed" ? (item.error || "오류 미기록") : `우선순위 ${priorityKo(item.priority)}`;
+      return `
+        <li>
+          <strong>${esc(title)}</strong>
+          <small>${esc(mission)}</small>
+          <small>${esc(age)} · ${esc(trailing)}</small>
+        </li>
+      `;
+    })
+    .join("");
+  empty.classList.add("is-hidden");
+}
+
+function refillOpsSelectors(queue) {
+  const failedSel = document.getElementById("opsFailedJobSelect");
+  const prioritySel = document.getElementById("opsPriorityJobSelect");
+  if (!failedSel || !prioritySel || !queue) return;
+  const failed = Array.isArray(queue.failed) ? queue.failed : [];
+  const running = Array.isArray(queue.in_progress) ? queue.in_progress : [];
+  const backlog = Array.isArray(queue.backlog) ? queue.backlog : [];
+  refillSelectPreservingValue(
+    failedSel,
+    "실패 작업 선택",
+    failed.map((job) => `<option value="${esc(job.id)}">${esc(job.id)} · ${esc(job.error || "-")}</option>`).join("")
+  );
+  refillSelectPreservingValue(
+    prioritySel,
+    "백로그/진행중 작업 선택",
+    [...backlog, ...running]
+      .map((job) => `<option value="${esc(job.id)}">${esc(job.id)} · ${esc(statusKo(job.status || "-"))}</option>`)
+      .join("")
+  );
+}
+
+function renderOpsQueueBoard(payload) {
+  const queue = payload && payload.queue ? payload.queue : payload;
+  if (!queue) return;
+  opsQueueCache = queue;
+  renderOpsQueueMetrics(queue);
+  renderOpsQueueList("opsBacklogList", "opsBacklogEmpty", "opsBacklogTag", queue.backlog || [], "backlog");
+  renderOpsQueueList("opsProgressList", "opsProgressEmpty", "opsProgressTag", queue.in_progress || [], "running");
+  renderOpsQueueList("opsFailedList", "opsFailedEmpty", "opsFailedTag", queue.failed || [], "failed");
+  refillOpsSelectors(queue);
+}
+
 function isJobStalled(job) {
   if (!job) return false;
   const status = String(job.status || "");
@@ -1508,7 +1607,14 @@ function renderStalledFlowSteps(activeJob) {
   const diagRoot = document.getElementById("stalledDiagnosis");
   const recoveryRoot = document.getElementById("stalledRecoveryTemplate");
   const clientRoot = document.getElementById("stalledClientTemplate");
+  const causeRoot = document.getElementById("stalledCauseHighlight");
+  const causeHelper = document.getElementById("stalledCauseHelper");
+  const recoveryStatus = document.getElementById("copyStatusRecovery");
+  const clientStatus = document.getElementById("copyStatusClient");
   if (!stepsRoot || !noteRoot) return;
+  const defaultCauseText = "정체된 작업을 선택하면 최근 이벤트와 예상 원인을 한글로 요약합니다.";
+  const defaultRecoveryStatus = "감사 이벤트 detail에 붙여넣을 내용을 그대로 복사합니다.";
+  const defaultClientStatus = "클라이언트 커뮤니케이션 4블록 템플릿을 한 번에 복사합니다.";
   stepsRoot.innerHTML = FLOW_STEPS.map((step) => `<li><strong>${esc(step.label)}</strong> · ${esc(step.detail)}</li>`).join("");
   if (!activeJob) {
     noteRoot.textContent = "우선 CEO 워치 대상 작업을 선택하세요. 파이프라인에서 정체된 항목을 탭하면 메모 양식이 활성화됩니다.";
@@ -1517,6 +1623,10 @@ function renderStalledFlowSteps(activeJob) {
     }
     if (recoveryRoot) recoveryRoot.textContent = RECOVERY_TEMPLATE;
     if (clientRoot) clientRoot.textContent = CLIENT_TEMPLATE;
+    if (causeRoot) causeRoot.textContent = defaultCauseText;
+    if (causeHelper) causeHelper.textContent = "CEO 워치 영역에서 작업을 선택하면 재처리 안내가 자동으로 채워집니다.";
+    if (recoveryStatus) recoveryStatus.textContent = defaultRecoveryStatus;
+    if (clientStatus) clientStatus.textContent = defaultClientStatus;
   } else {
     const minutes = Math.round((Date.now() - jobTimestamp(activeJob)) / 60000);
     const lines = [
@@ -1530,12 +1640,14 @@ function renderStalledFlowSteps(activeJob) {
       const summary = extractRequestSummary(activeJob);
       const lastEvent = Array.isArray(activeJob.timeline) ? activeJob.timeline[activeJob.timeline.length - 1] : null;
       const auditSummary = renderAuditSummary(activeJob);
+      const ownerState = ownerStateForJob(activeJob);
       diagRoot.innerHTML = [
         `<dt>요청 ID</dt><dd>${esc(activeJob.request_id || "-")}</dd>`,
         `<dt>작업/단계</dt><dd>${esc(activeJob.id)} · ${esc(statusKo(activeJob.stage || activeJob.status || "-"))}</dd>`,
         summary ? `<dt>요약</dt><dd>${esc(summary)}</dd>` : "",
         `<dt>마지막 이벤트</dt><dd>${esc(formatTimelineTime(lastEvent?.at))} · ${esc(lastEvent?.message || "기록 없음")}</dd>`,
-        `<dt>감사 로그</dt><dd>${esc(auditSummary)}</dd>`
+        `<dt>감사 로그</dt><dd>${esc(auditSummary)}</dd>`,
+        ownerState ? `<dt>Owner ID 상태</dt><dd class="${ownerState.isRisk ? "is-risk" : ""}">${esc(ownerState.text)}</dd>` : ""
       ]
         .filter(Boolean)
         .join("");
@@ -1546,7 +1658,220 @@ function renderStalledFlowSteps(activeJob) {
     if (clientRoot) {
       clientRoot.textContent = buildClientTemplate(activeJob);
     }
+    if (causeRoot) {
+      const timeline = Array.isArray(activeJob.timeline) ? activeJob.timeline : [];
+      const lastEvent = timeline[timeline.length - 1];
+      const causeLines = [
+        `[단계] ${statusKo(activeJob.stage || activeJob.status || "-")} · 우선순위 ${priorityKo(activeJob.priority)}`,
+        `[최근 이벤트] ${formatTimelineTime(lastEvent?.at) || "기록 없음"} · ${lastEvent?.message || "메시지 없음"}`,
+        `[정체 시간] ${minutes}분 경과 · 즉시 재처리 필요`
+      ];
+      causeRoot.textContent = causeLines.join("\n");
+    }
+    if (causeHelper) {
+      causeHelper.textContent = "요약을 복사해 감사로그 또는 리포트 메모에 즉시 반영하세요.";
+    }
+    if (recoveryStatus) {
+      recoveryStatus.textContent = "복사 후 audit_events.detail.recovery 항목에 붙여넣으세요.";
+    }
+    if (clientStatus) {
+      clientStatus.textContent = "복사 후 클라이언트 응대 초안에 붙여넣어 공유하세요.";
+    }
   }
+}
+
+function isLocalTrustJob(job, request) {
+  if (!job) return false;
+  const requestText = request?.raw_request || "";
+  const noteText = job.refined_request || "";
+  const base = `${job.mission || ""} ${job.work_type || ""} ${noteText} ${requestText}`.toLowerCase();
+  return LOCAL_TRUST_KEYWORDS.some((keyword) => base.includes(keyword));
+}
+
+function describeRecoveryReason(event, job) {
+  if (!job) return "";
+  if (!event) return `${statusKo(job.stage || job.status || "-")} 단계 정체 감시중`;
+  const detail = event.detail && typeof event.detail === "object" ? event.detail : {};
+  if (detail.reason === "stalled_timeout_recovery") return "60분 초과 이벤트 부재";
+  if (detail.reason) return detail.reason;
+  return `${statusKo(job.stage || job.status || "-")} 단계 정체`;
+}
+
+function describeRecoveryAction(event, job) {
+  if (!event) return "PM→CTO→Dev 재기동 + Owner Local Trust 확인";
+  const detail = event.detail && typeof event.detail === "object" ? event.detail : {};
+  if (detail.action === "job_failed_request_requeued") return "정체 작업 종료 → 요청 재큐잉 → 파이프라인 재시작";
+  if (detail.action) return detail.action;
+  return "정체 원인 기록 후 Dev 단계 재시작";
+}
+
+function buildLocalTrustAuditNote(job, request, recoveryEvent) {
+  if (!job) return "";
+  const client = request?.client_name || job.client_name || "클라이언트";
+  const timeline = Array.isArray(job.timeline) ? job.timeline : [];
+  const lastEvent = timeline[timeline.length - 1];
+  const stageLabel = statusKo(job.stage || job.status || "-");
+  const reason = describeRecoveryReason(recoveryEvent, job);
+  const action = describeRecoveryAction(recoveryEvent, job);
+  const recoveryAt = recoveryEvent ? formatDateTimeFull(recoveryEvent.at) : "미기록";
+  return [
+    `[요청 ID] ${job.request_id || "-"} / ${client}`,
+    `[작업 ID] ${job.id} (${stageLabel})`,
+    `[정체 원인] ${reason}`,
+    `[재처리 경로] ${action}`,
+    `[감사 이벤트] ${recoveryAt}`,
+    `[마지막 이벤트] ${formatTimelineTime(lastEvent?.at) || "--"} · ${lastEvent?.message || "타임라인 미기록"}`
+  ].join("\n");
+}
+
+function buildLocalTrustClientNote(job, request, recoveryEvent) {
+  if (!job) return "";
+  const client = request?.client_name || job.client_name || "클라이언트";
+  const mission = job.mission || "Local Trust 미션 재가동";
+  const summary = extractRequestSummary(job) || request?.raw_request || "요약 미입력";
+  const riskLine = recoveryEvent ? "- 정체 복구 반복 시 CTO/CEO 즉시 에스컬레이션" : "- 장기 정체 발생 시 manual 승인 대기 가능";
+  return `[변경점]
+- ${mission} 재시작 (${summary})
+[영향]
+- ${client} 전달 일정 30분 지연 (정체 복구 중)
+[리스크]
+${riskLine}
+[다음 조치]
+- Owner Local Trust 설정 재확인 → Dev 단계 재실행 → 감사/리포트 업데이트`;
+}
+
+function collectLocalTrustCases(jobs = [], requests = [], auditEvents = []) {
+  if (!jobs.length) return [];
+  const requestMap = new Map(requests.map((req) => [String(req.id), req]));
+  return jobs
+    .filter((job) => isLocalTrustJob(job, requestMap.get(String(job.request_id)) || findRequestById(job.request_id)))
+    .map((job) => {
+      const request = requestMap.get(String(job.request_id)) || findRequestById(job.request_id);
+      const relatedEvents = auditEvents
+        .filter(
+          (event) =>
+            event.kind === "job_stalled_recovered" &&
+            (String(event.request_id || "") === String(job.request_id || "") || extractAuditJobIds(event).includes(String(job.id || "")))
+        )
+        .sort((a, b) => eventTimestamp(b.at) - eventTimestamp(a.at));
+      const latestRecovery = relatedEvents[0] || null;
+      return {
+        job,
+        request,
+        latestRecovery,
+        recoveryCount: relatedEvents.length,
+        auditText: buildLocalTrustAuditNote(job, request, latestRecovery),
+        clientText: buildLocalTrustClientNote(job, request, latestRecovery)
+      };
+    })
+    .sort((a, b) => jobTimestamp(b.job) - jobTimestamp(a.job));
+}
+
+function renderLocalTrustMetrics(cases) {
+  if (!cases.length) return "";
+  const recovered = cases.filter((entry) => entry.recoveryCount > 0).length;
+  const running = cases.filter((entry) => !["done", "failed"].includes(entry.job.status)).length;
+  const metrics = [
+    { label: "감시중", value: cases.length, helper: "Local Trust 미션" },
+    { label: "재처리 이력", value: recovered, helper: "job_stalled_recovered" },
+    { label: "진행중", value: running, helper: "Dev→Report 흐름" }
+  ];
+  return metrics
+    .map(
+      (item) => `
+      <div class="local-trust-metric">
+        <strong>${esc(item.value)}</strong>
+        <small>${esc(item.label)}</small>
+        <p>${esc(item.helper)}</p>
+      </div>
+    `
+    )
+    .join("");
+}
+
+function renderLocalTrustCase(entry) {
+  const { job, request, latestRecovery, auditText, clientText } = entry;
+  const client = request?.client_name || job.client_name || "클라이언트";
+  const stageLabel = statusKo(job.stage || job.status || "-");
+  const statusLabel = statusKo(job.status);
+  const timeline = Array.isArray(job.timeline) ? job.timeline : [];
+  const lastEvent = timeline[timeline.length - 1];
+  const causeText = describeRecoveryReason(latestRecovery, job);
+  const actionText = describeRecoveryAction(latestRecovery, job);
+  const eventText = lastEvent ? `${formatTimelineTime(lastEvent.at)} · ${lastEvent.message}` : "최근 이벤트 없음";
+  const auditNoteId = safeDomId("localTrustAudit", job.id);
+  const auditStatusId = `${auditNoteId}-status`;
+  const clientNoteId = safeDomId("localTrustClient", job.id);
+  const clientStatusId = `${clientNoteId}-status`;
+  return `
+    <article class="local-trust-card">
+      <header>
+        <div>
+          <p class="eyebrow">${esc(client)} · ${esc(job.request_id || "-")}</p>
+          <h4>${esc(job.mission || job.work_type || "Local Trust 작업")}</h4>
+        </div>
+        <div class="local-trust-tags">
+          <span class="tag">${esc(stageLabel)}</span>
+          <span class="tag">${esc(statusLabel)}</span>
+        </div>
+      </header>
+      <div class="local-trust-highlights">
+        <div>
+          <p class="eyebrow">정체 원인</p>
+          <p class="local-trust-text">${esc(causeText)}</p>
+        </div>
+        <div>
+          <p class="eyebrow">재처리 경로</p>
+          <p class="local-trust-text">${esc(actionText)}</p>
+        </div>
+        <div>
+          <p class="eyebrow">최근 이벤트</p>
+          <p class="local-trust-text">${esc(eventText)}</p>
+        </div>
+      </div>
+      <div class="local-trust-templates">
+        <section>
+          <div class="template-header">
+            <p class="eyebrow">감사 기록 템플릿</p>
+            <button type="button" class="copy-btn" data-copy-target="${esc(auditNoteId)}" data-status-target="${esc(auditStatusId)}">복사</button>
+          </div>
+          <pre id="${esc(auditNoteId)}" class="stalled-note">${esc(auditText)}</pre>
+          <p class="copy-status muted" id="${esc(auditStatusId)}">감사 이벤트 detail에 붙여넣으세요.</p>
+        </section>
+        <section>
+          <div class="template-header">
+            <p class="eyebrow">클라이언트 응대 템플릿</p>
+            <button type="button" class="copy-btn" data-copy-target="${esc(clientNoteId)}" data-status-target="${esc(clientStatusId)}">복사</button>
+          </div>
+          <pre id="${esc(clientNoteId)}" class="stalled-note">${esc(clientText)}</pre>
+          <p class="copy-status muted" id="${esc(clientStatusId)}">4블록 템플릿으로 바로 전달하세요.</p>
+        </section>
+      </div>
+    </article>
+  `;
+}
+
+function renderLocalTrustBoard(jobsPayload, requestsPayload, auditPayload) {
+  const board = document.getElementById("localTrustBoard");
+  const casesRoot = document.getElementById("localTrustCases");
+  const metricsRoot = document.getElementById("localTrustMetrics");
+  const emptyEl = document.getElementById("localTrustEmpty");
+  if (!board || !casesRoot || !metricsRoot || !emptyEl) return;
+  const requests = Array.isArray(requestsPayload?.requests) ? requestsPayload.requests : [];
+  const jobs = Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : [];
+  const auditEvents = Array.isArray(auditPayload?.events) ? auditPayload.events : [];
+  const cases = collectLocalTrustCases(jobs, requests, auditEvents);
+  if (!cases.length) {
+    board.classList.add("is-hidden");
+    casesRoot.innerHTML = "";
+    metricsRoot.innerHTML = "";
+    emptyEl.classList.remove("is-hidden");
+    return;
+  }
+  board.classList.remove("is-hidden");
+  emptyEl.classList.add("is-hidden");
+  metricsRoot.innerHTML = renderLocalTrustMetrics(cases);
+  casesRoot.innerHTML = cases.map((entry) => renderLocalTrustCase(entry)).join("");
 }
 
 function renderAuditSummary(job) {
@@ -1605,6 +1930,34 @@ function extractRequestSummary(job) {
   const note = String(job?.refined_request || "");
   const match = note.match(/\[요약\]\s*(.+)/i);
   return match ? match[1].trim() : "";
+}
+
+function ownerStateForJob(job) {
+  if (!job) return null;
+  const request = findRequestById(job.request_id);
+  const normalize = (value) => String(value || "").trim();
+  const jobOwner = normalize(job.owner_id);
+  const requestOwner = normalize(request?.owner_id);
+  const currentOwner = normalize(document.getElementById("ownerId")?.value);
+  const label = (value) => (value ? value : "미입력");
+  let isRisk = false;
+  let text = "";
+
+  if (!jobOwner && !requestOwner && !currentOwner) {
+    text = "요청/작업/입력 모두 Owner ID 미입력";
+    isRisk = true;
+  } else if (!currentOwner) {
+    text = `입력값 없음 · 요청=${label(requestOwner)} · 작업=${label(jobOwner)}`;
+    isRisk = true;
+  } else if ((jobOwner && jobOwner !== currentOwner) || (requestOwner && requestOwner !== currentOwner)) {
+    text = `입력=${label(currentOwner)} · 요청=${label(requestOwner)} · 작업=${label(jobOwner)}`;
+    isRisk = true;
+  } else {
+    const resolved = currentOwner || jobOwner || requestOwner || "미입력";
+    text = `일치 (${resolved})`;
+  }
+
+  return { text, isRisk };
 }
 
 function renderJobsKanban(jobs = []) {
@@ -1844,10 +2197,11 @@ function renderAudit(payload) {
       </tbody>
     </table></div>`;
   renderPaginationControls("audit", pagination);
+}
+
+function refreshStalledDiagnostics() {
   const activeJob = pickActiveJob(tableCache.jobs?.jobs || []);
-  if (activeJob) {
-    renderStalledFlowSteps(isJobStalled(activeJob) ? activeJob : null);
-  }
+  renderStalledFlowSteps(activeJob && isJobStalled(activeJob) ? activeJob : null);
 }
 
 function hasTemplateSections(text) {
@@ -2360,6 +2714,33 @@ function setupClientDigestCopyButton() {
   });
 }
 
+function setupTemplateCopyButtons() {
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest(".copy-btn");
+    if (!button || (!button.dataset.copyTarget && !button.dataset.copyText)) return;
+    const targetId = button.dataset.copyTarget;
+    const statusId = button.dataset.statusTarget;
+    const statusEl = statusId ? document.getElementById(statusId) : null;
+    let text = "";
+    if (targetId) {
+      const target = document.getElementById(targetId);
+      text = target?.textContent?.trim() || "";
+    } else if (button.dataset.copyText) {
+      text = button.dataset.copyText;
+    }
+    if (!text) {
+      if (statusEl) statusEl.textContent = "복사할 내용이 아직 없습니다.";
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      if (statusEl) statusEl.textContent = "복사 완료 · Ctrl+V로 붙여넣으세요.";
+    } catch (error) {
+      if (statusEl) statusEl.textContent = `복사 실패: ${error.message}`;
+    }
+  });
+}
+
 async function loadRepositories() {
   const res = await fetch(`${reposUrl}?t=${Date.now()}`);
   const data = await res.json();
@@ -2425,13 +2806,14 @@ async function loadCodexModels(refresh = false, selected = "") {
 
 async function loadAll() {
   try {
-    const [stateRes, reqRes, jobsRes, polRes, auditRes, usageRes] = await Promise.all([
+    const [stateRes, reqRes, jobsRes, polRes, auditRes, usageRes, opsRes] = await Promise.all([
       fetch(`${stateUrl}?t=${Date.now()}`),
       fetch(`${requestsUrl}?t=${Date.now()}`),
       fetch(`${jobsUrl}?t=${Date.now()}`),
       fetch(`${policiesUrl}?t=${Date.now()}`),
       fetch(`${auditUrl}?t=${Date.now()}`),
-      fetch(`${usageUrl}?t=${Date.now()}`)
+      fetch(`${usageUrl}?t=${Date.now()}`),
+      fetch(`${opsQueueUrl}?t=${Date.now()}`)
     ]);
 
     const state = await stateRes.json();
@@ -2440,6 +2822,7 @@ async function loadAll() {
     const policies = await polRes.json();
     const audit = await auditRes.json();
     const usage = await usageRes.json();
+    const ops = await opsRes.json();
 
     renderMission(state);
     setTimestamp(state.updated_at);
@@ -2455,7 +2838,9 @@ async function loadAll() {
     renderAudit(audit);
     renderExecutionAudit(requests, jobs, audit);
     renderDesignReview(state, requests, jobs, audit);
+    renderLocalTrustBoard(jobs, requests, audit);
     renderUsage(usage);
+    renderOpsQueueBoard(ops);
   } catch (error) {
     document.getElementById("alerts").innerHTML = `<div class="alert">로딩 실패: ${esc(error.message)}</div>`;
   }
@@ -2602,6 +2987,64 @@ async function approveJob(event) {
   }
 }
 
+async function runOpsQueueAction(action, extra = {}) {
+  const result = document.getElementById("opsQueueResult");
+  const payload = { ...ownerPayload(), action, ...extra };
+  try {
+    const res = await fetch(opsQueueManageUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "운영 액션 실패");
+    if (data.queue) {
+      renderOpsQueueBoard({ queue: data.queue });
+    }
+    const actionLabel = {
+      recover_stalled: "정체 자동 복구",
+      requeue_failed: "실패 재큐잉",
+      reprioritize: "우선순위 변경"
+    }[action] || action;
+    result.textContent = `${actionLabel} 실행 완료`;
+    await loadAll();
+  } catch (error) {
+    result.textContent = `실패: ${explainApiError(error)}`;
+  }
+}
+
+function setupOpsQueueActions() {
+  const requeueBtn = document.getElementById("opsRequeueBtn");
+  const reprioritizeBtn = document.getElementById("opsReprioritizeBtn");
+  const recoverBtn = document.getElementById("opsRecoverBtn");
+  if (requeueBtn) {
+    requeueBtn.addEventListener("click", async () => {
+      const selected = document.getElementById("opsFailedJobSelect")?.value;
+      if (!selected) {
+        document.getElementById("opsQueueResult").textContent = "실패 작업을 선택하세요.";
+        return;
+      }
+      await runOpsQueueAction("requeue_failed", { job_ids: [selected] });
+    });
+  }
+  if (reprioritizeBtn) {
+    reprioritizeBtn.addEventListener("click", async () => {
+      const selected = document.getElementById("opsPriorityJobSelect")?.value;
+      const priority = document.getElementById("opsPriorityValue")?.value || "normal";
+      if (!selected) {
+        document.getElementById("opsQueueResult").textContent = "우선순위를 변경할 작업을 선택하세요.";
+        return;
+      }
+      await runOpsQueueAction("reprioritize", { job_ids: [selected], priority });
+    });
+  }
+  if (recoverBtn) {
+    recoverBtn.addEventListener("click", async () => {
+      await runOpsQueueAction("recover_stalled");
+    });
+  }
+}
+
 function restartPolling() {
   const sec = Number(document.getElementById("refreshInterval").value);
   const enabled = document.getElementById("pollingEnabled").checked;
@@ -2621,6 +3064,11 @@ document.getElementById("manualRefreshBtn").addEventListener("click", loadAll);
 document.getElementById("refreshModelsBtn").addEventListener("click", () => loadCodexModels(true, document.getElementById("codexModel").value));
 document.getElementById("designTaskForm").addEventListener("submit", submitDesignTask);
 
+const ownerInput = document.getElementById("ownerId");
+if (ownerInput) {
+  ownerInput.addEventListener("input", refreshStalledDiagnostics);
+}
+
 setupAutoRefineControls();
 setupSnbNavigation();
 setupFlowTabs();
@@ -2629,6 +3077,8 @@ setupIntakePresets();
 setupAuditControls();
 setupConversationLangToggle();
 setupClientDigestCopyButton();
+setupTemplateCopyButtons();
+setupOpsQueueActions();
 setupThemeMode();
 loadOwnerInfo()
   .then(loadSettings)
