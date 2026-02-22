@@ -72,6 +72,29 @@ cd oh-my-agent-company
 ./scripts/infra_server_ctl.sh restart
 ```
 
+## 10-Minute Onboarding (Fork/External Users)
+1. 설치 경로 선택
+```bash
+# npm 경로
+npm install
+npm run install:local
+
+# python 경로
+./scripts/infra_server_ctl.sh ensure
+```
+2. 접속 확인
+- `http://localhost:18765/dashboard/`
+3. 실패 시 즉시 점검
+```bash
+./scripts/infra_server_ctl.sh doctor
+./scripts/infra_server_ctl.sh incident
+./scripts/infra_server_ctl.sh logs 120
+```
+4. 기능 점검 자동화
+```bash
+bash ./scripts/smoke_core_flows.sh
+```
+
 ## Update Strategy
 - P0: 서비스 가용성 유지 (`watch-start`, `ensure`, `doctor` 기반 자동 복구)
 - P1: UX 품질 보정 (다크/라이트/시스템 모드 톤 일관성, 핵심 화면 가독성)

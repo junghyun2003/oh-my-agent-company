@@ -12,6 +12,16 @@ Thank you for contributing to `oh-my-agent-company`.
 3. Include evidence (before/after behavior, logs, screenshots when relevant)
 4. Keep docs updated with code changes
 
+## First 10-Min Setup (Contributors)
+1. Start local server
+  - `./scripts/infra_server_ctl.sh ensure`
+2. Check health
+  - `./scripts/infra_server_ctl.sh doctor`
+  - `./scripts/infra_server_ctl.sh incident`
+3. Run smoke baseline
+  - `bash ./scripts/smoke_core_flows.sh`
+4. Only then start feature edits
+
 ## Pull Request Checklist
 - [ ] Code change is scoped and reversible
 - [ ] Relevant docs updated (`AGENTS.md`, `README.md`, team docs)

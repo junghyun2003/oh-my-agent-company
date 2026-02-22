@@ -50,8 +50,18 @@ Upstream-Ref: v0.3.0
   - baseline 대비 커밋 목록
   - baseline 대비 변경 파일 통계
 
+## Fork Onboarding Quick Flow
+1. baseline 설정
+  - `UPSTREAM_BASELINE.env`에 upstream ref 기록
+2. 서버 실행 확인
+  - `./scripts/infra_server_ctl.sh ensure`
+  - `./scripts/infra_server_ctl.sh incident`
+3. 로컬 스모크
+  - `bash ./scripts/smoke_core_flows.sh`
+4. 커스텀 작업 후 차이 리포트
+  - `./scripts/fork_diff_report.sh`
+
 ## 권장 브랜치 전략
 - 업스트림 동기화: `sync/upstream-main`
 - 커스텀 개발: `custom/*`
 - 배포 기준: `main` (또는 조직 표준 브랜치)
-
