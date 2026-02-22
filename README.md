@@ -280,6 +280,8 @@ Tech Leader audit:
 ```bash
 ./scripts/tech_leader_audit.sh
 python3 ./scripts/docs_sync_check.py
+python3 ./scripts/kpi_weekly_report.py --dry-run
+python3 ./scripts/kpi_weekly_report.py --days 7 --output ./reports/kpi/weekly-kpi.json
 ```
 
 Pre-push enforcement (required for local release safety):

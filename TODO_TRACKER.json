@@ -147,7 +147,7 @@
     {
       "id": 10,
       "title": "주간 KPI 리포트 스크립트 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "strategy",
       "commit_type": "feat",
       "summary": "add weekly kpi report generator from audit events and jobs",
