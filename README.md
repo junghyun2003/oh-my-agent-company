@@ -234,6 +234,11 @@ bash ./scripts/smoke_core_flows.sh
 ENABLE_PLAYWRIGHT_VISUAL=1 bash ./scripts/smoke_core_flows.sh
 bash ./scripts/visual_regression_playwright.sh
 ```
+- strict mode (환경 미충족 시 실패 처리):
+```bash
+STRICT_PLAYWRIGHT_VISUAL=1 bash ./scripts/visual_regression_playwright.sh
+ENABLE_PLAYWRIGHT_VISUAL=1 STRICT_PLAYWRIGHT_VISUAL=1 bash ./scripts/smoke_core_flows.sh
+```
 - `npx` prerequisite:
 ```bash
 # Verify Node/npm are installed

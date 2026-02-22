@@ -96,7 +96,7 @@ json_post '/api/ops/queue/manage' "{\"owner_id\":\"${OWNER_ID}\",\"action\":\"re
 
 if [[ "${ENABLE_PLAYWRIGHT_VISUAL:-0}" == "1" ]]; then
   echo "[smoke] running playwright visual regression..."
-  bash "${ROOT_DIR}/scripts/visual_regression_playwright.sh"
+  STRICT_PLAYWRIGHT_VISUAL="${STRICT_PLAYWRIGHT_VISUAL:-0}" bash "${ROOT_DIR}/scripts/visual_regression_playwright.sh"
 fi
 
 echo "[smoke] success: assignment/approval/audit/ops queue checks passed (job=${JOB_ID})"

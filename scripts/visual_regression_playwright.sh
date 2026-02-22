@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASE_URL="${BASE_URL:-http://localhost:${ORCHESTRATOR_PORT:-18765}}"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 PWCLI="${PWCLI:-$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh}"
+STRICT_PLAYWRIGHT_VISUAL="${STRICT_PLAYWRIGHT_VISUAL:-0}"
 
 mkdir -p "${ROOT_DIR}/output/playwright/current" "${ROOT_DIR}/output/playwright/baseline"
 
@@ -20,12 +21,20 @@ npm --version
 npm install -g @playwright/cli@latest
 playwright-cli --help
 EOM
+  if [[ "${STRICT_PLAYWRIGHT_VISUAL}" == "1" ]]; then
+    echo "strict mode enabled: missing npx is treated as failure" >&2
+    exit 1
+  fi
   exit 0
 fi
 
 if [[ ! -x "${PWCLI}" ]]; then
   echo "playwright wrapper not found: ${PWCLI}" >&2
-  exit 1
+  if [[ "${STRICT_PLAYWRIGHT_VISUAL}" == "1" ]]; then
+    exit 1
+  fi
+  echo "strict mode disabled: skipping visual regression"
+  exit 0
 fi
 
 bash "${ROOT_DIR}/scripts/infra_server_ctl.sh" ensure >/dev/null

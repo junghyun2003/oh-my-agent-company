@@ -19,7 +19,7 @@
     {
       "id": 2,
       "title": "Playwright 시각회귀 엄격 모드 분리",
-      "status": "pending",
+      "status": "done",
       "scope": "qa",
       "commit_type": "feat",
       "summary": "add strict mode handling for playwright visual regression prerequisites",
