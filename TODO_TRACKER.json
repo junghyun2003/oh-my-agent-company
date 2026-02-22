@@ -1,193 +1,125 @@
 {
-  "version": 3,
+  "version": 4,
   "steps": [
     {
       "id": 1,
-      "title": "infra 재시작 플랩 원인 고정",
-      "status": "done",
-      "scope": "infra",
-      "commit_type": "feat",
-      "summary": "harden infra server lifecycle with post-start survival guard and flap diagnostics",
-      "files": [
-        "scripts/infra_server_ctl.sh",
-        "README.md"
-      ],
-      "verify": [
-        "./scripts/infra_server_ctl.sh ensure",
-        "./scripts/infra_server_ctl.sh doctor",
-        "./scripts/infra_server_ctl.sh status"
-      ]
+      "title": "워크플로 트래커 커밋 원자화",
+      "status": "pending",
+      "scope": "ops",
+      "commit_type": "fix",
+      "summary": "make todo workflow tracker updates commit atomically with step completion",
+      "files": ["scripts/todo_workflow.py", "README.md"],
+      "verify": ["python3 -m py_compile scripts/todo_workflow.py"]
     },
     {
       "id": 2,
-      "title": "서버 수명 추적 API 추가",
-      "status": "done",
-      "scope": "backend",
+      "title": "Playwright 시각회귀 엄격 모드 분리",
+      "status": "pending",
+      "scope": "qa",
       "commit_type": "feat",
-      "summary": "add runtime ops endpoint exposing uptime restart_count and last_crash markers",
-      "files": [
-        "scripts/orchestrator_server.py",
-        "README.md"
-      ],
-      "verify": [
-        "python3 -m py_compile scripts/orchestrator_server.py"
-      ]
+      "summary": "add strict mode handling for playwright visual regression prerequisites",
+      "files": ["scripts/visual_regression_playwright.sh", "scripts/smoke_core_flows.sh", "README.md"],
+      "verify": ["STRICT_PLAYWRIGHT_VISUAL=0 bash ./scripts/visual_regression_playwright.sh"]
     },
     {
       "id": 3,
-      "title": "워커 헬스 분리 지표 추가",
-      "status": "done",
-      "scope": "backend",
+      "title": "포크 baseline 자동 대체 경로 추가",
+      "status": "pending",
+      "scope": "docs",
       "commit_type": "feat",
-      "summary": "split http health and pipeline worker health for stalled-dispatch detection",
-      "files": [
-        "scripts/orchestrator_server.py",
-        "README.md"
-      ],
-      "verify": [
-        "python3 -m py_compile scripts/orchestrator_server.py"
-      ]
+      "summary": "add baseline fallback chain for fork diff report when upstream ref is missing",
+      "files": ["scripts/fork_diff_report.sh", "FORK_CUSTOMIZATION_POLICY.md", "README.md"],
+      "verify": ["bash ./scripts/fork_diff_report.sh"]
     },
     {
       "id": 4,
-      "title": "Ops Queue 감사 상세(before/after) 강화",
-      "status": "done",
+      "title": "로컬 서버 자동기동 launchd 스크립트 추가",
+      "status": "pending",
       "scope": "infra",
       "commit_type": "feat",
-      "summary": "include queue snapshot delta in ops queue action audit detail payload",
-      "files": [
-        "scripts/orchestrator_server.py",
-        "README.md"
-      ],
-      "verify": [
-        "python3 -m py_compile scripts/orchestrator_server.py"
-      ]
+      "summary": "add launchd install uninstall scripts for local auto start management",
+      "files": ["scripts/install_launchd_agent.sh", "scripts/uninstall_launchd_agent.sh", "README.md"],
+      "verify": ["bash ./scripts/install_launchd_agent.sh --dry-run", "bash ./scripts/uninstall_launchd_agent.sh --dry-run"]
     },
     {
       "id": 5,
-      "title": "작업할당/승인 폼 사전 검증 강화",
-      "status": "done",
-      "scope": "frontend",
+      "title": "요청/작업 API 페이지네이션 지원",
+      "status": "pending",
+      "scope": "backend",
       "commit_type": "feat",
-      "summary": "add client-side preflight validation for assignment and approval forms",
-      "files": [
-        "dashboard/index.html",
-        "dashboard/app.js",
-        "dashboard/styles.css"
-      ],
-      "verify": [
-        "./scripts/infra_server_ctl.sh ensure"
-      ]
+      "summary": "add limit and offset support to requests and jobs endpoints",
+      "files": ["scripts/orchestrator_server.py", "dashboard/app.js", "README.md"],
+      "verify": ["python3 -m py_compile scripts/orchestrator_server.py"]
     },
     {
       "id": 6,
-      "title": "감사로그 대량 데이터 성능 개선",
-      "status": "done",
-      "scope": "frontend",
+      "title": "bootstrap 의존성 강제 모드 추가",
+      "status": "pending",
+      "scope": "ops",
       "commit_type": "feat",
-      "summary": "add server-side pagination for audit feed and update ui query controls",
-      "files": [
-        "scripts/orchestrator_server.py",
-        "dashboard/app.js",
-        "README.md"
-      ],
-      "verify": [
-        "python3 -m py_compile scripts/orchestrator_server.py"
-      ]
+      "summary": "add require-node mode and clearer diagnostics to bootstrap flow",
+      "files": ["scripts/bootstrap_local.sh", "README.md"],
+      "verify": ["RUN_SMOKE=0 REQUIRE_NODE=0 bash ./scripts/bootstrap_local.sh"]
     },
     {
       "id": 7,
-      "title": "픽셀 실행상태 대시보드 고도화",
-      "status": "done",
+      "title": "Local Trust 모드에서 owner/token 입력 간소화",
+      "status": "pending",
       "scope": "frontend",
       "commit_type": "feat",
-      "summary": "improve pixel status board with richer state animation and role signaling",
-      "files": [
-        "dashboard/index.html",
-        "dashboard/app.js",
-        "dashboard/styles.css"
-      ],
-      "verify": [
-        "./scripts/infra_server_ctl.sh ensure"
-      ]
+      "summary": "hide owner identity inputs by default in local trust mode and keep advanced toggle",
+      "files": ["dashboard/index.html", "dashboard/app.js", "dashboard/styles.css", "README.md"],
+      "verify": ["bash ./scripts/infra_server_ctl.sh ensure"]
     },
     {
       "id": 8,
-      "title": "문서-코드 불일치 pre-push 강제",
-      "status": "done",
+      "title": "state 산출물 git 추적 정책 보강",
+      "status": "pending",
       "scope": "ops",
       "commit_type": "chore",
-      "summary": "enforce docs sync checker in git hook for local release safety",
-      "files": [
-        "scripts/docs_sync_check.py",
-        "scripts",
-        "README.md"
-      ],
-      "verify": [
-        "python3 scripts/docs_sync_check.py"
-      ]
+      "summary": "expand gitignore coverage for volatile state artifacts and logs",
+      "files": [".gitignore", "README.md", "AGENTS.md"],
+      "verify": ["bash -lc 'git check-ignore -v state/orchestrator_lifecycle.log >/dev/null'"]
     },
     {
       "id": 9,
-      "title": "DB 백업 운영 정책 고정",
-      "status": "done",
-      "scope": "infra",
-      "commit_type": "docs",
-      "summary": "document backup cadence retention and restore drill runbook",
-      "files": [
-        "README.md",
-        "AGENTS.md"
-      ],
-      "verify": [
-        "bash ./scripts/db_maintenance.sh list"
-      ]
+      "title": "Codex 실행 preflight 점검 API 추가",
+      "status": "pending",
+      "scope": "backend",
+      "commit_type": "feat",
+      "summary": "add ops preflight endpoint for codex binary model and writable path checks",
+      "files": ["scripts/orchestrator_server.py", "README.md"],
+      "verify": ["python3 -m py_compile scripts/orchestrator_server.py"]
     },
     {
       "id": 10,
-      "title": "온보딩 단일 bootstrap 명령 추가",
-      "status": "done",
-      "scope": "ops",
+      "title": "주간 KPI 리포트 스크립트 추가",
+      "status": "pending",
+      "scope": "strategy",
       "commit_type": "feat",
-      "summary": "add bootstrap command for install start health and smoke in one flow",
-      "files": [
-        "scripts",
-        "package.json",
-        "README.md"
-      ],
-      "verify": [
-        "bash ./scripts/infra_server_ctl.sh ensure"
-      ]
+      "summary": "add weekly kpi report generator from audit events and jobs",
+      "files": ["scripts/kpi_weekly_report.py", "README.md"],
+      "verify": ["python3 ./scripts/kpi_weekly_report.py --dry-run"]
     },
     {
       "id": 11,
-      "title": "Playwright 시각회귀 본격 도입",
-      "status": "done",
-      "scope": "qa",
+      "title": "테마 3모드 회귀 점검 스크립트 추가",
+      "status": "pending",
+      "scope": "design",
       "commit_type": "test",
-      "summary": "add playwright screenshot baseline checks for key dashboard sections",
-      "files": [
-        "scripts",
-        "README.md"
-      ],
-      "verify": [
-        "bash ./scripts/smoke_core_flows.sh"
-      ]
+      "summary": "add theme regression check script for system light dark modes",
+      "files": ["scripts/theme_regression_check.sh", "README.md"],
+      "verify": ["bash ./scripts/theme_regression_check.sh"]
     },
     {
       "id": 12,
-      "title": "포크 변경 추적 자동 리포트 개선",
-      "status": "done",
-      "scope": "docs",
-      "commit_type": "chore",
-      "summary": "automate customization report generation workflow for fork releases",
-      "files": [
-        "FORK_CUSTOMIZATION_POLICY.md",
-        "README.md",
-        "scripts"
-      ],
-      "verify": [
-        "python3 scripts/todo_workflow.py list"
-      ]
+      "title": "장애 요약 진단 커맨드 고도화",
+      "status": "pending",
+      "scope": "infra",
+      "commit_type": "feat",
+      "summary": "add concise incident summary command for rapid failure triage",
+      "files": ["scripts/infra_server_ctl.sh", "README.md"],
+      "verify": ["bash ./scripts/infra_server_ctl.sh incident"]
     }
   ]
 }
