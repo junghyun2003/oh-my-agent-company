@@ -82,7 +82,7 @@ const paginationState = { requests: 1, jobs: 1, audit: 1 };
 const tableCache = { requests: null, jobs: null, audit: null };
 let lastRequestsHeadId = "";
 let lastRequestsCount = 0;
-const auditFilterState = { kind: "all", q: "" };
+const auditFilterState = { kind: "all", q: "", job_id: "", request_id: "" };
 let reposCache = [];
 let opsQueueCache = null;
 let conversationLangMode = "kor";
@@ -2122,7 +2122,9 @@ function applyAuditFilter(events = []) {
     const text = `${kind} ${owner} ${jobIds.join(" ")} ${requestId} ${details}`.toLowerCase();
     const kindOk = auditFilterState.kind === "all" || kind === auditFilterState.kind;
     const queryOk = !auditFilterState.q || text.includes(auditFilterState.q);
-    return kindOk && queryOk;
+    const jobOk = !auditFilterState.job_id || jobIds.some((id) => String(id).toLowerCase().includes(auditFilterState.job_id));
+    const requestOk = !auditFilterState.request_id || requestId.toLowerCase().includes(auditFilterState.request_id);
+    return kindOk && queryOk && jobOk && requestOk;
   });
 }
 
@@ -2175,7 +2177,9 @@ function renderAudit(payload) {
   if (statsEl) {
     const kindLabel = auditFilterState.kind === "all" ? "전체" : auditFilterState.kind;
     const qLabel = auditFilterState.q ? `, 검색어="${auditFilterState.q}"` : "";
-    statsEl.textContent = `필터: ${kindLabel}${qLabel} · ${events.length} / ${allEvents.length}건`;
+    const jobLabel = auditFilterState.job_id ? `, job="${auditFilterState.job_id}"` : "";
+    const reqLabel = auditFilterState.request_id ? `, req="${auditFilterState.request_id}"` : "";
+    statsEl.textContent = `필터: ${kindLabel}${qLabel}${jobLabel}${reqLabel} · ${events.length} / ${allEvents.length}건`;
   }
   const root = document.getElementById("auditTable");
   if (!events.length) {
@@ -2531,11 +2535,15 @@ async function submitDesignTask(event) {
 function setupAuditControls() {
   const kindSelect = document.getElementById("auditKindFilter");
   const searchInput = document.getElementById("auditSearchInput");
+  const jobIdInput = document.getElementById("auditJobIdInput");
+  const requestIdInput = document.getElementById("auditRequestIdInput");
   const clearButton = document.getElementById("auditSearchClear");
   const quickFilters = Array.from(document.querySelectorAll("#auditQuickFilters button[data-kind]"));
 
   const commitSearch = () => {
     auditFilterState.q = String(searchInput?.value || "").trim().toLowerCase();
+    auditFilterState.job_id = String(jobIdInput?.value || "").trim().toLowerCase();
+    auditFilterState.request_id = String(requestIdInput?.value || "").trim().toLowerCase();
     paginationState.audit = 1;
     if (tableCache.audit) renderAudit(tableCache.audit);
   };
@@ -2564,9 +2572,23 @@ function setupAuditControls() {
       }
     });
   }
+  if (jobIdInput) {
+    jobIdInput.addEventListener("input", () => {
+      if (auditSearchTimer) clearTimeout(auditSearchTimer);
+      auditSearchTimer = setTimeout(commitSearch, 160);
+    });
+  }
+  if (requestIdInput) {
+    requestIdInput.addEventListener("input", () => {
+      if (auditSearchTimer) clearTimeout(auditSearchTimer);
+      auditSearchTimer = setTimeout(commitSearch, 160);
+    });
+  }
   if (clearButton) {
     clearButton.addEventListener("click", () => {
       if (searchInput) searchInput.value = "";
+      if (jobIdInput) jobIdInput.value = "";
+      if (requestIdInput) requestIdInput.value = "";
       if (auditSearchTimer) clearTimeout(auditSearchTimer);
       commitSearch();
       searchInput?.focus();
