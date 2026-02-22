@@ -24,6 +24,7 @@ and delivers auditable outcomes with approval gates.
 ### 0. Environment self-check
 ```bash
 bash ./scripts/setup_dev_env.sh --check-only
+bash ./scripts/ci_local_check.sh --quick
 ```
 
 ### A. Python-only quick run

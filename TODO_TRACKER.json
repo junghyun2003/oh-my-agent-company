@@ -4,12 +4,17 @@
     {
       "id": 1,
       "title": "로컬 CI 체크 스크립트 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "ops",
       "commit_type": "feat",
       "summary": "add local ci check script covering compile docs sync smoke and optional theme check",
-      "files": ["scripts/ci_local_check.sh", "README.md"],
-      "verify": ["bash ./scripts/ci_local_check.sh --quick"]
+      "files": [
+        "scripts/ci_local_check.sh",
+        "README.md"
+      ],
+      "verify": [
+        "bash ./scripts/ci_local_check.sh --quick"
+      ]
     },
     {
       "id": 2,
@@ -18,8 +23,13 @@
       "scope": "qa",
       "commit_type": "feat",
       "summary": "add visual baseline strictness controls and mismatch handling policy notes",
-      "files": ["scripts/visual_regression_playwright.sh", "README.md"],
-      "verify": ["STRICT_PLAYWRIGHT_VISUAL=0 bash ./scripts/visual_regression_playwright.sh"]
+      "files": [
+        "scripts/visual_regression_playwright.sh",
+        "README.md"
+      ],
+      "verify": [
+        "STRICT_PLAYWRIGHT_VISUAL=0 bash ./scripts/visual_regression_playwright.sh"
+      ]
     },
     {
       "id": 3,
@@ -28,8 +38,13 @@
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "add light load mode to defer heavy panels until requested",
-      "files": ["dashboard/app.js", "README.md"],
-      "verify": ["bash ./scripts/infra_server_ctl.sh ensure"]
+      "files": [
+        "dashboard/app.js",
+        "README.md"
+      ],
+      "verify": [
+        "bash ./scripts/infra_server_ctl.sh ensure"
+      ]
     },
     {
       "id": 4,
@@ -38,8 +53,13 @@
       "scope": "infra",
       "commit_type": "feat",
       "summary": "add retry and backoff options to incident notifier webhook delivery",
-      "files": ["scripts/incident_notify.sh", "README.md"],
-      "verify": ["bash ./scripts/incident_notify.sh --dry-run"]
+      "files": [
+        "scripts/incident_notify.sh",
+        "README.md"
+      ],
+      "verify": [
+        "bash ./scripts/incident_notify.sh --dry-run"
+      ]
     },
     {
       "id": 5,
@@ -48,8 +68,14 @@
       "scope": "security",
       "commit_type": "feat",
       "summary": "add allowlist support to reduce false positives in security scan",
-      "files": ["scripts/security_scan.sh", ".security_scan_allowlist", "README.md"],
-      "verify": ["bash ./scripts/security_scan.sh --dry-run"]
+      "files": [
+        "scripts/security_scan.sh",
+        ".security_scan_allowlist",
+        "README.md"
+      ],
+      "verify": [
+        "bash ./scripts/security_scan.sh --dry-run"
+      ]
     },
     {
       "id": 6,
@@ -58,8 +84,13 @@
       "scope": "strategy",
       "commit_type": "feat",
       "summary": "add latest and history output options for weekly kpi report generation",
-      "files": ["scripts/kpi_weekly_report.py", "README.md"],
-      "verify": ["python3 ./scripts/kpi_weekly_report.py --dry-run"]
+      "files": [
+        "scripts/kpi_weekly_report.py",
+        "README.md"
+      ],
+      "verify": [
+        "python3 ./scripts/kpi_weekly_report.py --dry-run"
+      ]
     },
     {
       "id": 7,
@@ -68,8 +99,13 @@
       "scope": "ops",
       "commit_type": "feat",
       "summary": "add installable pre-commit hook for docs sync fast checks",
-      "files": ["scripts/install_pre_commit_hook.sh", "README.md"],
-      "verify": ["bash ./scripts/install_pre_commit_hook.sh"]
+      "files": [
+        "scripts/install_pre_commit_hook.sh",
+        "README.md"
+      ],
+      "verify": [
+        "bash ./scripts/install_pre_commit_hook.sh"
+      ]
     },
     {
       "id": 8,
@@ -78,8 +114,13 @@
       "scope": "design",
       "commit_type": "feat",
       "summary": "add language policy checker for korean first labels in dashboard markup",
-      "files": ["scripts/language_policy_check.py", "README.md"],
-      "verify": ["python3 ./scripts/language_policy_check.py"]
+      "files": [
+        "scripts/language_policy_check.py",
+        "README.md"
+      ],
+      "verify": [
+        "python3 ./scripts/language_policy_check.py"
+      ]
     },
     {
       "id": 9,
@@ -88,8 +129,14 @@
       "scope": "docs",
       "commit_type": "docs",
       "summary": "add concise 10 minute onboarding guide for external users",
-      "files": ["docs/ONBOARDING_10MIN.md", "README.md", "docs/INDEX.md"],
-      "verify": ["python3 scripts/docs_sync_check.py"]
+      "files": [
+        "docs/ONBOARDING_10MIN.md",
+        "README.md",
+        "docs/INDEX.md"
+      ],
+      "verify": [
+        "python3 scripts/docs_sync_check.py"
+      ]
     },
     {
       "id": 10,
@@ -98,8 +145,13 @@
       "scope": "backend",
       "commit_type": "test",
       "summary": "add api contract smoke script for core endpoints and payload shapes",
-      "files": ["scripts/api_contract_smoke.sh", "README.md"],
-      "verify": ["bash ./scripts/api_contract_smoke.sh"]
+      "files": [
+        "scripts/api_contract_smoke.sh",
+        "README.md"
+      ],
+      "verify": [
+        "bash ./scripts/api_contract_smoke.sh"
+      ]
     }
   ]
 }
