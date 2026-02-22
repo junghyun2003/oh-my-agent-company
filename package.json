@@ -5,6 +5,7 @@
   "description": "Local orchestration dashboard and policy-driven multi-agent workflow",
   "scripts": {
     "install:local": "bash ./scripts/npm_support.sh",
+    "bootstrap:local": "bash ./scripts/bootstrap_local.sh",
     "server:start": "bash ./scripts/infra_server_ctl.sh start",
     "server:status": "bash ./scripts/infra_server_ctl.sh status",
     "server:ensure": "bash ./scripts/infra_server_ctl.sh ensure",

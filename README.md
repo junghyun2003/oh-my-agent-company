@@ -33,6 +33,7 @@ If Node.js/npm is installed:
 ```bash
 npm install
 npm run install:local
+npm run bootstrap:local
 ```
 
 If npm is missing:
@@ -78,9 +79,11 @@ cd oh-my-agent-company
 # npm 경로
 npm install
 npm run install:local
+npm run bootstrap:local
 
 # python 경로
 ./scripts/infra_server_ctl.sh ensure
+bash ./scripts/bootstrap_local.sh
 ```
 2. 접속 확인
 - `http://localhost:18765/dashboard/`
@@ -151,6 +154,7 @@ Availability hardening defaults:
 npm-supported commands:
 ```bash
 npm run install:local
+npm run bootstrap:local
 npm run server:start
 npm run server:status
 npm run server:ensure
