@@ -402,6 +402,52 @@ incident_report() {
   [[ "${diagnosis_code}" == "OK" ]]
 }
 
+incident_summary() {
+  local diag_ok=0
+  if incident_report; then
+    diag_ok=1
+  fi
+  echo "----"
+  echo "port=${PORT}"
+  if [[ -f "${PID_FILE}" ]]; then
+    echo "pid=$(cat "${PID_FILE}" 2>/dev/null || echo none)"
+  else
+    echo "pid=none"
+  fi
+  if [[ -f "${LIFECYCLE_LOG_FILE}" ]]; then
+    echo "lifecycle_tail:"
+    tail -n 5 "${LIFECYCLE_LOG_FILE}" | sed 's/^/  /'
+  else
+    echo "lifecycle_tail: none"
+  fi
+
+  if curl -fsS --max-time "${HEALTH_CURL_TIMEOUT_SEC}" "${health_url}" >/tmp/omc-health.$$ 2>/dev/null; then
+    echo "health_summary:"
+    python3 - <<'PY' /tmp/omc-health.$$
+import json,sys
+p=sys.argv[1]
+try:
+    with open(p,encoding='utf-8') as f:
+        d=json.load(f)
+except Exception:
+    print("  parse_error=true")
+    raise SystemExit(0)
+wh=d.get("worker_health",{}) if isinstance(d,dict) else {}
+workers=wh.get("workers",[]) if isinstance(wh,dict) else []
+stale=wh.get("stale_workers","?")
+recovery=(wh.get("recovery_loop") or {}).get("stale","?")
+print(f"  ok={d.get('ok')}")
+print(f"  stale_workers={stale}")
+print(f"  recovery_stale={recovery}")
+print(f"  worker_count={len(workers)}")
+PY
+    rm -f /tmp/omc-health.$$ || true
+  else
+    echo "health_summary: unavailable"
+  fi
+  [[ "${diag_ok}" -eq 1 ]]
+}
+
 is_watchdog_running() {
   if [[ ! -f "${WATCHDOG_PID_FILE}" ]]; then
     return 1
@@ -476,6 +522,7 @@ case "${1:-}" in
   watch-status) watchdog_status ;;
   watch-logs) tail -n "${2:-120}" "${WATCHDOG_LOG_FILE}" || true ;;
   incident) incident_report ;;
+  incident-summary) incident_summary ;;
   health)
     curl -fsS "${health_url}" | sed 's/^/health: /'
     ;;
@@ -483,7 +530,7 @@ case "${1:-}" in
     tail -n "${2:-120}" "${LOG_FILE}" || true
     ;;
   *)
-    echo "usage: $0 {start|stop|restart|status|ensure|doctor|incident|watch-start|watch-stop|watch-status|watch-logs [n]|health|logs [n]}" >&2
+    echo "usage: $0 {start|stop|restart|status|ensure|doctor|incident|incident-summary|watch-start|watch-stop|watch-status|watch-logs [n]|health|logs [n]}" >&2
     exit 2
     ;;
 esac

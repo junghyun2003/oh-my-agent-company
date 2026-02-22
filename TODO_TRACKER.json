@@ -177,7 +177,7 @@
     {
       "id": 12,
       "title": "장애 요약 진단 커맨드 고도화",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "add concise incident summary command for rapid failure triage",
@@ -186,6 +186,7 @@
         "README.md"
       ],
       "verify": [
+        "bash ./scripts/infra_server_ctl.sh ensure",
         "bash ./scripts/infra_server_ctl.sh incident"
       ]
     }

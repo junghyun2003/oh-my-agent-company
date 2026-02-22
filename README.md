@@ -145,6 +145,7 @@ Safe infra control script:
 ./scripts/infra_server_ctl.sh watch-status
 ./scripts/infra_server_ctl.sh health
 ./scripts/infra_server_ctl.sh incident
+./scripts/infra_server_ctl.sh incident-summary
 ./scripts/infra_server_ctl.sh logs 120
 ```
 
