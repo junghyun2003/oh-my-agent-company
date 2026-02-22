@@ -207,6 +207,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   -H 'Content-Type: application/json' \
   -d '{"owner_id":"local-owner","action":"reprioritize","job_ids":["job-123"],"priority":"urgent"}' | jq
 ```
+- `GET /api/health`는 `worker_health` 필드를 포함해 HTTP 가용성과 워커 정체 여부를 분리해 제공합니다.
 - validation rules:
   - `action`: `recover_stalled|requeue_failed|reprioritize`
   - `job_ids`: `job-*` 형식, 최대 20개 (requeue/reprioritize 시 필수)

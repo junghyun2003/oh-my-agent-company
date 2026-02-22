@@ -27,6 +27,8 @@ DEFAULT_CODEX_MODELS = ["gpt-5-codex", "gpt-5", "o4-mini", "o3"]
 DB_RETRY_ATTEMPTS = 5
 DB_RETRY_SLEEP_SEC = 0.15
 JOB_PRIORITIES = ["urgent", "high", "normal", "low"]
+WORKER_HEARTBEAT = {}
+RECOVERY_HEARTBEAT = {"at": 0.0, "state": "init"}
 
 
 def utc_now():
@@ -936,7 +938,44 @@ def runtime_snapshot():
         "boot_count": boot_count,
         "boot_at": boot_at,
         "uptime_sec": uptime_sec,
+        "worker_health": worker_health_snapshot(),
         "time": utc_now(),
+    }
+
+
+def touch_worker_heartbeat(worker_id, state):
+    WORKER_HEARTBEAT[str(worker_id)] = {"at": time.time(), "state": state}
+
+
+def touch_recovery_heartbeat(state):
+    RECOVERY_HEARTBEAT["at"] = time.time()
+    RECOVERY_HEARTBEAT["state"] = state
+
+
+def worker_health_snapshot(stale_sec=20):
+    now = time.time()
+    workers = []
+    healthy = 0
+    stale = 0
+    for wid, row in sorted(WORKER_HEARTBEAT.items(), key=lambda x: x[0]):
+        age = max(0, int(now - float(row.get("at") or 0)))
+        is_stale = age > stale_sec
+        if is_stale:
+            stale += 1
+        else:
+            healthy += 1
+        workers.append({"worker_id": wid, "state": row.get("state") or "unknown", "age_sec": age, "stale": is_stale})
+    recovery_age = max(0, int(now - float(RECOVERY_HEARTBEAT.get("at") or 0)))
+    recovery = {
+        "state": RECOVERY_HEARTBEAT.get("state") or "unknown",
+        "age_sec": recovery_age,
+        "stale": recovery_age > stale_sec,
+    }
+    return {
+        "workers": workers,
+        "healthy_workers": healthy,
+        "stale_workers": stale,
+        "recovery_loop": recovery,
     }
 
 
@@ -1635,13 +1674,16 @@ def claim_next_queued_job():
 def recovery_loop():
     while True:
         try:
+            touch_recovery_heartbeat("loop")
             poll_sec = int(app_setting("ops_recovery_poll_sec", "10") or "10")
             if poll_sec < 3:
                 poll_sec = 3
             with LOCK:
                 recover_stalled_jobs()
+            touch_recovery_heartbeat("sleep")
             time.sleep(poll_sec)
         except Exception:
+            touch_recovery_heartbeat("error")
             traceback.print_exc()
             time.sleep(1)
 
@@ -1649,14 +1691,19 @@ def recovery_loop():
 def worker_loop(worker_id=1):
     while True:
         try:
+            touch_worker_heartbeat(worker_id, "poll")
             job = claim_next_queued_job()
             if not job:
+                touch_worker_heartbeat(worker_id, "idle")
                 time.sleep(1)
                 continue
+            touch_worker_heartbeat(worker_id, "running")
             run_pipeline(job)
+            touch_worker_heartbeat(worker_id, "done")
         except Exception as exc:
             # Keep worker alive on any unexpected error so a single bad job never stops dispatch.
             try:
+                touch_worker_heartbeat(worker_id, "error")
                 if "job" in locals() and isinstance(job, dict) and job.get("id"):
                     set_job_fields(job["id"], {"status": "failed", "stage": "failed", "completed_at": utc_now(), "error": str(exc)})
                     add_timeline(job["id"], f"Failed: {exc}")
@@ -1796,11 +1843,14 @@ class Handler(SimpleHTTPRequestHandler):
             with LOCK:
                 return self._send_json(runtime_snapshot())
         if path == "/api/health":
+            health_detail = worker_health_snapshot()
+            ok = health_detail["stale_workers"] == 0 and not health_detail["recovery_loop"]["stale"]
             return self._send_json(
                 {
-                    "ok": True,
+                    "ok": ok,
                     "service": "orchestrator",
                     "port": PORT,
+                    "worker_health": health_detail,
                     "time": utc_now(),
                 }
             )
