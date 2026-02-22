@@ -4,7 +4,7 @@
     {
       "id": 1,
       "title": "서버 상시 가용성 고정",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "stabilize infra control start/ensure/watchdog flow for zero-downtime local ops",
@@ -21,7 +21,7 @@
     {
       "id": 2,
       "title": "서버 다운 원인 자동 진단 리포트",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "add standard incident diagnosis output for port/process/health failures",
@@ -37,7 +37,7 @@
     {
       "id": 3,
       "title": "Ops API 권한/입력 검증 강화",
-      "status": "pending",
+      "status": "done",
       "scope": "backend",
       "commit_type": "feat",
       "summary": "harden ops queue action schema and state transition validation",
@@ -52,7 +52,7 @@
     {
       "id": 4,
       "title": "DB 안정성(마이그레이션/백업) 도입",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "add schema versioning and backup/restore scripts for sqlite state",
@@ -68,7 +68,7 @@
     {
       "id": 5,
       "title": "핵심 화면 라우팅/새로고침 UX 정리",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "preserve section route and context on reload across dashboard hash paths",
@@ -84,7 +84,7 @@
     {
       "id": 6,
       "title": "다크/라이트/시스템 테마 전수 QA",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "fix",
       "summary": "normalize tone and contrast tokens across all dashboard sections",
@@ -100,7 +100,7 @@
     {
       "id": 7,
       "title": "작업할당/승인 UI 깨짐 방지 공통화",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "refactor",
       "summary": "stabilize assignment and approval layouts with shared component styles",
@@ -117,7 +117,7 @@
     {
       "id": 8,
       "title": "감사로그 검색성 개선",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "improve audit filters by job_id request_id kind and free-text keywords",
@@ -133,7 +133,7 @@
     {
       "id": 9,
       "title": "시간 표기 표준화(일자+시간+타임존)",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "fix",
       "summary": "standardize datetime rendering with date time timezone across tables and logs",
@@ -148,7 +148,7 @@
     {
       "id": 10,
       "title": "정책 문서 동기화 자동 검증",
-      "status": "pending",
+      "status": "done",
       "scope": "ops",
       "commit_type": "chore",
       "summary": "add docs sync checker for AGENTS README and teams policy index",
@@ -165,7 +165,7 @@
     {
       "id": 11,
       "title": "E2E/시각 회귀 자동화 확대",
-      "status": "pending",
+      "status": "done",
       "scope": "qa",
       "commit_type": "test",
       "summary": "expand smoke and visual regression checks for core sections and ops panel",
@@ -181,7 +181,7 @@
     {
       "id": 12,
       "title": "외부 사용자 온보딩 가이드 강화",
-      "status": "pending",
+      "status": "done",
       "scope": "docs",
       "commit_type": "docs",
       "summary": "simplify npm/python setup and failure handling guide for fork users",
