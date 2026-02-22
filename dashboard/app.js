@@ -80,6 +80,7 @@ const TABLE_PAGINATION = {
 };
 const paginationState = { requests: 1, jobs: 1, audit: 1 };
 const tableCache = { requests: null, jobs: null, audit: null };
+const auditFetchState = { limit: 200, offset: 0 };
 let lastRequestsHeadId = "";
 let lastRequestsCount = 0;
 const auditFilterState = { kind: "all", q: "", job_id: "", request_id: "" };
@@ -2179,7 +2180,8 @@ function renderAudit(payload) {
     const qLabel = auditFilterState.q ? `, 검색어="${auditFilterState.q}"` : "";
     const jobLabel = auditFilterState.job_id ? `, job="${auditFilterState.job_id}"` : "";
     const reqLabel = auditFilterState.request_id ? `, req="${auditFilterState.request_id}"` : "";
-    statsEl.textContent = `필터: ${kindLabel}${qLabel}${jobLabel}${reqLabel} · ${events.length} / ${allEvents.length}건`;
+    const total = Number(payload.total || allEvents.length || 0);
+    statsEl.textContent = `필터: ${kindLabel}${qLabel}${jobLabel}${reqLabel} · ${events.length} / 조회 ${allEvents.length}건 (전체 ${total}건)`;
   }
   const root = document.getElementById("auditTable");
   if (!events.length) {
@@ -2539,6 +2541,7 @@ function setupAuditControls() {
   const requestIdInput = document.getElementById("auditRequestIdInput");
   const clearButton = document.getElementById("auditSearchClear");
   const quickFilters = Array.from(document.querySelectorAll("#auditQuickFilters button[data-kind]"));
+  const fetchLimitSelect = document.getElementById("auditFetchLimit");
 
   const commitSearch = () => {
     auditFilterState.q = String(searchInput?.value || "").trim().toLowerCase();
@@ -2603,6 +2606,14 @@ function setupAuditControls() {
       if (tableCache.audit) renderAudit(tableCache.audit);
     });
   });
+  if (fetchLimitSelect) {
+    fetchLimitSelect.addEventListener("change", async () => {
+      const n = Number(fetchLimitSelect.value || 200);
+      auditFetchState.limit = Number.isNaN(n) ? 200 : Math.min(1000, Math.max(50, n));
+      auditFetchState.offset = 0;
+      await loadAll();
+    });
+  }
 }
 
 function updateNavHelper(button) {
@@ -2872,7 +2883,7 @@ async function loadAll() {
       fetch(`${requestsUrl}?t=${Date.now()}`),
       fetch(`${jobsUrl}?t=${Date.now()}`),
       fetch(`${policiesUrl}?t=${Date.now()}`),
-      fetch(`${auditUrl}?t=${Date.now()}`),
+      fetch(`${auditUrl}?t=${Date.now()}&limit=${auditFetchState.limit}&offset=${auditFetchState.offset}`),
       fetch(`${usageUrl}?t=${Date.now()}`),
       fetch(`${opsQueueUrl}?t=${Date.now()}`)
     ]);

@@ -1838,11 +1838,26 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._send_json(discover_codex_models(refresh=refresh))
         if path == "/api/audit":
             with LOCK:
-                rows = [dict(r) for r in q("SELECT * FROM audit_events ORDER BY id DESC LIMIT 200")]
+                limit = int(query.get("limit", ["200"])[0] or "200")
+                offset = int(query.get("offset", ["0"])[0] or "0")
+                if limit < 1:
+                    limit = 1
+                if limit > 1000:
+                    limit = 1000
+                if offset < 0:
+                    offset = 0
+                total = q1("SELECT COUNT(*) AS c FROM audit_events")["c"]
+                rows = [
+                    dict(r)
+                    for r in q(
+                        "SELECT * FROM audit_events ORDER BY id DESC LIMIT ? OFFSET ?",
+                        (limit, offset),
+                    )
+                ]
                 rows.reverse()
                 for row in rows:
                     row["detail"] = parse_json(row.get("detail"), {})
-                return self._send_json({"events": rows})
+                return self._send_json({"events": rows, "total": int(total), "limit": limit, "offset": offset})
         if path == "/api/usage":
             with LOCK:
                 return self._send_json(usage_snapshot())
