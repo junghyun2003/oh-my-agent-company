@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -76,25 +77,34 @@ def cmd_complete(args: argparse.Namespace) -> None:
         for cmd in step.get("verify", []):
             run(cmd, check=True)
 
+    original_status = step.get("status")
     if args.commit:
         files = step.get("files", [])
         if not files:
             raise RuntimeError("step has no file list; cannot commit safely")
-        quoted = " ".join(files)
-        run(f"git add {quoted}", check=True)
-        message = build_commit_message(step)
-        run(
-            "git commit "
-            + f"-m \"{message}\" "
-            + "-m \"Change-Origin: custom\" "
-            + "-m \"Upstream-Ref: none\"",
-            check=True,
-        )
-        if args.push:
-            run("git push origin main", check=True)
-
-    step["status"] = "done"
-    save_tracker(data)
+        step["status"] = "done"
+        save_tracker(data)
+        tracked_files = list(dict.fromkeys(files + [str(TRACKER.relative_to(ROOT))]))
+        quoted = " ".join(shlex.quote(p) for p in tracked_files)
+        try:
+            run(f"git add {quoted}", check=True)
+            message = build_commit_message(step)
+            run(
+                "git commit "
+                + f"-m \"{message}\" "
+                + "-m \"Change-Origin: custom\" "
+                + "-m \"Upstream-Ref: none\"",
+                check=True,
+            )
+            if args.push:
+                run("git push origin main", check=True)
+        except Exception:
+            step["status"] = original_status
+            save_tracker(data)
+            raise
+    else:
+        step["status"] = "done"
+        save_tracker(data)
     print(f"step {args.step_id} -> done")
 
 
@@ -132,4 +142,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

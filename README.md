@@ -171,6 +171,7 @@ npm run todo:complete -- 1 --verify --commit --push
 Step-by-step TODO execution source of truth:
 - `/Users/junghyen2003/Documents/oh-my-agent-company/TODO_TRACKER.json`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/TODO_EXECUTION_PLAN.md`
+- `todo_workflow.py complete --commit`는 step 상태(`done`)와 해당 코드 변경을 같은 커밋에 원자적으로 포함합니다.
 
 Queue management (direct):
 ```bash
