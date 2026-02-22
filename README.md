@@ -157,6 +157,7 @@ Stalled-job recovery (built-in):
   - `queue_warn_min` (default: `30`)
   - `in_progress_timeout_min` (default: `60`)
   - `ops_recovery_poll_sec` (default: `10`)
+  - `worker_concurrency` (default: `2`, max `6`)
 
 ## Data and Artifacts
 - DB: `/Users/junghyen2003/Documents/oh-my-agent-company/state/agent_company.db`

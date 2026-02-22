@@ -39,7 +39,7 @@
     {
       "id": 3,
       "title": "멀티 워커 동시 처리 + 안전 디스패치 락",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "add multi-worker dispatch with safe queue locking",

@@ -327,6 +327,8 @@ def seed_defaults():
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("in_progress_timeout_min", "60"))
     if not q1("SELECT key FROM app_settings WHERE key='ops_recovery_poll_sec'"):
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("ops_recovery_poll_sec", "10"))
+    if not q1("SELECT key FROM app_settings WHERE key='worker_concurrency'"):
+        exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("worker_concurrency", "2"))
 
     if not q1("SELECT id FROM usage_stats WHERE id = 1"):
         exec_sql(
@@ -1323,40 +1325,53 @@ def recover_stalled_jobs():
         set_meta("updated_at", now_iso)
 
 
-def worker_loop():
-    last_recovery_check = 0.0
+def claim_next_queued_job():
+    with LOCK:
+        row = q1(
+            """
+            SELECT * FROM jobs
+            WHERE status='queued'
+            ORDER BY
+              CASE priority
+                WHEN 'urgent' THEN 0
+                WHEN 'high' THEN 1
+                WHEN 'normal' THEN 2
+                WHEN 'low' THEN 3
+                ELSE 2
+              END,
+              created_at
+            LIMIT 1
+            """
+        )
+        if not row:
+            return None
+        job = dict(row)
+        set_job_fields(job["id"], {"status": "dispatching", "stage": "dispatch", "dispatched_at": utc_now()})
+        claimed = q1("SELECT * FROM jobs WHERE id=?", (job["id"],))
+        return dict(claimed) if claimed else job
+
+
+def recovery_loop():
     while True:
         try:
             poll_sec = int(app_setting("ops_recovery_poll_sec", "10") or "10")
             if poll_sec < 3:
                 poll_sec = 3
-            now_ts = time.time()
-            if now_ts - last_recovery_check >= poll_sec:
-                with LOCK:
-                    recover_stalled_jobs()
-                last_recovery_check = now_ts
+            with LOCK:
+                recover_stalled_jobs()
+            time.sleep(poll_sec)
+        except Exception:
+            traceback.print_exc()
+            time.sleep(1)
 
-            job = q1(
-                """
-                SELECT * FROM jobs
-                WHERE status='queued'
-                ORDER BY
-                  CASE priority
-                    WHEN 'urgent' THEN 0
-                    WHEN 'high' THEN 1
-                    WHEN 'normal' THEN 2
-                    WHEN 'low' THEN 3
-                    ELSE 2
-                  END,
-                  created_at
-                LIMIT 1
-                """
-            )
+
+def worker_loop(worker_id=1):
+    while True:
+        try:
+            job = claim_next_queued_job()
             if not job:
                 time.sleep(1)
                 continue
-            job = dict(job)
-            set_job_fields(job["id"], {"status": "dispatching", "stage": "dispatch", "dispatched_at": utc_now()})
             run_pipeline(job)
         except Exception as exc:
             # Keep worker alive on any unexpected error so a single bad job never stops dispatch.
@@ -1365,7 +1380,13 @@ def worker_loop():
                     set_job_fields(job["id"], {"status": "failed", "stage": "failed", "completed_at": utc_now(), "error": str(exc)})
                     add_timeline(job["id"], f"Failed: {exc}")
                     update_request(job["request_id"], {"status": "received"})
-                    append_audit("job_failed", owner_id=job.get("owner_id"), job_id=job["id"], request_id=job.get("request_id"), detail={"error": str(exc)})
+                    append_audit(
+                        "job_failed",
+                        owner_id=job.get("owner_id"),
+                        job_id=job["id"],
+                        request_id=job.get("request_id"),
+                        detail={"error": str(exc), "worker_id": worker_id},
+                    )
                 update_agent("qa", status="critical", current_task="Failure triage", initiative="Incident handling", latency_ms=700, error_rate=0.11, blocker=str(exc))
                 set_meta("updated_at", utc_now())
             except Exception:
@@ -1690,14 +1711,25 @@ def main():
     init_db()
     seed_defaults()
 
-    worker = threading.Thread(target=worker_loop, daemon=True)
-    worker.start()
+    worker_concurrency = int(app_setting("worker_concurrency", "2") or "2")
+    if worker_concurrency < 1:
+        worker_concurrency = 1
+    if worker_concurrency > 6:
+        worker_concurrency = 6
+
+    for idx in range(worker_concurrency):
+        worker = threading.Thread(target=worker_loop, args=(idx + 1,), daemon=True, name=f"worker-{idx+1}")
+        worker.start()
+
+    recovery = threading.Thread(target=recovery_loop, daemon=True, name="recovery-loop")
+    recovery.start()
 
     ThreadingHTTPServer.daemon_threads = True
     ThreadingHTTPServer.allow_reuse_address = True
     server = ThreadingHTTPServer(("", PORT), Handler)
     print(f"Orchestrator server running at http://localhost:{PORT}")
     print(f"Storage backend: SQLite ({DB_PATH})")
+    print(f"Worker concurrency: {worker_concurrency}")
     server.serve_forever()
 
 
