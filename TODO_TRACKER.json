@@ -84,7 +84,7 @@
     {
       "id": 6,
       "title": "bootstrap 의존성 강제 모드 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "ops",
       "commit_type": "feat",
       "summary": "add require-node mode and clearer diagnostics to bootstrap flow",

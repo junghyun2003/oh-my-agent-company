@@ -6,6 +6,7 @@ cd "${ROOT_DIR}"
 
 BASE_URL="${BASE_URL:-http://localhost:${ORCHESTRATOR_PORT:-18765}}"
 RUN_SMOKE="${RUN_SMOKE:-1}"
+REQUIRE_NODE="${REQUIRE_NODE:-0}"
 
 echo "[bootstrap] checking required commands..."
 for cmd in python3 curl bash; do
@@ -19,6 +20,13 @@ if command -v npm >/dev/null 2>&1; then
   echo "[bootstrap] npm install (no-audit/no-fund)..."
   npm install --no-audit --no-fund
 else
+  if [[ "${REQUIRE_NODE}" == "1" ]]; then
+    echo "[bootstrap] npm is required but not found." >&2
+    echo "install Node.js/npm and retry:" >&2
+    echo "  node --version" >&2
+    echo "  npm --version" >&2
+    exit 1
+  fi
   echo "[bootstrap] npm not found: skipping npm install"
 fi
 

@@ -84,6 +84,9 @@ npm run bootstrap:local
 # python 경로
 ./scripts/infra_server_ctl.sh ensure
 bash ./scripts/bootstrap_local.sh
+
+# Node 필수 강제 (npm 없으면 실패)
+REQUIRE_NODE=1 bash ./scripts/bootstrap_local.sh
 ```
 2. 접속 확인
 - `http://localhost:18765/dashboard/`
