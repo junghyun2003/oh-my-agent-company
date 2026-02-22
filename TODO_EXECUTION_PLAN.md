@@ -9,6 +9,16 @@
 3. 검증 통과 후 즉시 커밋/푸시한다.
 4. 커밋 메시지는 `type(scope): summary` + provenance footer를 사용한다.
 
+## Workflow Commands
+```bash
+python3 scripts/todo_workflow.py list
+python3 scripts/todo_workflow.py start <step_id>
+python3 scripts/todo_workflow.py complete <step_id> --verify --commit --push
+```
+
+- 단계 상태는 `TODO_TRACKER.json`이 source of truth다.
+- `complete`는 단계별 파일 목록만 스테이징하여 커밋한다.
+
 ## Step Checklist
 - [x] Step 1. 큐 운영 스크립트 추가 (`scripts/ops_queue_manager.py`)
 - [ ] Step 2. 서버 자동 정체 복구 루프 내장 (`scripts/orchestrator_server.py`)
@@ -38,4 +48,3 @@ feat(infra): add ops queue manager for backlog and stalled jobs
 Change-Origin: custom
 Upstream-Ref: none
 ```
-

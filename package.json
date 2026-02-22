@@ -12,6 +12,9 @@
     "server:health": "bash ./scripts/infra_server_ctl.sh health",
     "ops:queue:summary": "python3 ./scripts/ops_queue_manager.py summary",
     "ops:queue:dry-run": "python3 ./scripts/ops_queue_manager.py apply --dry-run",
-    "ops:queue:apply": "python3 ./scripts/ops_queue_manager.py apply"
+    "ops:queue:apply": "python3 ./scripts/ops_queue_manager.py apply",
+    "todo:list": "python3 ./scripts/todo_workflow.py list",
+    "todo:start": "python3 ./scripts/todo_workflow.py start",
+    "todo:complete": "python3 ./scripts/todo_workflow.py complete"
   }
 }
