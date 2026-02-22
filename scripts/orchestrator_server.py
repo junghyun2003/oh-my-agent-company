@@ -329,6 +329,10 @@ def seed_defaults():
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("ops_recovery_poll_sec", "10"))
     if not q1("SELECT key FROM app_settings WHERE key='worker_concurrency'"):
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("worker_concurrency", "2"))
+    if not q1("SELECT key FROM app_settings WHERE key='runtime_boot_count'"):
+        exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("runtime_boot_count", "0"))
+    if not q1("SELECT key FROM app_settings WHERE key='runtime_last_boot_at'"):
+        exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("runtime_last_boot_at", ""))
 
     if not q1("SELECT id FROM usage_stats WHERE id = 1"):
         exec_sql(
@@ -915,6 +919,24 @@ def usage_snapshot():
         "actions_executed_total": int(actions),
         "files_changed_total": int(files_changed),
         "last_api_at": row.get("last_api_at", ""),
+    }
+
+
+def runtime_snapshot():
+    boot_at = app_setting("runtime_last_boot_at", "")
+    boot_count = int(app_setting("runtime_boot_count", "0") or "0")
+    boot_dt = parse_utc(boot_at)
+    uptime_sec = 0
+    if boot_dt:
+        uptime_sec = max(0, int((datetime.now(timezone.utc) - boot_dt).total_seconds()))
+    return {
+        "ok": True,
+        "service": "orchestrator_runtime",
+        "pid": os.getpid(),
+        "boot_count": boot_count,
+        "boot_at": boot_at,
+        "uptime_sec": uptime_sec,
+        "time": utc_now(),
     }
 
 
@@ -1770,6 +1792,9 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/ops/queue":
             with LOCK:
                 return self._send_json({"ok": True, "queue": ops_queue_snapshot()})
+        if path == "/api/ops/runtime":
+            with LOCK:
+                return self._send_json(runtime_snapshot())
         if path == "/api/health":
             return self._send_json(
                 {
@@ -1998,6 +2023,9 @@ def main():
     DB = db_connect()
     init_db()
     seed_defaults()
+    boot_count = int(app_setting("runtime_boot_count", "0") or "0") + 1
+    set_app_setting("runtime_boot_count", str(boot_count))
+    set_app_setting("runtime_last_boot_at", utc_now())
 
     worker_concurrency = int(app_setting("worker_concurrency", "2") or "2")
     if worker_concurrency < 1:

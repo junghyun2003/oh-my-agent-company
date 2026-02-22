@@ -189,6 +189,9 @@ Queue management API:
 # snapshot
 curl -s http://localhost:18765/api/ops/queue | jq
 
+# runtime (uptime/boot count)
+curl -s http://localhost:18765/api/ops/runtime | jq
+
 # recover stalled jobs
 curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   -H 'Content-Type: application/json' \
