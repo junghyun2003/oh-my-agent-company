@@ -2957,6 +2957,28 @@ function explainApiError(error) {
   return msg;
 }
 
+function validateJobFormPayload(payload) {
+  const errors = [];
+  if (!payload.request_id) errors.push("요청을 선택하세요.");
+  if (!payload.work_type) errors.push("업무 유형을 입력하세요.");
+  if (!payload.mission) errors.push("미션을 입력하세요.");
+  if (!payload.repository) errors.push("대상 저장소를 선택하세요.");
+  if (!payload.refined_request) errors.push("정제된 작업 지시를 입력하세요.");
+  if (!["urgent", "high", "normal", "low"].includes(String(payload.priority || "").toLowerCase())) {
+    errors.push("우선순위 값이 올바르지 않습니다.");
+  }
+  return errors;
+}
+
+function validateApprovalPayload(payload) {
+  const errors = [];
+  if (!payload.job_id) errors.push("승인 대상 작업을 선택하세요.");
+  if (!["pre", "post"].includes(String(payload.phase || "").toLowerCase())) {
+    errors.push("승인 단계(pre/post)를 선택하세요.");
+  }
+  return errors;
+}
+
 async function submitRequest(event) {
   event.preventDefault();
   const result = document.getElementById("requestSubmitResult");
@@ -3003,6 +3025,11 @@ async function submitJob(event) {
     apply_changes: document.getElementById("applyChanges").checked,
     approval_mode: document.getElementById("approvalMode").value
   };
+  const errors = validateJobFormPayload(payload);
+  if (errors.length) {
+    result.textContent = `실패: ${errors.join(" ")}`;
+    return;
+  }
 
   try {
     const res = await fetch(assignUrl, {
@@ -3030,6 +3057,11 @@ async function approveJob(event) {
     job_id: document.getElementById("approveJobSelect").value,
     phase: document.getElementById("approvePhase").value
   };
+  const errors = validateApprovalPayload(payload);
+  if (errors.length) {
+    result.textContent = `실패: ${errors.join(" ")}`;
+    return;
+  }
 
   try {
     const res = await fetch(approveUrl, {
