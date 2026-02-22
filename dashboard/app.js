@@ -940,8 +940,7 @@ function renderDesignBoard(state) {
 }
 
 function setTimestamp(isoString) {
-  const d = new Date(isoString);
-  document.getElementById("lastUpdated").textContent = `업데이트: ${d.toLocaleString("ko-KR")}`;
+  document.getElementById("lastUpdated").textContent = `업데이트: ${formatDateTimeFull(isoString)}`;
 }
 
 function renderUsage(usage) {
@@ -960,7 +959,8 @@ function formatDateTimeFull(value) {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false
+    hour12: false,
+    timeZoneName: "short"
   });
 }
 
@@ -2031,7 +2031,7 @@ function renderJobs(payload) {
     root.innerHTML = `
       <div class="table-wrap"><table class="table">
         <thead>
-          <tr><th>작업 ID</th><th>우선순위</th><th>상태</th><th>단계</th><th>저장소</th><th>승인 모드</th><th>실행 액션</th><th>변경 파일 수</th><th>리포트</th></tr>
+          <tr><th>작업 ID</th><th>생성 시각</th><th>완료 시각</th><th>우선순위</th><th>상태</th><th>단계</th><th>저장소</th><th>승인 모드</th><th>실행 액션</th><th>변경 파일 수</th><th>리포트</th></tr>
         </thead>
         <tbody>
           ${rows.map((j) => {
@@ -2042,7 +2042,7 @@ function renderJobs(payload) {
             const report = j.report_path
               ? `<a href="${esc(reportHref)}" target="_blank" rel="noopener noreferrer"><code>${esc(j.report_path)}</code></a>`
               : "-";
-            return `<tr><td><code>${esc(j.id)}</code></td><td><span class="tag ${priorityClass(j.priority)}">${esc(priorityKo(j.priority))}</span></td><td><span class="tag">${esc(statusKo(j.status))}</span></td><td>${esc(statusKo(j.stage || "-"))}</td><td><code>${esc(shortRepoName(j.repository))}</code></td><td>${esc(approval)}</td><td>${actions}</td><td>${changed}</td><td>${report}</td></tr>`;
+            return `<tr><td><code>${esc(j.id)}</code></td><td>${esc(formatDateTimeFull(j.created_at))}</td><td>${esc(formatDateTimeFull(j.completed_at))}</td><td><span class="tag ${priorityClass(j.priority)}">${esc(priorityKo(j.priority))}</span></td><td><span class="tag">${esc(statusKo(j.status))}</span></td><td>${esc(statusKo(j.stage || "-"))}</td><td><code>${esc(shortRepoName(j.repository))}</code></td><td>${esc(approval)}</td><td>${actions}</td><td>${changed}</td><td>${report}</td></tr>`;
           }).join("")}
         </tbody>
       </table></div>`;
