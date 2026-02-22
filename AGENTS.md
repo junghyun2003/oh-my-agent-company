@@ -107,6 +107,10 @@
 - 정체 복구 이벤트는 `audit_events`에 `job_stalled_recovered`로 기록하고, 원인/조치/재발방지 항목을 detail에 남긴다.
 - 동일 요청이 2회 이상 정체 복구되면 CEO/CTO 자동 에스컬레이션 대상으로 승격한다.
 - 복구 후 재할당 시 기존 작업의 `repository/work_type/mission/priority`를 우선 재사용해 컨텍스트 손실을 최소화한다.
+- 운영 표준 명령:
+  - `python3 scripts/ops_queue_manager.py summary`
+  - `python3 scripts/ops_queue_manager.py apply --dry-run`
+  - `python3 scripts/ops_queue_manager.py apply --requeue-failed`
 
 ## Mandatory Enforcement (Non-Negotiable)
 - 본 문서의 규칙은 권고가 아니라 강제 정책이며, 예외는 `CEO` 또는 `CTO`의 명시 승인 없이는 허용되지 않는다.

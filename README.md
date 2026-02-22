@@ -124,6 +124,16 @@ npm run server:status
 npm run server:ensure
 npm run server:watch
 npm run server:health
+npm run ops:queue:summary
+npm run ops:queue:dry-run
+npm run ops:queue:apply
+```
+
+Queue management (direct):
+```bash
+python3 ./scripts/ops_queue_manager.py summary
+python3 ./scripts/ops_queue_manager.py apply --dry-run
+python3 ./scripts/ops_queue_manager.py apply --requeue-failed
 ```
 
 Direct run (fallback):
