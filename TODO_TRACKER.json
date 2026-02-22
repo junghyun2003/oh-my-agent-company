@@ -1,48 +1,46 @@
 {
-  "version": 1,
+  "version": 2,
   "steps": [
     {
       "id": 1,
-      "title": "큐 운영 스크립트 추가",
-      "status": "done",
+      "title": "서버 상시 가용성 고정",
+      "status": "pending",
       "scope": "infra",
       "commit_type": "feat",
-      "summary": "add ops queue manager for backlog and stalled jobs",
+      "summary": "stabilize infra control start/ensure/watchdog flow for zero-downtime local ops",
       "files": [
-        "scripts/ops_queue_manager.py",
-        "TODO_EXECUTION_PLAN.md",
-        "README.md",
-        "AGENTS.md",
-        "package.json"
+        "scripts/infra_server_ctl.sh",
+        "README.md"
       ],
       "verify": [
-        "python3 scripts/ops_queue_manager.py summary",
-        "python3 scripts/ops_queue_manager.py apply --dry-run"
+        "./scripts/infra_server_ctl.sh ensure",
+        "./scripts/infra_server_ctl.sh doctor",
+        "./scripts/infra_server_ctl.sh status"
       ]
     },
     {
       "id": 2,
-      "title": "서버 자동 정체 복구 루프 내장",
-      "status": "done",
+      "title": "서버 다운 원인 자동 진단 리포트",
+      "status": "pending",
       "scope": "infra",
       "commit_type": "feat",
-      "summary": "embed automatic stalled job recovery loop in orchestrator",
+      "summary": "add standard incident diagnosis output for port/process/health failures",
       "files": [
-        "scripts/orchestrator_server.py",
-        "README.md",
-        "AGENTS.md"
+        "scripts/infra_server_ctl.sh",
+        "README.md"
       ],
       "verify": [
-        "python3 -m py_compile scripts/orchestrator_server.py"
+        "./scripts/infra_server_ctl.sh doctor",
+        "./scripts/infra_server_ctl.sh logs 80"
       ]
     },
     {
       "id": 3,
-      "title": "멀티 워커 동시 처리 + 안전 디스패치 락",
-      "status": "done",
-      "scope": "infra",
+      "title": "Ops API 권한/입력 검증 강화",
+      "status": "pending",
+      "scope": "backend",
       "commit_type": "feat",
-      "summary": "add multi-worker dispatch with safe queue locking",
+      "summary": "harden ops queue action schema and state transition validation",
       "files": [
         "scripts/orchestrator_server.py",
         "README.md"
@@ -53,13 +51,14 @@
     },
     {
       "id": 4,
-      "title": "운영 API 추가 (/api/ops/queue)",
-      "status": "done",
-      "scope": "backend",
+      "title": "DB 안정성(마이그레이션/백업) 도입",
+      "status": "pending",
+      "scope": "infra",
       "commit_type": "feat",
-      "summary": "add queue operation APIs for backlog and failures",
+      "summary": "add schema versioning and backup/restore scripts for sqlite state",
       "files": [
         "scripts/orchestrator_server.py",
+        "scripts",
         "README.md"
       ],
       "verify": [
@@ -68,30 +67,132 @@
     },
     {
       "id": 5,
-      "title": "대시보드 운영 패널(백로그/진행중/실패 액션)",
-      "status": "done",
+      "title": "핵심 화면 라우팅/새로고침 UX 정리",
+      "status": "pending",
       "scope": "frontend",
       "commit_type": "feat",
-      "summary": "add ops dashboard panel for backlog and failure actions",
+      "summary": "preserve section route and context on reload across dashboard hash paths",
       "files": [
         "dashboard/index.html",
         "dashboard/app.js",
         "dashboard/styles.css"
       ],
-      "verify": []
+      "verify": [
+        "./scripts/infra_server_ctl.sh ensure"
+      ]
     },
     {
       "id": 6,
-      "title": "회귀 테스트/스모크 테스트 자동화",
-      "status": "done",
+      "title": "다크/라이트/시스템 테마 전수 QA",
+      "status": "pending",
+      "scope": "frontend",
+      "commit_type": "fix",
+      "summary": "normalize tone and contrast tokens across all dashboard sections",
+      "files": [
+        "dashboard/styles.css",
+        "dashboard/app.js",
+        "README.md"
+      ],
+      "verify": [
+        "./scripts/infra_server_ctl.sh ensure"
+      ]
+    },
+    {
+      "id": 7,
+      "title": "작업할당/승인 UI 깨짐 방지 공통화",
+      "status": "pending",
+      "scope": "frontend",
+      "commit_type": "refactor",
+      "summary": "stabilize assignment and approval layouts with shared component styles",
+      "files": [
+        "dashboard/index.html",
+        "dashboard/app.js",
+        "dashboard/styles.css",
+        "COMPONENT_REGISTRY.md"
+      ],
+      "verify": [
+        "./scripts/infra_server_ctl.sh ensure"
+      ]
+    },
+    {
+      "id": 8,
+      "title": "감사로그 검색성 개선",
+      "status": "pending",
+      "scope": "frontend",
+      "commit_type": "feat",
+      "summary": "improve audit filters by job_id request_id kind and free-text keywords",
+      "files": [
+        "dashboard/app.js",
+        "dashboard/index.html",
+        "dashboard/styles.css"
+      ],
+      "verify": [
+        "./scripts/infra_server_ctl.sh ensure"
+      ]
+    },
+    {
+      "id": 9,
+      "title": "시간 표기 표준화(일자+시간+타임존)",
+      "status": "pending",
+      "scope": "frontend",
+      "commit_type": "fix",
+      "summary": "standardize datetime rendering with date time timezone across tables and logs",
+      "files": [
+        "dashboard/app.js",
+        "dashboard/index.html"
+      ],
+      "verify": [
+        "./scripts/infra_server_ctl.sh ensure"
+      ]
+    },
+    {
+      "id": 10,
+      "title": "정책 문서 동기화 자동 검증",
+      "status": "pending",
+      "scope": "ops",
+      "commit_type": "chore",
+      "summary": "add docs sync checker for AGENTS README and teams policy index",
+      "files": [
+        "scripts",
+        "AGENTS.md",
+        "teams/AGENTS.md",
+        "README.md"
+      ],
+      "verify": [
+        "python3 scripts/todo_workflow.py list"
+      ]
+    },
+    {
+      "id": 11,
+      "title": "E2E/시각 회귀 자동화 확대",
+      "status": "pending",
       "scope": "qa",
       "commit_type": "test",
-      "summary": "add smoke checks for approval, audit log and assignment flows",
+      "summary": "expand smoke and visual regression checks for core sections and ops panel",
       "files": [
+        "scripts/smoke_core_flows.sh",
         "scripts",
         "README.md"
       ],
-      "verify": []
+      "verify": [
+        "bash ./scripts/smoke_core_flows.sh"
+      ]
+    },
+    {
+      "id": 12,
+      "title": "외부 사용자 온보딩 가이드 강화",
+      "status": "pending",
+      "scope": "docs",
+      "commit_type": "docs",
+      "summary": "simplify npm/python setup and failure handling guide for fork users",
+      "files": [
+        "README.md",
+        "FORK_CUSTOMIZATION_POLICY.md",
+        "CONTRIBUTING.md"
+      ],
+      "verify": [
+        "python3 scripts/todo_workflow.py list"
+      ]
     }
   ]
 }

@@ -127,7 +127,14 @@ npm run server:health
 npm run ops:queue:summary
 npm run ops:queue:dry-run
 npm run ops:queue:apply
+npm run todo:list
+npm run todo:start -- 1
+npm run todo:complete -- 1 --verify --commit --push
 ```
+
+Step-by-step TODO execution source of truth:
+- `/Users/junghyen2003/Documents/oh-my-agent-company/TODO_TRACKER.json`
+- `/Users/junghyen2003/Documents/oh-my-agent-company/TODO_EXECUTION_PLAN.md`
 
 Queue management (direct):
 ```bash
