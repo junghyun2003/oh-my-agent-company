@@ -321,6 +321,12 @@ def seed_defaults():
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("codex_timeout_sec", "900"))
     if not q1("SELECT key FROM app_settings WHERE key='local_trust_mode'"):
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("local_trust_mode", "1"))
+    if not q1("SELECT key FROM app_settings WHERE key='queue_warn_min'"):
+        exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("queue_warn_min", "30"))
+    if not q1("SELECT key FROM app_settings WHERE key='in_progress_timeout_min'"):
+        exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("in_progress_timeout_min", "60"))
+    if not q1("SELECT key FROM app_settings WHERE key='ops_recovery_poll_sec'"):
+        exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("ops_recovery_poll_sec", "10"))
 
     if not q1("SELECT id FROM usage_stats WHERE id = 1"):
         exec_sql(
@@ -1246,9 +1252,90 @@ def run_pipeline(job):
     )
 
 
+def recover_stalled_jobs():
+    now = datetime.now(timezone.utc)
+    now_iso = utc_now()
+    queue_warn_min = int(app_setting("queue_warn_min", "30") or "30")
+    progress_timeout_min = int(app_setting("in_progress_timeout_min", "60") or "60")
+
+    warned_queue = []
+    recovered = []
+
+    # queue warning audit
+    for row in q("SELECT id, request_id, created_at FROM jobs WHERE status IN ('queued','dispatching') ORDER BY created_at ASC"):
+        item = dict(row)
+        created_at = parse_utc(item.get("created_at"))
+        if not created_at:
+            continue
+        age_min = (now - created_at).total_seconds() / 60
+        if age_min < queue_warn_min:
+            continue
+        warned_queue.append({"id": item["id"], "request_id": item.get("request_id"), "age_min": round(age_min, 1)})
+        append_audit(
+            "queue_stalled_warning",
+            owner_id="local-owner",
+            job_id=item["id"],
+            request_id=item.get("request_id"),
+            phase="ops",
+            detail={"age_min": round(age_min, 1), "threshold_min": queue_warn_min},
+        )
+
+    # in_progress timeout recovery
+    for row in q("SELECT id, request_id, owner_id, started_at, created_at, timeline FROM jobs WHERE status='in_progress'"):
+        item = dict(row)
+        base = parse_utc(item.get("started_at")) or parse_utc(item.get("created_at"))
+        if not base:
+            continue
+        age_min = (now - base).total_seconds() / 60
+        if age_min < progress_timeout_min:
+            continue
+
+        timeline = parse_json(item.get("timeline"), [])
+        timeline.append({"at": now_iso, "message": "Stalled job auto-closed by orchestrator recovery loop."})
+        set_job_fields(
+            item["id"],
+            {
+                "status": "failed",
+                "stage": "failed",
+                "completed_at": now_iso,
+                "error": "stalled_timeout_recovery",
+                "timeline": timeline,
+            },
+        )
+        update_request(item["request_id"], {"status": "received"})
+        append_audit(
+            "job_stalled_recovered",
+            owner_id=item.get("owner_id") or "local-owner",
+            job_id=item["id"],
+            request_id=item["request_id"],
+            phase="ops",
+            detail={"reason": "stalled_timeout_recovery", "age_min": round(age_min, 1), "threshold_min": progress_timeout_min},
+        )
+        recovered.append({"id": item["id"], "request_id": item["request_id"], "age_min": round(age_min, 1)})
+
+    if warned_queue or recovered:
+        append_audit(
+            "ops_queue_managed",
+            owner_id="local-owner",
+            phase="ops",
+            detail={"warned_queue": warned_queue, "recovered": recovered},
+        )
+        set_meta("updated_at", now_iso)
+
+
 def worker_loop():
+    last_recovery_check = 0.0
     while True:
         try:
+            poll_sec = int(app_setting("ops_recovery_poll_sec", "10") or "10")
+            if poll_sec < 3:
+                poll_sec = 3
+            now_ts = time.time()
+            if now_ts - last_recovery_check >= poll_sec:
+                with LOCK:
+                    recover_stalled_jobs()
+                last_recovery_check = now_ts
+
             job = q1(
                 """
                 SELECT * FROM jobs

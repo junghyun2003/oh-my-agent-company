@@ -151,6 +151,13 @@ Tech Leader audit:
 ./scripts/tech_leader_audit.sh
 ```
 
+Stalled-job recovery (built-in):
+- Orchestrator automatically checks stalled jobs on a polling interval.
+- App settings keys:
+  - `queue_warn_min` (default: `30`)
+  - `in_progress_timeout_min` (default: `60`)
+  - `ops_recovery_poll_sec` (default: `10`)
+
 ## Data and Artifacts
 - DB: `/Users/junghyen2003/Documents/oh-my-agent-company/state/agent_company.db`
 - Requests table: `requests`

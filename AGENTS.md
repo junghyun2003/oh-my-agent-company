@@ -111,6 +111,7 @@
   - `python3 scripts/ops_queue_manager.py summary`
   - `python3 scripts/ops_queue_manager.py apply --dry-run`
   - `python3 scripts/ops_queue_manager.py apply --requeue-failed`
+- Orchestrator는 내장 복구 루프를 통해 `ops_recovery_poll_sec` 주기로 정체 점검을 수행한다.
 
 ## Mandatory Enforcement (Non-Negotiable)
 - 본 문서의 규칙은 권고가 아니라 강제 정책이며, 예외는 `CEO` 또는 `CTO`의 명시 승인 없이는 허용되지 않는다.

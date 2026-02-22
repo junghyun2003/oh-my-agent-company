@@ -23,7 +23,7 @@
     {
       "id": 2,
       "title": "서버 자동 정체 복구 루프 내장",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "embed automatic stalled job recovery loop in orchestrator",
