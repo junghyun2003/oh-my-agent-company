@@ -355,6 +355,7 @@ Stalled-job recovery (built-in):
 - Team docs: `/Users/junghyen2003/Documents/oh-my-agent-company/teams/*/AGENTS.md`
 - Component governance: `/Users/junghyen2003/Documents/oh-my-agent-company/COMPONENT_REGISTRY.md`
 - Theme policy (Design Ops): `/Users/junghyen2003/Documents/oh-my-agent-company/teams/design-ops/THEME_POLICY.md`
+- Language policy (Design Ops): `/Users/junghyen2003/Documents/oh-my-agent-company/teams/design-ops/LANGUAGE_POLICY.md`
 - Commit/Push rulebook: `/Users/junghyen2003/Documents/oh-my-agent-company/COMMIT_PUSH_RULES.md`
 - Marketing guide: `/Users/junghyen2003/Documents/oh-my-agent-company/MARKETING_PLAYBOOK.md`
 - Governance evidence pack: `/Users/junghyen2003/Documents/oh-my-agent-company/GOVERNANCE_SOURCES_2026-02-21.md`

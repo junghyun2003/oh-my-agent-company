@@ -143,7 +143,7 @@
     {
       "id": 10,
       "title": "다국어 표기 정책 문서 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "design",
       "commit_type": "docs",
       "summary": "add bilingual labeling policy for korean first ui copy",

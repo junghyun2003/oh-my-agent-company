@@ -76,6 +76,7 @@
 - Tech Leader Agent는 CEO/CTO와 기술 의사결정을 공동 리딩하며, 신기술 트렌드 검토/적용 판단/팀별 기술 정책 문서 업데이트를 총괄한다.
 - Design Ops는 공통 컴포넌트 분리/재사용 정책을 유지하고 Frontend와 함께 컴포넌트 레지스트리를 운영한다.
 - 테마 모드(`system/light/dark`)는 Design Ops 테마 정책(`teams/design-ops/THEME_POLICY.md`)을 따른다.
+- UI 문구 표기는 Design Ops 언어 정책(`teams/design-ops/LANGUAGE_POLICY.md`)을 따른다. (한국어 우선 + 필요 시 영문 병기)
 - Design Ops는 UI/UX 관련 변경에 대해 `Design Authority`를 가진다. (정책 위반 시 릴리즈 보류 요청 권한)
 - 커밋/푸시 운영은 `COMMIT_PUSH_RULES.md`를 기본 규약으로 사용한다.
 - 포크 커스터마이징 추적은 `FORK_CUSTOMIZATION_POLICY.md`, `UPSTREAM_BASELINE.env`, `CUSTOMIZATION_LOG.md`를 함께 사용한다.
