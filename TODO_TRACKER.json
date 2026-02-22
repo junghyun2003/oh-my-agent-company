@@ -141,7 +141,7 @@
     {
       "id": 10,
       "title": "API 계약 스모크 테스트 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "backend",
       "commit_type": "test",
       "summary": "add api contract smoke script for core endpoints and payload shapes",

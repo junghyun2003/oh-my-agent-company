@@ -285,6 +285,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
 Smoke test automation:
 ```bash
 bash ./scripts/smoke_core_flows.sh
+bash ./scripts/api_contract_smoke.sh
 ```
 - Covers: request intake, job assignment, pre-approval gate, audit evidence, ops queue API, dashboard core section render tokens.
 - Playwright visual regression (optional in smoke):
