@@ -49,7 +49,7 @@
     {
       "id": 4,
       "title": "incident 알림 재시도/백오프 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "add retry and backoff options to incident notifier webhook delivery",

@@ -157,6 +157,7 @@ Safe infra control script:
 ./scripts/infra_server_ctl.sh logs 120
 bash ./scripts/incident_notify.sh --dry-run
 ```
+- 웹훅 재시도: `INCIDENT_NOTIFY_RETRY_MAX=3 INCIDENT_NOTIFY_BACKOFF_SEC=1 bash ./scripts/incident_notify.sh --webhook <url>`
 
 macOS launchd auto-start (optional):
 ```bash
