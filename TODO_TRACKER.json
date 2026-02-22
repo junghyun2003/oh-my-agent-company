@@ -110,7 +110,7 @@
     {
       "id": 8,
       "title": "언어 정책 자동 점검 스크립트 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "design",
       "commit_type": "feat",
       "summary": "add language policy checker for korean first labels in dashboard markup",
