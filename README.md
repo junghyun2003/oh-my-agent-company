@@ -113,6 +113,7 @@ Safe infra control script:
 ./scripts/infra_server_ctl.sh watch-start
 ./scripts/infra_server_ctl.sh watch-status
 ./scripts/infra_server_ctl.sh health
+./scripts/infra_server_ctl.sh incident
 ./scripts/infra_server_ctl.sh logs 120
 ```
 
@@ -120,6 +121,7 @@ Availability hardening defaults:
 - `ensure` retries auto-recovery up to `3` attempts (`ENSURE_MAX_ATTEMPTS` override 가능)
 - health stability probes run before declaring healthy (`STABILITY_PROBES` override 가능)
 - watchdog auto-start is enabled by default on `start/ensure` (`INFRA_AUTO_WATCHDOG=0` to disable)
+- `incident` command prints standard diagnosis (`OK|NOT_RUNNING|PORT_CONFLICT|HEALTH_FAIL|PID_STALE`)
 
 npm-supported commands:
 ```bash

@@ -302,8 +302,50 @@ doctor_server() {
     echo "health=ok"
   else
     echo "health=fail"
-    return 1
   fi
+  incident_report || return 1
+}
+
+incident_report() {
+  local pid_file_pid=""
+  local port_pid=""
+  local health="fail"
+  local diagnosis_code="HEALTH_FAIL"
+  local reason="health endpoint not reachable"
+  local recommendation="run: ./scripts/infra_server_ctl.sh ensure"
+
+  [[ -f "${PID_FILE}" ]] && pid_file_pid="$(cat "${PID_FILE}" 2>/dev/null || true)"
+  port_pid="$(get_port_pid)"
+  if health_ok; then
+    health="ok"
+  fi
+
+  if [[ -z "${port_pid}" ]]; then
+    diagnosis_code="NOT_RUNNING"
+    reason="no process listening on orchestrator port"
+    recommendation="run: ./scripts/infra_server_ctl.sh start"
+  elif ! is_orchestrator_pid "${port_pid}"; then
+    diagnosis_code="PORT_CONFLICT"
+    reason="port is occupied by non-orchestrator process"
+    recommendation="free the port or change ORCHESTRATOR_PORT"
+  elif [[ "${health}" != "ok" ]]; then
+    diagnosis_code="HEALTH_FAIL"
+    reason="orchestrator process exists but health check failed"
+    recommendation="run: ./scripts/infra_server_ctl.sh restart && ./scripts/infra_server_ctl.sh logs 120"
+  elif [[ -n "${pid_file_pid}" && "${pid_file_pid}" != "${port_pid}" ]]; then
+    diagnosis_code="PID_STALE"
+    reason="pid file does not match listening process"
+    recommendation="run: ./scripts/infra_server_ctl.sh ensure"
+  else
+    diagnosis_code="OK"
+    reason="orchestrator is healthy"
+    recommendation="no action required"
+  fi
+
+  echo "diagnosis_code=${diagnosis_code}"
+  echo "diagnosis_reason=${reason}"
+  echo "recommendation=${recommendation}"
+  [[ "${diagnosis_code}" == "OK" ]]
 }
 
 is_watchdog_running() {
@@ -379,6 +421,7 @@ case "${1:-}" in
   watch-stop) watchdog_stop ;;
   watch-status) watchdog_status ;;
   watch-logs) tail -n "${2:-120}" "${WATCHDOG_LOG_FILE}" || true ;;
+  incident) incident_report ;;
   health)
     curl -fsS "${health_url}" | sed 's/^/health: /'
     ;;
@@ -386,7 +429,7 @@ case "${1:-}" in
     tail -n "${2:-120}" "${LOG_FILE}" || true
     ;;
   *)
-    echo "usage: $0 {start|stop|restart|status|ensure|doctor|watch-start|watch-stop|watch-status|watch-logs [n]|health|logs [n]}" >&2
+    echo "usage: $0 {start|stop|restart|status|ensure|doctor|incident|watch-start|watch-stop|watch-status|watch-logs [n]|health|logs [n]}" >&2
     exit 2
     ;;
 esac
