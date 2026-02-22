@@ -212,6 +212,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   - `action`: `recover_stalled|requeue_failed|reprioritize`
   - `job_ids`: `job-*` 형식, 최대 20개 (requeue/reprioritize 시 필수)
   - `priority`: `urgent|high|normal|low` (reprioritize 시 필수)
+  - action 실행 시 `ops_queue_action_summary` 감사 이벤트에 `before_counts/after_counts/delta_counts`가 기록됩니다.
 
 Smoke test automation:
 ```bash

@@ -894,6 +894,16 @@ def reprioritize_jobs(job_ids, priority, owner_id):
     return {"updated": updated, "skipped": skipped, "priority": safe_priority}
 
 
+def queue_count_delta(before_counts, after_counts):
+    keys = sorted(set((before_counts or {}).keys()) | set((after_counts or {}).keys()))
+    out = {}
+    for key in keys:
+        b = int((before_counts or {}).get(key, 0) or 0)
+        a = int((after_counts or {}).get(key, 0) or 0)
+        out[key] = a - b
+    return out
+
+
 def usage_snapshot():
     row = dict(q1("SELECT * FROM usage_stats WHERE id=1"))
     requests_total = q1("SELECT COUNT(*) AS c FROM requests")["c"]
@@ -2047,21 +2057,61 @@ class Handler(SimpleHTTPRequestHandler):
             action = safe["action"]
             owner_id = effective_owner_id(payload)
             with LOCK:
+                before = ops_queue_snapshot()
                 if action == "recover_stalled":
                     recover_stalled_jobs()
-                    return self._send_json({"ok": True, "action": action, "queue": ops_queue_snapshot()})
+                    after = ops_queue_snapshot()
+                    append_audit(
+                        "ops_queue_action_summary",
+                        owner_id=owner_id,
+                        phase="ops",
+                        detail={
+                            "action": action,
+                            "before_counts": before.get("counts", {}),
+                            "after_counts": after.get("counts", {}),
+                            "delta_counts": queue_count_delta(before.get("counts", {}), after.get("counts", {})),
+                        },
+                    )
+                    return self._send_json({"ok": True, "action": action, "queue": after})
 
                 if action == "requeue_failed":
                     result = requeue_failed_jobs(safe.get("job_ids") or [], owner_id)
                     if result.get("error"):
                         return self._send_json({"error": result["error"]}, status=HTTPStatus.BAD_REQUEST)
-                    return self._send_json({"ok": True, "action": action, "result": result, "queue": ops_queue_snapshot()})
+                    after = ops_queue_snapshot()
+                    append_audit(
+                        "ops_queue_action_summary",
+                        owner_id=owner_id,
+                        phase="ops",
+                        detail={
+                            "action": action,
+                            "job_ids": safe.get("job_ids") or [],
+                            "before_counts": before.get("counts", {}),
+                            "after_counts": after.get("counts", {}),
+                            "delta_counts": queue_count_delta(before.get("counts", {}), after.get("counts", {})),
+                        },
+                    )
+                    return self._send_json({"ok": True, "action": action, "result": result, "queue": after})
 
                 if action == "reprioritize":
                     result = reprioritize_jobs(safe.get("job_ids") or [], safe.get("priority"), owner_id)
                     if result.get("error"):
                         return self._send_json({"error": result["error"]}, status=HTTPStatus.BAD_REQUEST)
-                    return self._send_json({"ok": True, "action": action, "result": result, "queue": ops_queue_snapshot()})
+                    after = ops_queue_snapshot()
+                    append_audit(
+                        "ops_queue_action_summary",
+                        owner_id=owner_id,
+                        phase="ops",
+                        detail={
+                            "action": action,
+                            "job_ids": safe.get("job_ids") or [],
+                            "priority": safe.get("priority"),
+                            "before_counts": before.get("counts", {}),
+                            "after_counts": after.get("counts", {}),
+                            "delta_counts": queue_count_delta(before.get("counts", {}), after.get("counts", {})),
+                        },
+                    )
+                    return self._send_json({"ok": True, "action": action, "result": result, "queue": after})
                 return self._send_json({"error": "invalid action state"}, status=HTTPStatus.BAD_REQUEST)
 
         return self._send_json({"error": "not found"}, status=HTTPStatus.NOT_FOUND)
