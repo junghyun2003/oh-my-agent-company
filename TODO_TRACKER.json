@@ -80,7 +80,7 @@
     {
       "id": 6,
       "title": "KPI 리포트 히스토리 저장",
-      "status": "pending",
+      "status": "done",
       "scope": "strategy",
       "commit_type": "feat",
       "summary": "add latest and history output options for weekly kpi report generation",

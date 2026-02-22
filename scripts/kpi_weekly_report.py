@@ -84,6 +84,8 @@ def main():
     p = argparse.ArgumentParser(description="Generate weekly KPI report from local agent company DB")
     p.add_argument("--days", type=int, default=7)
     p.add_argument("--output", default="")
+    p.add_argument("--save-latest", action="store_true")
+    p.add_argument("--save-history", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args()
 
@@ -95,6 +97,19 @@ def main():
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text + "\n", encoding="utf-8")
         print(f"saved_report={out}")
+
+    if args.save_latest:
+        out = ROOT / "reports" / "kpi" / "latest.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+        print(f"saved_latest={out}")
+
+    if args.save_history:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        out = ROOT / "reports" / "kpi" / f"history-{stamp}.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+        print(f"saved_history={out}")
 
     print(text)
     return 0

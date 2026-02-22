@@ -327,6 +327,7 @@ Tech Leader audit:
 python3 ./scripts/docs_sync_check.py
 python3 ./scripts/kpi_weekly_report.py --dry-run
 python3 ./scripts/kpi_weekly_report.py --days 7 --output ./reports/kpi/weekly-kpi.json
+python3 ./scripts/kpi_weekly_report.py --days 7 --save-latest --save-history
 bash ./scripts/security_scan.sh --dry-run
 ```
 - 오탐 제외 규칙은 `.security_scan_allowlist`에 substring 단위로 추가합니다.
