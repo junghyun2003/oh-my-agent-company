@@ -9,6 +9,7 @@ const codexModelsUrl = "/api/codex/models";
 const auditUrl = "/api/audit";
 const usageUrl = "/api/usage";
 const opsQueueUrl = "/api/ops/queue";
+const opsPreflightUrl = "/api/ops/preflight";
 const opsQueueManageUrl = "/api/ops/queue/manage";
 const assignUrl = "/api/jobs/from-request";
 const approveUrl = "/api/jobs/approve";
@@ -2111,6 +2112,25 @@ function renderPolicy(data) {
   lastPolicySnapshotHtml = nextHtml;
 }
 
+function renderPreflightSummary(preflight) {
+  const root = document.getElementById("preflightSummary");
+  if (!root) return;
+  if (!preflight || typeof preflight !== "object") {
+    root.innerHTML = `<p class="muted">Preflight 정보를 불러오지 못했습니다.</p>`;
+    return;
+  }
+  const issues = Array.isArray(preflight.issues) ? preflight.issues : [];
+  const cls = preflight.ok ? "status-ok" : "status-bad";
+  root.innerHTML = `
+    <h4>Codex Preflight</h4>
+    <p><span class="tag ${cls}">${preflight.ok ? "정상" : "주의"}</span> 실행모드: ${esc(preflight.execution_mode || "-")}</p>
+    <p class="muted">bin: ${esc(preflight.codex_bin || "-")} · model: ${esc(preflight.codex_model || "-")}</p>
+    <ul>
+      ${issues.length ? issues.map((x) => `<li>${esc(x)}</li>`).join("") : "<li>이슈 없음</li>"}
+    </ul>
+  `;
+}
+
 function pickDefaultRepoPath() {
   if (!Array.isArray(reposCache) || !reposCache.length) return "";
   return reposCache[0]?.path || "";
@@ -2904,14 +2924,15 @@ async function loadCodexModels(refresh = false, selected = "") {
 
 async function loadAll() {
   try {
-    const [stateRes, reqRes, jobsRes, polRes, auditRes, usageRes, opsRes] = await Promise.all([
+    const [stateRes, reqRes, jobsRes, polRes, auditRes, usageRes, opsRes, preflightRes] = await Promise.all([
       fetch(`${stateUrl}?t=${Date.now()}`),
       fetch(`${requestsUrl}?t=${Date.now()}&limit=${requestFetchState.limit}&offset=${requestFetchState.offset}`),
       fetch(`${jobsUrl}?t=${Date.now()}&limit=${jobsFetchState.limit}&offset=${jobsFetchState.offset}`),
       fetch(`${policiesUrl}?t=${Date.now()}`),
       fetch(`${auditUrl}?t=${Date.now()}&limit=${auditFetchState.limit}&offset=${auditFetchState.offset}`),
       fetch(`${usageUrl}?t=${Date.now()}`),
-      fetch(`${opsQueueUrl}?t=${Date.now()}`)
+      fetch(`${opsQueueUrl}?t=${Date.now()}`),
+      fetch(`${opsPreflightUrl}?t=${Date.now()}`)
     ]);
 
     const state = await stateRes.json();
@@ -2921,6 +2942,7 @@ async function loadAll() {
     const audit = await auditRes.json();
     const usage = await usageRes.json();
     const ops = await opsRes.json();
+    const preflight = await preflightRes.json();
 
     renderMission(state);
     setTimestamp(state.updated_at);
@@ -2939,6 +2961,7 @@ async function loadAll() {
     renderLocalTrustBoard(jobs, requests, audit);
     renderUsage(usage);
     renderOpsQueueBoard(ops);
+    renderPreflightSummary(preflight);
   } catch (error) {
     document.getElementById("alerts").innerHTML = `<div class="alert">로딩 실패: ${esc(error.message)}</div>`;
   }

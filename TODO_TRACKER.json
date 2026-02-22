@@ -49,7 +49,7 @@
     {
       "id": 4,
       "title": "Preflight 상태 UI 연동",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "show codex preflight summary in owner settings panel",
