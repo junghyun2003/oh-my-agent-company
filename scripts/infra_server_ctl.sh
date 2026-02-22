@@ -13,6 +13,9 @@ SERVER_PY="${ROOT_DIR}/scripts/orchestrator_server.py"
 health_url="http://localhost:${PORT}/api/health"
 LOCK_DIR="${ROOT_DIR}/state/.infra_ctl.lock"
 LOCK_PID_FILE="${LOCK_DIR}/pid"
+ENSURE_MAX_ATTEMPTS="${ENSURE_MAX_ATTEMPTS:-3}"
+STABILITY_PROBES="${STABILITY_PROBES:-3}"
+AUTO_WATCHDOG="${INFRA_AUTO_WATCHDOG:-1}"
 
 get_port_pid() {
   lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true
@@ -114,9 +117,36 @@ wait_health() {
   return 1
 }
 
+health_ok() {
+  curl -fsS "${health_url}" > /dev/null 2>&1
+}
+
+wait_health_stable() {
+  local probes="${1:-${STABILITY_PROBES}}"
+  local i=0
+  while [[ "${i}" -lt "${probes}" ]]; do
+    if ! health_ok; then
+      return 1
+    fi
+    sleep 0.5
+    i=$((i + 1))
+  done
+  return 0
+}
+
+auto_watchdog_hint() {
+  if [[ "${AUTO_WATCHDOG}" != "1" ]]; then
+    return 0
+  fi
+  if ! is_watchdog_running; then
+    watchdog_start > /dev/null 2>&1 || true
+  fi
+}
+
 start_server() {
-  if is_running && curl -fsS "${health_url}" > /dev/null 2>&1; then
+  if is_running && health_ok; then
     echo "already running: pid $(cat "${PID_FILE}")"
+    auto_watchdog_hint
     return 0
   fi
 
@@ -125,9 +155,10 @@ start_server() {
   port_pid="$(get_port_pid)"
   if [[ -n "${port_pid}" ]]; then
     if is_orchestrator_pid "${port_pid}"; then
-      if curl -fsS "${health_url}" > /dev/null 2>&1; then
+      if health_ok; then
         echo "${port_pid}" > "${PID_FILE}"
         echo "already running (recovered): pid ${port_pid}"
+        auto_watchdog_hint
         return 0
       fi
       echo "found unhealthy orchestrator pid ${port_pid}; restarting..." >&2
@@ -155,11 +186,10 @@ start_server() {
   disown "${pid}" 2>/dev/null || true
   echo "${pid}" > "${PID_FILE}"
 
-  if wait_health; then
-    # Stability check: ensure process survives a short warm-up window.
-    sleep 1
-    if is_running && curl -fsS "${health_url}" > /dev/null 2>&1; then
+  if wait_health && wait_health_stable; then
+    if is_running && health_ok; then
       echo "started: pid ${pid} port ${PORT}"
+      auto_watchdog_hint
       return 0
     fi
   fi
@@ -211,7 +241,7 @@ status_server() {
   if is_running; then
     local pid
     pid="$(cat "${PID_FILE}")"
-    if curl -fsS "${health_url}" > /dev/null 2>&1; then
+    if health_ok; then
       echo "running: pid ${pid} port ${PORT} (healthy)"
     else
       echo "running: pid ${pid} port ${PORT} (unhealthy)"
@@ -224,23 +254,35 @@ status_server() {
 }
 
 ensure_server() {
-  if status_server > /dev/null 2>&1; then
+  if status_server > /dev/null 2>&1 && wait_health_stable; then
     echo "healthy: pid $(cat "${PID_FILE}") port ${PORT}"
+    auto_watchdog_hint
     return 0
   fi
   echo "recovering server on port ${PORT}..."
-  local port_pid
-  port_pid="$(get_port_pid)"
-  if [[ -n "${port_pid}" ]] && is_orchestrator_pid "${port_pid}"; then
-    echo "stopping unhealthy orchestrator pid ${port_pid} before restart..."
-    kill "${port_pid}" || true
-    sleep 0.4
-    if ps -p "${port_pid}" > /dev/null 2>&1; then
-      kill -9 "${port_pid}" || true
+  local attempt=1
+  while [[ "${attempt}" -le "${ENSURE_MAX_ATTEMPTS}" ]]; do
+    local port_pid
+    port_pid="$(get_port_pid)"
+    if [[ -n "${port_pid}" ]] && is_orchestrator_pid "${port_pid}"; then
+      echo "attempt ${attempt}/${ENSURE_MAX_ATTEMPTS}: stopping unhealthy orchestrator pid ${port_pid} before restart..."
+      kill "${port_pid}" || true
+      sleep 0.4
+      if ps -p "${port_pid}" > /dev/null 2>&1; then
+        kill -9 "${port_pid}" || true
+      fi
+      wait_port_release 20 || true
     fi
-    wait_port_release 20 || true
-  fi
-  start_server
+    if start_server && status_server > /dev/null 2>&1 && wait_health_stable; then
+      echo "recovered on attempt ${attempt}/${ENSURE_MAX_ATTEMPTS}"
+      auto_watchdog_hint
+      return 0
+    fi
+    sleep "${attempt}"
+    attempt=$((attempt + 1))
+  done
+  echo "failed to recover server after ${ENSURE_MAX_ATTEMPTS} attempts" >&2
+  return 1
 }
 
 doctor_server() {
@@ -256,7 +298,7 @@ doctor_server() {
   if [[ -n "${port_pid}" ]]; then
     echo "port_cmd=$(process_cmd "${port_pid}")"
   fi
-  if curl -fsS "${health_url}" > /dev/null 2>&1; then
+  if health_ok; then
     echo "health=ok"
   else
     echo "health=fail"

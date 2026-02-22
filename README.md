@@ -116,6 +116,11 @@ Safe infra control script:
 ./scripts/infra_server_ctl.sh logs 120
 ```
 
+Availability hardening defaults:
+- `ensure` retries auto-recovery up to `3` attempts (`ENSURE_MAX_ATTEMPTS` override 가능)
+- health stability probes run before declaring healthy (`STABILITY_PROBES` override 가능)
+- watchdog auto-start is enabled by default on `start/ensure` (`INFRA_AUTO_WATCHDOG=0` to disable)
+
 npm-supported commands:
 ```bash
 npm run install:local
