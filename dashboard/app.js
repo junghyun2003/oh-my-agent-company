@@ -17,6 +17,7 @@ const settingsSaveUrl = "/api/settings/save";
 const fallbackCodexModels = ["gpt-5", "gpt-5-mini", "gpt-4.1", "o4-mini"];
 const THEME_STORAGE_KEY = "omac-theme-mode";
 const NAV_TARGET_STORAGE_KEY = "omac-nav-target";
+const LIGHT_LOAD_MODE = new URLSearchParams(window.location.search).get("light") === "1";
 
 let timer = null;
 let auditSearchTimer = null;
@@ -2814,6 +2815,17 @@ function setupSnbNavigation() {
   applyTarget(routeTarget());
 }
 
+function activeRouteTarget() {
+  const hashRaw = decodeURIComponent((window.location.hash || "").replace(/^#/, "")).trim();
+  return hashRaw || "all";
+}
+
+function shouldLoadAuditPayload() {
+  if (!LIGHT_LOAD_MODE) return true;
+  const target = activeRouteTarget();
+  return target === "all" || target === "section-audit" || target === "section-exec-audit";
+}
+
 function setupFlowTabs() {
   const tabsRoot = document.getElementById("flowTabs");
   if (!tabsRoot) return;
@@ -2997,12 +3009,15 @@ async function loadCodexModels(refresh = false, selected = "") {
 
 async function loadAll() {
   try {
+    const auditPromise = shouldLoadAuditPayload()
+      ? fetch(`${auditUrl}?t=${Date.now()}&limit=${auditFetchState.limit}&offset=${auditFetchState.offset}`)
+      : Promise.resolve(null);
     const [stateRes, reqRes, jobsRes, polRes, auditRes, usageRes, opsRes, preflightRes] = await Promise.all([
       fetch(`${stateUrl}?t=${Date.now()}`),
       fetch(`${requestsUrl}?t=${Date.now()}&limit=${requestFetchState.limit}&offset=${requestFetchState.offset}`),
       fetch(`${jobsUrl}?t=${Date.now()}&limit=${jobsFetchState.limit}&offset=${jobsFetchState.offset}`),
       fetch(`${policiesUrl}?t=${Date.now()}`),
-      fetch(`${auditUrl}?t=${Date.now()}&limit=${auditFetchState.limit}&offset=${auditFetchState.offset}`),
+      auditPromise,
       fetch(`${usageUrl}?t=${Date.now()}`),
       fetch(`${opsQueueUrl}?t=${Date.now()}`),
       fetch(`${opsPreflightUrl}?t=${Date.now()}`)
@@ -3012,7 +3027,7 @@ async function loadAll() {
     const requests = await reqRes.json();
     const jobs = await jobsRes.json();
     const policies = await polRes.json();
-    const audit = await auditRes.json();
+    const audit = auditRes ? await auditRes.json() : { events: [], total: 0, limit: 0, offset: 0 };
     const usage = await usageRes.json();
     const ops = await opsRes.json();
     const preflight = await preflightRes.json();

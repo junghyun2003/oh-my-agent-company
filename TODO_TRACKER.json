@@ -34,7 +34,7 @@
     {
       "id": 3,
       "title": "대시보드 경량 로딩 모드 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "add light load mode to defer heavy panels until requested",
