@@ -249,7 +249,7 @@ function renderPaginationControls(key, meta) {
 }
 
 function setupPaginationDelegation() {
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
     const btn = event.target.closest("button[data-pagination]");
     if (!btn) return;
     event.preventDefault();
@@ -257,6 +257,16 @@ function setupPaginationDelegation() {
     const page = Number(btn.dataset.page);
     if (!key || Number.isNaN(page) || !TABLE_PAGINATION[key]) return;
     paginationState[key] = page;
+    if (key === "requests") {
+      requestFetchState.offset = (page - 1) * TABLE_PAGINATION.requests.size;
+      await loadAll();
+      return;
+    }
+    if (key === "jobs") {
+      jobsFetchState.offset = (page - 1) * TABLE_PAGINATION.jobs.size;
+      await loadAll();
+      return;
+    }
     if (key === "requests" && tableCache.requests) {
       renderRequests(tableCache.requests);
     } else if (key === "jobs" && tableCache.jobs) {
