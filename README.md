@@ -232,6 +232,7 @@ bash ./scripts/db_maintenance.sh backup
 bash ./scripts/db_maintenance.sh list
 bash ./scripts/db_maintenance.sh restore ./state/backups/agent_company-YYYYMMDDTHHMMSSZ.db
 bash ./scripts/db_maintenance.sh prune 15
+bash ./scripts/db_restore_drill.sh --dry-run
 ```
 - `schema_version` is tracked in `state_meta` for startup migration baselines.
 - 운영 정책:

@@ -95,7 +95,7 @@
     {
       "id": 7,
       "title": "DB 복구 드릴 자동화 스크립트 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "add automated restore drill script with health and api checks",
