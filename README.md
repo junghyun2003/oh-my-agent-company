@@ -248,6 +248,7 @@ bash ./scripts/smoke_core_flows.sh
 ```bash
 ENABLE_PLAYWRIGHT_VISUAL=1 bash ./scripts/smoke_core_flows.sh
 bash ./scripts/visual_regression_playwright.sh
+bash ./scripts/theme_regression_check.sh
 ```
 - strict mode (환경 미충족 시 실패 처리):
 ```bash

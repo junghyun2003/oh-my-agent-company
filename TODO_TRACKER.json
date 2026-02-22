@@ -162,7 +162,7 @@
     {
       "id": 11,
       "title": "테마 3모드 회귀 점검 스크립트 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "design",
       "commit_type": "test",
       "summary": "add theme regression check script for system light dark modes",
