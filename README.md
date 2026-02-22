@@ -170,6 +170,10 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   -H 'Content-Type: application/json' \
   -d '{"owner_id":"local-owner","action":"reprioritize","job_ids":["job-123"],"priority":"urgent"}' | jq
 ```
+- validation rules:
+  - `action`: `recover_stalled|requeue_failed|reprioritize`
+  - `job_ids`: `job-*` 형식, 최대 20개 (requeue/reprioritize 시 필수)
+  - `priority`: `urgent|high|normal|low` (reprioritize 시 필수)
 
 Smoke test automation:
 ```bash

@@ -806,6 +806,48 @@ def requeue_failed_jobs(job_ids, owner_id):
     return {"requeued": requeued, "skipped": skipped}
 
 
+def _validate_ops_job_ids(job_ids):
+    if not isinstance(job_ids, list):
+        return None, "job_ids must be a list"
+    cleaned = []
+    seen = set()
+    for raw in job_ids:
+        job_id = str(raw or "").strip()
+        if not job_id:
+            continue
+        if not job_id.startswith("job-"):
+            return None, "job_ids must contain job-* ids only"
+        if job_id in seen:
+            continue
+        seen.add(job_id)
+        cleaned.append(job_id)
+    if not cleaned:
+        return None, "job_ids must not be empty"
+    if len(cleaned) > 20:
+        return None, "job_ids max length is 20"
+    return cleaned, None
+
+
+def validate_ops_manage_payload(payload):
+    action = str(payload.get("action") or "").strip()
+    if action not in {"recover_stalled", "requeue_failed", "reprioritize"}:
+        return None, "invalid action. use recover_stalled|requeue_failed|reprioritize"
+
+    out = {"action": action}
+    if action in {"requeue_failed", "reprioritize"}:
+        ids, err = _validate_ops_job_ids(payload.get("job_ids"))
+        if err:
+            return None, err
+        out["job_ids"] = ids
+
+    if action == "reprioritize":
+        raw_priority = str(payload.get("priority") or "").strip().lower()
+        if raw_priority not in {"urgent", "high", "normal", "low"}:
+            return None, "priority must be one of urgent|high|normal|low"
+        out["priority"] = raw_priority
+    return out, None
+
+
 def reprioritize_jobs(job_ids, priority, owner_id):
     if not isinstance(job_ids, list):
         return {"updated": [], "skipped": [], "error": "job_ids must be a list"}
@@ -824,7 +866,7 @@ def reprioritize_jobs(job_ids, priority, owner_id):
             skipped.append({"job_id": job_id, "reason": "not_found"})
             continue
         job = dict(row)
-        if job["status"] not in ("queued", "dispatching", "in_progress"):
+        if job["status"] not in ("queued", "dispatching", "in_progress", "waiting_pre_approval", "waiting_post_approval"):
             skipped.append({"job_id": job_id, "reason": f"status_not_allowed:{job['status']}"})
             continue
         exec_sql("UPDATE jobs SET priority=? WHERE id=?", (safe_priority, job_id))
@@ -1922,7 +1964,10 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/ops/queue/manage":
             if not self._owner_guard(payload):
                 return
-            action = (payload.get("action") or "").strip()
+            safe, err = validate_ops_manage_payload(payload)
+            if err:
+                return self._send_json({"error": err}, status=HTTPStatus.BAD_REQUEST)
+            action = safe["action"]
             owner_id = effective_owner_id(payload)
             with LOCK:
                 if action == "recover_stalled":
@@ -1930,21 +1975,17 @@ class Handler(SimpleHTTPRequestHandler):
                     return self._send_json({"ok": True, "action": action, "queue": ops_queue_snapshot()})
 
                 if action == "requeue_failed":
-                    result = requeue_failed_jobs(payload.get("job_ids") or [], owner_id)
+                    result = requeue_failed_jobs(safe.get("job_ids") or [], owner_id)
                     if result.get("error"):
                         return self._send_json({"error": result["error"]}, status=HTTPStatus.BAD_REQUEST)
                     return self._send_json({"ok": True, "action": action, "result": result, "queue": ops_queue_snapshot()})
 
                 if action == "reprioritize":
-                    result = reprioritize_jobs(payload.get("job_ids") or [], payload.get("priority"), owner_id)
+                    result = reprioritize_jobs(safe.get("job_ids") or [], safe.get("priority"), owner_id)
                     if result.get("error"):
                         return self._send_json({"error": result["error"]}, status=HTTPStatus.BAD_REQUEST)
                     return self._send_json({"ok": True, "action": action, "result": result, "queue": ops_queue_snapshot()})
-
-                return self._send_json(
-                    {"error": "invalid action. use recover_stalled|requeue_failed|reprioritize"},
-                    status=HTTPStatus.BAD_REQUEST,
-                )
+                return self._send_json({"error": "invalid action state"}, status=HTTPStatus.BAD_REQUEST)
 
         return self._send_json({"error": "not found"}, status=HTTPStatus.NOT_FOUND)
 
