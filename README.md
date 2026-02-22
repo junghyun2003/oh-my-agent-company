@@ -136,6 +136,27 @@ python3 ./scripts/ops_queue_manager.py apply --dry-run
 python3 ./scripts/ops_queue_manager.py apply --requeue-failed
 ```
 
+Queue management API:
+```bash
+# snapshot
+curl -s http://localhost:18765/api/ops/queue | jq
+
+# recover stalled jobs
+curl -s -X POST http://localhost:18765/api/ops/queue/manage \
+  -H 'Content-Type: application/json' \
+  -d '{"owner_id":"local-owner","action":"recover_stalled"}' | jq
+
+# requeue failed jobs
+curl -s -X POST http://localhost:18765/api/ops/queue/manage \
+  -H 'Content-Type: application/json' \
+  -d '{"owner_id":"local-owner","action":"requeue_failed","job_ids":["job-123"]}' | jq
+
+# reprioritize queued/running jobs
+curl -s -X POST http://localhost:18765/api/ops/queue/manage \
+  -H 'Content-Type: application/json' \
+  -d '{"owner_id":"local-owner","action":"reprioritize","job_ids":["job-123"],"priority":"urgent"}' | jq
+```
+
 Direct run (fallback):
 ```bash
 python3 scripts/orchestrator_server.py

@@ -629,6 +629,221 @@ def jobs_snapshot():
     return {"jobs": rows}
 
 
+def _minutes_since(value):
+    ts = parse_utc(value)
+    if not ts:
+        return 0.0
+    return max(0.0, (datetime.now(timezone.utc) - ts).total_seconds() / 60.0)
+
+
+def ops_queue_snapshot(limit=40):
+    queue_warn_min = int(app_setting("queue_warn_min", "30") or "30")
+    progress_timeout_min = int(app_setting("in_progress_timeout_min", "60") or "60")
+
+    backlog = []
+    in_progress = []
+    failed = []
+
+    counts = {
+        "queued": 0,
+        "dispatching": 0,
+        "in_progress": 0,
+        "waiting_approval": 0,
+        "failed": 0,
+        "stalled_queue": 0,
+        "stalled_progress": 0,
+    }
+
+    running_statuses = ("in_progress", "waiting_pre_approval", "waiting_post_approval")
+    for row in q(
+        """
+        SELECT id, request_id, client_name, status, stage, priority, mission, created_at, dispatched_at, started_at
+        FROM jobs
+        WHERE status IN ('queued','dispatching','in_progress','waiting_pre_approval','waiting_post_approval')
+        ORDER BY
+          CASE priority
+            WHEN 'urgent' THEN 0
+            WHEN 'high' THEN 1
+            WHEN 'normal' THEN 2
+            WHEN 'low' THEN 3
+            ELSE 2
+          END,
+          created_at
+        """
+    ):
+        item = dict(row)
+        item["priority"] = normalize_job_priority(item.get("priority"))
+        if item["status"] in ("queued", "dispatching"):
+            age_min = _minutes_since(item.get("created_at"))
+            out = {
+                "id": item["id"],
+                "request_id": item.get("request_id"),
+                "client_name": item.get("client_name"),
+                "status": item["status"],
+                "priority": item["priority"],
+                "stage": item.get("stage"),
+                "mission": item.get("mission"),
+                "age_min": round(age_min, 1),
+            }
+            backlog.append(out)
+            counts[item["status"]] += 1
+            if age_min >= queue_warn_min:
+                counts["stalled_queue"] += 1
+        elif item["status"] in running_statuses:
+            base = item.get("started_at") or item.get("dispatched_at") or item.get("created_at")
+            age_min = _minutes_since(base)
+            out = {
+                "id": item["id"],
+                "request_id": item.get("request_id"),
+                "client_name": item.get("client_name"),
+                "status": item["status"],
+                "priority": item["priority"],
+                "stage": item.get("stage"),
+                "mission": item.get("mission"),
+                "age_min": round(age_min, 1),
+            }
+            in_progress.append(out)
+            if item["status"] == "in_progress":
+                counts["in_progress"] += 1
+            else:
+                counts["waiting_approval"] += 1
+            if age_min >= progress_timeout_min:
+                counts["stalled_progress"] += 1
+
+    for row in q(
+        """
+        SELECT id, request_id, client_name, status, stage, priority, mission, error, completed_at
+        FROM jobs
+        WHERE status='failed'
+        ORDER BY completed_at DESC, created_at DESC
+        LIMIT ?
+        """,
+        (limit,),
+    ):
+        item = dict(row)
+        item["priority"] = normalize_job_priority(item.get("priority"))
+        age_min = _minutes_since(item.get("completed_at"))
+        failed.append(
+            {
+                "id": item["id"],
+                "request_id": item.get("request_id"),
+                "client_name": item.get("client_name"),
+                "status": item["status"],
+                "priority": item["priority"],
+                "stage": item.get("stage"),
+                "mission": item.get("mission"),
+                "error": item.get("error"),
+                "failed_age_min": round(age_min, 1),
+            }
+        )
+    counts["failed"] = len(failed)
+
+    return {
+        "generated_at": utc_now(),
+        "thresholds": {
+            "queue_warn_min": queue_warn_min,
+            "in_progress_timeout_min": progress_timeout_min,
+        },
+        "counts": counts,
+        "backlog": backlog[:limit],
+        "in_progress": in_progress[:limit],
+        "failed": failed,
+    }
+
+
+def requeue_failed_jobs(job_ids, owner_id):
+    if not isinstance(job_ids, list):
+        return {"requeued": [], "skipped": [], "error": "job_ids must be a list"}
+
+    requeued = []
+    skipped = []
+    now = utc_now()
+
+    for raw_id in job_ids:
+        job_id = str(raw_id or "").strip()
+        if not job_id:
+            continue
+        row = q1("SELECT * FROM jobs WHERE id=?", (job_id,))
+        if not row:
+            skipped.append({"job_id": job_id, "reason": "not_found"})
+            continue
+        job = dict(row)
+        if job.get("status") != "failed":
+            skipped.append({"job_id": job_id, "reason": f"not_failed:{job.get('status')}"})
+            continue
+
+        timeline = parse_json(job.get("timeline"), [])
+        timeline.append({"at": now, "message": "Ops requeued failed job to backlog."})
+        set_job_fields(
+            job_id,
+            {
+                "status": "queued",
+                "stage": "queued",
+                "dispatched_at": None,
+                "started_at": None,
+                "completed_at": None,
+                "error": None,
+                "timeline": timeline,
+                "pre_approved": 0,
+                "pre_approved_at": None,
+                "post_approved": 0,
+                "post_approved_at": None,
+            },
+        )
+        update_request(job["request_id"], {"status": "in_company"})
+        append_audit(
+            "ops_queue_action",
+            owner_id=owner_id,
+            job_id=job_id,
+            request_id=job.get("request_id"),
+            phase="ops",
+            detail={"action": "requeue_failed", "from_status": "failed", "to_status": "queued"},
+        )
+        requeued.append({"job_id": job_id, "request_id": job.get("request_id")})
+
+    if requeued:
+        set_meta("updated_at", now)
+    return {"requeued": requeued, "skipped": skipped}
+
+
+def reprioritize_jobs(job_ids, priority, owner_id):
+    if not isinstance(job_ids, list):
+        return {"updated": [], "skipped": [], "error": "job_ids must be a list"}
+
+    safe_priority = normalize_job_priority(priority)
+    updated = []
+    skipped = []
+    now = utc_now()
+
+    for raw_id in job_ids:
+        job_id = str(raw_id or "").strip()
+        if not job_id:
+            continue
+        row = q1("SELECT id, request_id, status, priority FROM jobs WHERE id=?", (job_id,))
+        if not row:
+            skipped.append({"job_id": job_id, "reason": "not_found"})
+            continue
+        job = dict(row)
+        if job["status"] not in ("queued", "dispatching", "in_progress"):
+            skipped.append({"job_id": job_id, "reason": f"status_not_allowed:{job['status']}"})
+            continue
+        exec_sql("UPDATE jobs SET priority=? WHERE id=?", (safe_priority, job_id))
+        add_timeline(job_id, f"Ops priority updated to {safe_priority}.")
+        append_audit(
+            "ops_queue_action",
+            owner_id=owner_id,
+            job_id=job_id,
+            request_id=job.get("request_id"),
+            phase="ops",
+            detail={"action": "reprioritize", "from": normalize_job_priority(job.get("priority")), "to": safe_priority},
+        )
+        updated.append({"job_id": job_id, "priority": safe_priority})
+
+    if updated:
+        set_meta("updated_at", now)
+    return {"updated": updated, "skipped": skipped, "priority": safe_priority}
+
+
 def usage_snapshot():
     row = dict(q1("SELECT * FROM usage_stats WHERE id=1"))
     requests_total = q1("SELECT COUNT(*) AS c FROM requests")["c"]
@@ -1508,6 +1723,9 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/usage":
             with LOCK:
                 return self._send_json(usage_snapshot())
+        if path == "/api/ops/queue":
+            with LOCK:
+                return self._send_json({"ok": True, "queue": ops_queue_snapshot()})
         if path == "/api/health":
             return self._send_json(
                 {
@@ -1700,6 +1918,33 @@ class Handler(SimpleHTTPRequestHandler):
                     },
                 )
                 return self._send_json({"ok": True})
+
+        if path == "/api/ops/queue/manage":
+            if not self._owner_guard(payload):
+                return
+            action = (payload.get("action") or "").strip()
+            owner_id = effective_owner_id(payload)
+            with LOCK:
+                if action == "recover_stalled":
+                    recover_stalled_jobs()
+                    return self._send_json({"ok": True, "action": action, "queue": ops_queue_snapshot()})
+
+                if action == "requeue_failed":
+                    result = requeue_failed_jobs(payload.get("job_ids") or [], owner_id)
+                    if result.get("error"):
+                        return self._send_json({"error": result["error"]}, status=HTTPStatus.BAD_REQUEST)
+                    return self._send_json({"ok": True, "action": action, "result": result, "queue": ops_queue_snapshot()})
+
+                if action == "reprioritize":
+                    result = reprioritize_jobs(payload.get("job_ids") or [], payload.get("priority"), owner_id)
+                    if result.get("error"):
+                        return self._send_json({"error": result["error"]}, status=HTTPStatus.BAD_REQUEST)
+                    return self._send_json({"ok": True, "action": action, "result": result, "queue": ops_queue_snapshot()})
+
+                return self._send_json(
+                    {"error": "invalid action. use recover_stalled|requeue_failed|reprioritize"},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
 
         return self._send_json({"error": "not found"}, status=HTTPStatus.NOT_FOUND)
 
