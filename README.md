@@ -189,7 +189,7 @@ Smoke test automation:
 ```bash
 bash ./scripts/smoke_core_flows.sh
 ```
-- Covers: request intake, job assignment, pre-approval gate, audit evidence, ops queue API.
+- Covers: request intake, job assignment, pre-approval gate, audit evidence, ops queue API, dashboard core section render tokens.
 
 Direct run (fallback):
 ```bash

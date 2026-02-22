@@ -44,6 +44,15 @@ echo "[smoke] ensuring server health..."
 bash "${ROOT_DIR}/scripts/infra_server_ctl.sh" ensure >/dev/null
 json_get "/api/health" >/dev/null
 
+echo "[smoke] validating dashboard core sections..."
+DASHBOARD_HTML="$(curl -fsS "${BASE_URL}/dashboard/")"
+for token in "section-requests" "section-intake" "section-status" "section-jobs" "section-audit" "opsQueueBoard"; do
+  if ! grep -q "${token}" <<< "${DASHBOARD_HTML}"; then
+    echo "dashboard token missing: ${token}" >&2
+    exit 1
+  fi
+done
+
 echo "[smoke] loading target repository..."
 REPO_PATH="$(json_get '/api/repos' | python3 -c 'import json,sys; repos=json.load(sys.stdin).get("repositories", []); print(repos[0]["path"] if repos else "")')"
 if [[ -z "${REPO_PATH}" ]]; then
