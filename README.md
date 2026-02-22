@@ -237,6 +237,13 @@ Tech Leader audit:
 python3 ./scripts/docs_sync_check.py
 ```
 
+Pre-push enforcement (required for local release safety):
+```bash
+bash ./scripts/install_pre_push_hook.sh
+```
+- Installed hook runs `python3 ./scripts/docs_sync_check.py` and `bash ./scripts/smoke_core_flows.sh` before every push.
+- Push is blocked when policy docs and runtime behavior are out of sync.
+
 Stalled-job recovery (built-in):
 - Orchestrator automatically checks stalled jobs on a polling interval.
 - App settings keys:
