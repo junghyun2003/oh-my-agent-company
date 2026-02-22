@@ -1921,6 +1921,32 @@ button.ghost {
 .pixel-avatar.status-warning::after { background: rgba(158, 120, 42, 0.34); }
 .pixel-avatar.status-healthy::after { background: rgba(55, 123, 76, 0.28); }
 
+.pixel-monitor {
+  position: relative;
+  overflow: hidden;
+}
+
+.pixel-monitor::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -2px;
+  height: 4px;
+  background: linear-gradient(90deg, transparent 0%, rgba(126, 184, 255, 0.8) 48%, transparent 100%);
+  animation: monitorScan 2.2s linear infinite;
+  opacity: 0.65;
+}
+
+.pixel-desk.status-healthy { box-shadow: inset 0 0 0 1px rgba(31, 143, 79, 0.16), 0 0 0 1px rgba(31, 143, 79, 0.08); }
+.pixel-desk.status-warning { box-shadow: inset 0 0 0 1px rgba(202, 122, 27, 0.22), 0 0 0 1px rgba(202, 122, 27, 0.1); }
+.pixel-desk.status-critical { box-shadow: inset 0 0 0 1px rgba(182, 54, 54, 0.24), 0 0 0 1px rgba(182, 54, 54, 0.12); }
+
+@keyframes monitorScan {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(26px); }
+}
+
 .pixel-emote.status-healthy { background: #e8f8ee; border-color: #9ccfad; color: #1e6f40; }
 .pixel-emote.status-warning { background: #fff3df; border-color: #e3bf82; color: #8a5a0c; }
 .pixel-emote.status-critical { background: #ffe9e9; border-color: #e2a2a2; color: #8f2c2c; animation-duration: 0.7s; }
