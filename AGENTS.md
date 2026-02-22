@@ -113,6 +113,17 @@
   - `python3 scripts/ops_queue_manager.py apply --requeue-failed`
 - Orchestrator는 내장 복구 루프를 통해 `ops_recovery_poll_sec` 주기로 정체 점검을 수행한다.
 
+## DB Backup & Restore Runbook (Mandatory)
+- 백업 주기: 최소 하루 1회 + 릴리즈 직전 1회 추가 백업을 강제한다.
+- 보관 정책: 기본 `15`개 보관(`bash ./scripts/db_maintenance.sh prune 15`), 정책 변경 시 CTO 승인 필요.
+- 복구 훈련: 월 1회 이상 스테이징/로컬 복구 드릴을 수행하고 결과를 감사로그 또는 운영 리포트에 기록한다.
+- 복구 절차 표준:
+1. `bash ./scripts/db_maintenance.sh list`로 대상 백업 확인
+2. `bash ./scripts/db_maintenance.sh restore <backup_file>` 실행
+3. `bash ./scripts/infra_server_ctl.sh health`로 서비스 상태 확인
+4. `/api/health`, `/api/jobs`, `/api/audit` 핵심 조회 검증 후 정상 운영 전환
+- 장애 시 최근 백업 우선 복구를 기본값으로 하며, 복구 실패 시 CEO/CTO 즉시 에스컬레이션한다.
+
 ## Mandatory Enforcement (Non-Negotiable)
 - 본 문서의 규칙은 권고가 아니라 강제 정책이며, 예외는 `CEO` 또는 `CTO`의 명시 승인 없이는 허용되지 않는다.
 - `Local Trust Mode=ON`에서는 로그인/토큰 검증을 기본 비활성으로 운영한다. (`owner_id` 자동 보정)

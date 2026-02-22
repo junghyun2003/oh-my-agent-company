@@ -183,6 +183,10 @@ bash ./scripts/db_maintenance.sh restore ./state/backups/agent_company-YYYYMMDDT
 bash ./scripts/db_maintenance.sh prune 15
 ```
 - `schema_version` is tracked in `state_meta` for startup migration baselines.
+- 운영 정책:
+  - 최소 일 1회 + 릴리즈 직전 1회 백업
+  - 기본 보관 개수 15개
+  - 월 1회 복구 드릴(restore + health + 핵심 API 확인)
 
 Queue management API:
 ```bash
