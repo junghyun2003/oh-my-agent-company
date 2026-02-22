@@ -4,6 +4,26 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
+SAVE_MODE=0
+OUTPUT_FILE=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --save)
+      SAVE_MODE=1
+      shift
+      ;;
+    --output)
+      OUTPUT_FILE="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "usage: $0 [--save] [--output <path>]" >&2
+      exit 2
+      ;;
+  esac
+done
+
 BASE_ENV="${ROOT_DIR}/UPSTREAM_BASELINE.env"
 if [[ ! -f "${BASE_ENV}" ]]; then
   echo "missing: ${BASE_ENV}"
@@ -50,9 +70,56 @@ echo "resolved_baseline=${BASE}"
 echo
 
 echo "[Commits since baseline]"
-git log --oneline "${BASE}..HEAD" || true
+COMMITS="$(git log --oneline "${BASE}..HEAD" || true)"
+if [[ -n "${COMMITS}" ]]; then
+  echo "${COMMITS}"
+else
+  echo "<none>"
+fi
 echo
 
 echo "[Diff stat since baseline]"
-git diff --stat "${BASE}..HEAD" || true
+DIFF_STAT="$(git diff --stat "${BASE}..HEAD" || true)"
+if [[ -n "${DIFF_STAT}" ]]; then
+  echo "${DIFF_STAT}"
+else
+  echo "<none>"
+fi
 
+if [[ "${SAVE_MODE}" -eq 1 ]]; then
+  if [[ -z "${OUTPUT_FILE}" ]]; then
+    mkdir -p "${ROOT_DIR}/reports/fork"
+    OUTPUT_FILE="${ROOT_DIR}/reports/fork/customization-report-$(date -u +%Y%m%dT%H%M%SZ).md"
+  fi
+  mkdir -p "$(dirname "${OUTPUT_FILE}")"
+  {
+    echo "# Fork Customization Report"
+    echo
+    echo "- generated_at_utc: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "- upstream_remote: ${UPSTREAM_REMOTE}"
+    echo "- upstream_branch: ${UPSTREAM_BRANCH}"
+    echo "- upstream_ref: ${UPSTREAM_REF:-<empty>}"
+    echo "- last_sync_at: ${LAST_SYNC_AT:-<empty>}"
+    echo "- resolved_baseline: ${BASE}"
+    echo
+    echo "## Commits Since Baseline"
+    if [[ -n "${COMMITS}" ]]; then
+      echo '```text'
+      echo "${COMMITS}"
+      echo '```'
+    else
+      echo "- none"
+    fi
+    echo
+    echo "## Diff Stat Since Baseline"
+    if [[ -n "${DIFF_STAT}" ]]; then
+      echo '```text'
+      echo "${DIFF_STAT}"
+      echo '```'
+    else
+      echo "- none"
+    fi
+  } > "${OUTPUT_FILE}"
+  echo
+  echo "saved_report=${OUTPUT_FILE}"
+fi

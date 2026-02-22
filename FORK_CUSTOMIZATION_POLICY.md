@@ -45,10 +45,12 @@ Upstream-Ref: v0.3.0
 
 ## 운영 리포트
 - 커맨드: `./scripts/fork_diff_report.sh`
+- 자동 저장: `./scripts/fork_diff_report.sh --save`
 - 출력:
   - 현재 baseline 정보
   - baseline 대비 커밋 목록
   - baseline 대비 변경 파일 통계
+  - `--save` 사용 시 `reports/fork/customization-report-<UTC>.md` 생성
 
 ## Fork Onboarding Quick Flow
 1. baseline 설정
@@ -59,7 +61,7 @@ Upstream-Ref: v0.3.0
 3. 로컬 스모크
   - `bash ./scripts/smoke_core_flows.sh`
 4. 커스텀 작업 후 차이 리포트
-  - `./scripts/fork_diff_report.sh`
+  - `./scripts/fork_diff_report.sh --save`
 
 ## 권장 브랜치 전략
 - 업스트림 동기화: `sync/upstream-main`

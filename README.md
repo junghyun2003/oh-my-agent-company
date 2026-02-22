@@ -312,7 +312,9 @@ If you allow public forks, keep original/custom changes separate with the baseli
 4. Run diff report before release:
 ```bash
 ./scripts/fork_diff_report.sh
+./scripts/fork_diff_report.sh --save
 ```
+- Saved report path: `reports/fork/customization-report-<UTC>.md`
 
 ## Troubleshooting
 - Browser cannot connect:
