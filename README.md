@@ -60,6 +60,7 @@ cd oh-my-agent-company
 3. Open dashboard (canonical URL)
 - `http://localhost:18765/dashboard/`
 - `http://localhost:18765/`, `http://localhost:18765/dashboard`, `http://localhost:18765/dashboard/index.html` are redirected to this canonical URL.
+- section route persistence: `#section-status` 같은 hash 경로와 마지막 섹션이 새로고침 후에도 유지됩니다.
 
 4. Verify health
 ```bash

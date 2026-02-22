@@ -2755,6 +2755,38 @@ button.ghost {
   border-color: #3b5576 !important;
 }
 
+/* Theme QA normalization: remove bright cards that bypass dark tokens */
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .table-wrap,
+:root[data-theme="dark"] .table,
+:root[data-theme="dark"] .table tbody tr,
+:root[data-theme="dark"] .report-card,
+:root[data-theme="dark"] .kanban-card,
+:root[data-theme="dark"] .conversation-main,
+:root[data-theme="dark"] .conversation-sidebar,
+:root[data-theme="dark"] .design-card,
+:root[data-theme="dark"] .health-card,
+:root[data-theme="dark"] .market-card,
+:root[data-theme="dark"] .audit-card,
+:root[data-theme="dark"] .execution-audit-card {
+  background: var(--surface-1) !important;
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+}
+
+:root[data-theme="dark"] .panel .tag,
+:root[data-theme="dark"] .report-badge,
+:root[data-theme="dark"] .chip,
+:root[data-theme="dark"] .preset-chip {
+  background: var(--chip-bg) !important;
+  color: var(--chip-text) !important;
+  border-color: var(--line) !important;
+}
+
+:root[data-theme="dark"] .muted {
+  color: var(--subtle) !important;
+}
+
 @media (max-width: 1080px) {
   .app-shell { grid-template-columns: 1fr; }
 
