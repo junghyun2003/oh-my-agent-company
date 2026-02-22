@@ -4,7 +4,7 @@
     {
       "id": 1,
       "title": "infra 재시작 플랩 원인 고정",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "harden infra server lifecycle with post-start survival guard and flap diagnostics",
@@ -21,7 +21,7 @@
     {
       "id": 2,
       "title": "서버 수명 추적 API 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "backend",
       "commit_type": "feat",
       "summary": "add runtime ops endpoint exposing uptime restart_count and last_crash markers",
@@ -36,7 +36,7 @@
     {
       "id": 3,
       "title": "워커 헬스 분리 지표 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "backend",
       "commit_type": "feat",
       "summary": "split http health and pipeline worker health for stalled-dispatch detection",
@@ -51,7 +51,7 @@
     {
       "id": 4,
       "title": "Ops Queue 감사 상세(before/after) 강화",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "include queue snapshot delta in ops queue action audit detail payload",
@@ -66,7 +66,7 @@
     {
       "id": 5,
       "title": "작업할당/승인 폼 사전 검증 강화",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "add client-side preflight validation for assignment and approval forms",
@@ -82,7 +82,7 @@
     {
       "id": 6,
       "title": "감사로그 대량 데이터 성능 개선",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "add server-side pagination for audit feed and update ui query controls",
@@ -98,7 +98,7 @@
     {
       "id": 7,
       "title": "픽셀 실행상태 대시보드 고도화",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "improve pixel status board with richer state animation and role signaling",
@@ -114,7 +114,7 @@
     {
       "id": 8,
       "title": "문서-코드 불일치 pre-push 강제",
-      "status": "pending",
+      "status": "done",
       "scope": "ops",
       "commit_type": "chore",
       "summary": "enforce docs sync checker in git hook for local release safety",
@@ -130,7 +130,7 @@
     {
       "id": 9,
       "title": "DB 백업 운영 정책 고정",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "docs",
       "summary": "document backup cadence retention and restore drill runbook",
@@ -145,7 +145,7 @@
     {
       "id": 10,
       "title": "온보딩 단일 bootstrap 명령 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "ops",
       "commit_type": "feat",
       "summary": "add bootstrap command for install start health and smoke in one flow",
@@ -161,7 +161,7 @@
     {
       "id": 11,
       "title": "Playwright 시각회귀 본격 도입",
-      "status": "pending",
+      "status": "done",
       "scope": "qa",
       "commit_type": "test",
       "summary": "add playwright screenshot baseline checks for key dashboard sections",
@@ -176,7 +176,7 @@
     {
       "id": 12,
       "title": "포크 변경 추적 자동 리포트 개선",
-      "status": "pending",
+      "status": "done",
       "scope": "docs",
       "commit_type": "chore",
       "summary": "automate customization report generation workflow for fork releases",
