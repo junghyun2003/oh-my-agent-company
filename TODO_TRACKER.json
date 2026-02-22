@@ -132,7 +132,7 @@
     {
       "id": 9,
       "title": "Codex 실행 preflight 점검 API 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "backend",
       "commit_type": "feat",
       "summary": "add ops preflight endpoint for codex binary model and writable path checks",

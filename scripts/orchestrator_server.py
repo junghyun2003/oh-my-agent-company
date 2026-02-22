@@ -2,6 +2,7 @@
 import json
 import os
 import random
+import shutil
 import sqlite3
 import subprocess
 import threading
@@ -1024,6 +1025,71 @@ def worker_health_snapshot(stale_sec=20):
     }
 
 
+def codex_preflight_snapshot():
+    codex_bin = app_setting("codex_bin", "codex").strip() or "codex"
+    codex_model = app_setting("codex_model", "").strip()
+    timeout_sec = int(app_setting("codex_timeout_sec", "900") or "900")
+    execution_mode = app_setting("execution_mode", "codex")
+
+    if os.path.sep in codex_bin:
+        binary_path = codex_bin if Path(codex_bin).exists() else ""
+    else:
+        binary_path = shutil.which(codex_bin) or ""
+
+    repo_checks = []
+    missing_repo = 0
+    missing_writable = 0
+    for row in q("SELECT path, writable_paths FROM repo_policies WHERE enabled=1"):
+        repo_path = Path(row["path"])
+        exists = repo_path.exists() and repo_path.is_dir()
+        writable_paths = parse_json(row["writable_paths"], [])
+        missing = []
+        for rel in writable_paths:
+            target = (repo_path / rel).resolve()
+            if not str(target).startswith(str(repo_path.resolve())):
+                missing.append(rel)
+                continue
+            if not target.exists():
+                missing.append(rel)
+        if not exists:
+            missing_repo += 1
+        if missing:
+            missing_writable += 1
+        repo_checks.append(
+            {
+                "path": str(repo_path),
+                "exists": exists,
+                "missing_writable_paths": missing,
+                "writable_count": len(writable_paths),
+            }
+        )
+
+    issues = []
+    if execution_mode == "codex" and not binary_path:
+        issues.append("codex_binary_missing")
+    if execution_mode == "codex" and not codex_model:
+        issues.append("codex_model_not_set")
+    if timeout_sec < 60:
+        issues.append("codex_timeout_too_low")
+    if missing_repo > 0:
+        issues.append("enabled_repo_missing")
+    if missing_writable > 0:
+        issues.append("missing_writable_paths")
+
+    return {
+        "generated_at": utc_now(),
+        "ok": len(issues) == 0,
+        "execution_mode": execution_mode,
+        "codex_bin": codex_bin,
+        "codex_bin_path": binary_path,
+        "codex_model": codex_model,
+        "codex_timeout_sec": timeout_sec,
+        "enabled_repo_count": len(repo_checks),
+        "repo_checks": repo_checks,
+        "issues": issues,
+    }
+
+
 def run_cmd(repo_path, args):
     result = subprocess.run(args, cwd=repo_path, text=True, capture_output=True, check=False)
     if result.returncode != 0:
@@ -1904,6 +1970,9 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/ops/runtime":
             with LOCK:
                 return self._send_json(runtime_snapshot())
+        if path == "/api/ops/preflight":
+            with LOCK:
+                return self._send_json(codex_preflight_snapshot())
         if path == "/api/health":
             health_detail = worker_health_snapshot()
             ok = health_detail["stale_workers"] == 0 and not health_detail["recovery_loop"]["stale"]

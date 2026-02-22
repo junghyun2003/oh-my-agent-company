@@ -212,6 +212,9 @@ curl -s http://localhost:18765/api/ops/queue | jq
 # runtime (uptime/boot count)
 curl -s http://localhost:18765/api/ops/runtime | jq
 
+# codex preflight (binary/model/repo writable path checks)
+curl -s http://localhost:18765/api/ops/preflight | jq
+
 # recover stalled jobs
 curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   -H 'Content-Type: application/json' \
