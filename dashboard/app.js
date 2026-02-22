@@ -80,6 +80,8 @@ const TABLE_PAGINATION = {
 };
 const paginationState = { requests: 1, jobs: 1, audit: 1 };
 const tableCache = { requests: null, jobs: null, audit: null };
+const requestFetchState = { limit: 300, offset: 0 };
+const jobsFetchState = { limit: 300, offset: 0 };
 const auditFetchState = { limit: 200, offset: 0 };
 let lastRequestsHeadId = "";
 let lastRequestsCount = 0;
@@ -2880,8 +2882,8 @@ async function loadAll() {
   try {
     const [stateRes, reqRes, jobsRes, polRes, auditRes, usageRes, opsRes] = await Promise.all([
       fetch(`${stateUrl}?t=${Date.now()}`),
-      fetch(`${requestsUrl}?t=${Date.now()}`),
-      fetch(`${jobsUrl}?t=${Date.now()}`),
+      fetch(`${requestsUrl}?t=${Date.now()}&limit=${requestFetchState.limit}&offset=${requestFetchState.offset}`),
+      fetch(`${jobsUrl}?t=${Date.now()}&limit=${jobsFetchState.limit}&offset=${jobsFetchState.offset}`),
       fetch(`${policiesUrl}?t=${Date.now()}`),
       fetch(`${auditUrl}?t=${Date.now()}&limit=${auditFetchState.limit}&offset=${auditFetchState.offset}`),
       fetch(`${usageUrl}?t=${Date.now()}`),

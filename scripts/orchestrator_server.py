@@ -620,13 +620,45 @@ def state_snapshot():
     }
 
 
-def requests_snapshot():
-    rows = [dict(r) for r in q("SELECT * FROM requests ORDER BY created_at DESC")]
-    return {"requests": rows}
+def parse_limit_offset(query, default_limit=200, max_limit=1000):
+    raw_limit = query.get("limit", [None])[0]
+    raw_offset = query.get("offset", [None])[0]
+    if raw_limit is None and raw_offset is None:
+        return None, None
+    try:
+        limit = int(raw_limit or str(default_limit))
+    except Exception:
+        limit = default_limit
+    try:
+        offset = int(raw_offset or "0")
+    except Exception:
+        offset = 0
+    if limit < 1:
+        limit = 1
+    if limit > max_limit:
+        limit = max_limit
+    if offset < 0:
+        offset = 0
+    return limit, offset
 
 
-def jobs_snapshot():
-    rows = [dict(r) for r in q("SELECT * FROM jobs ORDER BY created_at DESC")]
+def requests_snapshot(limit=None, offset=0):
+    if limit is None:
+        rows = [dict(r) for r in q("SELECT * FROM requests ORDER BY created_at DESC")]
+        return {"requests": rows}
+    total = q1("SELECT COUNT(*) AS cnt FROM requests")
+    rows = [dict(r) for r in q("SELECT * FROM requests ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset))]
+    return {"requests": rows, "total": int(total["cnt"] or 0), "limit": limit, "offset": offset}
+
+
+def jobs_snapshot(limit=None, offset=0):
+    if limit is None:
+        rows = [dict(r) for r in q("SELECT * FROM jobs ORDER BY created_at DESC")]
+        total = None
+    else:
+        total_row = q1("SELECT COUNT(*) AS cnt FROM jobs")
+        total = int(total_row["cnt"] or 0)
+        rows = [dict(r) for r in q("SELECT * FROM jobs ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset))]
     for row in rows:
         for key in ["executed_actions", "changed_files", "pm_notes", "cto_notes", "dev_notes", "qa_notes", "timeline"]:
             row[key] = parse_json(row.get(key), [])
@@ -634,7 +666,10 @@ def jobs_snapshot():
         row["apply_changes"] = bool(row.get("apply_changes"))
         row["pre_approved"] = bool(row.get("pre_approved"))
         row["post_approved"] = bool(row.get("post_approved"))
-    return {"jobs": rows}
+    payload = {"jobs": rows}
+    if total is not None:
+        payload.update({"total": total, "limit": limit, "offset": offset})
+    return payload
 
 
 def _minutes_since(value):
@@ -1788,11 +1823,13 @@ class Handler(SimpleHTTPRequestHandler):
             with LOCK:
                 return self._send_json(state_snapshot())
         if path == "/api/requests":
+            limit, offset = parse_limit_offset(query)
             with LOCK:
-                return self._send_json(requests_snapshot())
+                return self._send_json(requests_snapshot(limit=limit, offset=offset or 0))
         if path == "/api/jobs":
+            limit, offset = parse_limit_offset(query)
             with LOCK:
-                return self._send_json(jobs_snapshot())
+                return self._send_json(jobs_snapshot(limit=limit, offset=offset or 0))
         if path == "/api/repos":
             with LOCK:
                 policies = [dict(r) for r in q("SELECT path, enabled FROM repo_policies WHERE enabled=1")]

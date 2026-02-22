@@ -68,7 +68,7 @@
     {
       "id": 5,
       "title": "요청/작업 API 페이지네이션 지원",
-      "status": "pending",
+      "status": "done",
       "scope": "backend",
       "commit_type": "feat",
       "summary": "add limit and offset support to requests and jobs endpoints",
