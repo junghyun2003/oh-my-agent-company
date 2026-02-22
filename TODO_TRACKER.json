@@ -95,7 +95,7 @@
     {
       "id": 7,
       "title": "pre-commit 문서 검증 훅 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "ops",
       "commit_type": "feat",
       "summary": "add installable pre-commit hook for docs sync fast checks",
