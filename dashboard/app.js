@@ -86,7 +86,7 @@ const jobsFetchState = { limit: 300, offset: 0 };
 const auditFetchState = { limit: 200, offset: 0 };
 let lastRequestsHeadId = "";
 let lastRequestsCount = 0;
-const auditFilterState = { kind: "all", q: "", job_id: "", request_id: "" };
+const auditFilterState = { kind: "all", q: "", job_id: "", request_id: "", owner: "", phase: "" };
 let reposCache = [];
 let opsQueueCache = null;
 let conversationLangMode = "kor";
@@ -2214,6 +2214,7 @@ function applyAuditFilter(events = []) {
   return events.filter((event) => {
     const kind = String(event.kind || "");
     const owner = String(event.owner_id || "");
+    const phase = String(event.phase || "");
     const jobIds = extractAuditJobIds(event);
     const requestId = String(event.request_id || "");
     const details = JSON.stringify(event || {});
@@ -2222,7 +2223,9 @@ function applyAuditFilter(events = []) {
     const queryOk = !auditFilterState.q || text.includes(auditFilterState.q);
     const jobOk = !auditFilterState.job_id || jobIds.some((id) => String(id).toLowerCase().includes(auditFilterState.job_id));
     const requestOk = !auditFilterState.request_id || requestId.toLowerCase().includes(auditFilterState.request_id);
-    return kindOk && queryOk && jobOk && requestOk;
+    const ownerOk = !auditFilterState.owner || owner.toLowerCase().includes(auditFilterState.owner);
+    const phaseOk = !auditFilterState.phase || phase.toLowerCase() === auditFilterState.phase;
+    return kindOk && queryOk && jobOk && requestOk && ownerOk && phaseOk;
   });
 }
 
@@ -2277,8 +2280,10 @@ function renderAudit(payload) {
     const qLabel = auditFilterState.q ? `, 검색어="${auditFilterState.q}"` : "";
     const jobLabel = auditFilterState.job_id ? `, job="${auditFilterState.job_id}"` : "";
     const reqLabel = auditFilterState.request_id ? `, req="${auditFilterState.request_id}"` : "";
+    const ownerLabel = auditFilterState.owner ? `, owner="${auditFilterState.owner}"` : "";
+    const phaseLabel = auditFilterState.phase ? `, phase="${auditFilterState.phase}"` : "";
     const total = Number(payload.total || allEvents.length || 0);
-    statsEl.textContent = `필터: ${kindLabel}${qLabel}${jobLabel}${reqLabel} · ${events.length} / 조회 ${allEvents.length}건 (전체 ${total}건)`;
+    statsEl.textContent = `필터: ${kindLabel}${qLabel}${jobLabel}${reqLabel}${ownerLabel}${phaseLabel} · ${events.length} / 조회 ${allEvents.length}건 (전체 ${total}건)`;
   }
   const root = document.getElementById("auditTable");
   if (!events.length) {
@@ -2636,6 +2641,8 @@ function setupAuditControls() {
   const searchInput = document.getElementById("auditSearchInput");
   const jobIdInput = document.getElementById("auditJobIdInput");
   const requestIdInput = document.getElementById("auditRequestIdInput");
+  const ownerInput = document.getElementById("auditOwnerInput");
+  const phaseSelect = document.getElementById("auditPhaseFilter");
   const clearButton = document.getElementById("auditSearchClear");
   const quickFilters = Array.from(document.querySelectorAll("#auditQuickFilters button[data-kind]"));
   const fetchLimitSelect = document.getElementById("auditFetchLimit");
@@ -2644,6 +2651,8 @@ function setupAuditControls() {
     auditFilterState.q = String(searchInput?.value || "").trim().toLowerCase();
     auditFilterState.job_id = String(jobIdInput?.value || "").trim().toLowerCase();
     auditFilterState.request_id = String(requestIdInput?.value || "").trim().toLowerCase();
+    auditFilterState.owner = String(ownerInput?.value || "").trim().toLowerCase();
+    auditFilterState.phase = String(phaseSelect?.value || "").trim().toLowerCase();
     paginationState.audit = 1;
     if (tableCache.audit) renderAudit(tableCache.audit);
   };
@@ -2684,11 +2693,22 @@ function setupAuditControls() {
       auditSearchTimer = setTimeout(commitSearch, 160);
     });
   }
+  if (ownerInput) {
+    ownerInput.addEventListener("input", () => {
+      if (auditSearchTimer) clearTimeout(auditSearchTimer);
+      auditSearchTimer = setTimeout(commitSearch, 160);
+    });
+  }
+  if (phaseSelect) {
+    phaseSelect.addEventListener("change", commitSearch);
+  }
   if (clearButton) {
     clearButton.addEventListener("click", () => {
       if (searchInput) searchInput.value = "";
       if (jobIdInput) jobIdInput.value = "";
       if (requestIdInput) requestIdInput.value = "";
+      if (ownerInput) ownerInput.value = "";
+      if (phaseSelect) phaseSelect.value = "";
       if (auditSearchTimer) clearTimeout(auditSearchTimer);
       commitSearch();
       searchInput?.focus();

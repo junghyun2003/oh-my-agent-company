@@ -127,7 +127,7 @@
     {
       "id": 9,
       "title": "감사로그 주요 컬럼 필터 강화",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "add quick filter chips for owner and phase fields in audit log",

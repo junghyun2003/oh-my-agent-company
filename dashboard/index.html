@@ -599,6 +599,16 @@
             <label>요청 ID
               <input id="auditRequestIdInput" placeholder="req-..." />
             </label>
+            <label>운영자(owner)
+              <input id="auditOwnerInput" placeholder="local-owner" />
+            </label>
+            <label>승인 단계(phase)
+              <select id="auditPhaseFilter">
+                <option value="">전체</option>
+                <option value="pre">pre</option>
+                <option value="post">post</option>
+              </select>
+            </label>
             <div id="auditQuickFilters" class="audit-quick-filters" aria-label="빠른 필터">
               <button type="button" class="ghost active" data-kind="all">전체</button>
               <button type="button" class="ghost" data-kind="post_job_audit">완료 후 감사</button>

@@ -277,6 +277,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   - `priority`: `urgent|high|normal|low` (reprioritize 시 필수)
   - action 실행 시 `ops_queue_action_summary` 감사 이벤트에 `before_counts/after_counts/delta_counts`가 기록됩니다.
 - `GET /api/audit`는 `limit`/`offset` 파라미터를 지원합니다. (예: `/api/audit?limit=500&offset=0`)
+- 감사로그 UI는 `kind/job/request/owner/phase` 필터를 지원합니다.
 
 Smoke test automation:
 ```bash
