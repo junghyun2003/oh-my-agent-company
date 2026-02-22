@@ -1571,19 +1571,16 @@ function buildClientTemplate(job) {
   const mission = job.mission || job.work_type || "작업 진행";
   const client = job.client_name || "클라이언트";
   const summary = extractRequestSummary(job);
-  const riskLine = summary && summary.toLowerCase().includes("owner")
-    ? "- Owner ID 누락 재발 시 즉시 차단 및 운영자 설정 재검증 필요"
-    : "- Dev 단계 장기 정체 시 승인/QA 일정 추가 지연 가능";
+  const riskLine =
+    summary && summary.toLowerCase().includes("owner")
+      ? "- Owner ID 누락 재발 시 즉시 차단 및 운영자 설정 재검증 필요"
+      : "- Dev 단계 장기 정체 시 승인/QA 일정 추가 지연 가능";
   return `[변경점]
 - ${mission} 재시작 준비 (${summary || "요청 요약 미기록"})
 [영향]
 - ${client} 전달 일정 약 30분 지연 예상
 [리스크]
 ${riskLine}
-[다음 조치]
-- OWNER 설정 확인 → Dev 단계 재개 → 감사로그/리포트 업데이트 후 공유`;
-[다음 조치]
-- OWNER 설정 확인 → Dev 단계 재개 → 감사로그/리포트 업데이트 후 공유`;
 [다음 조치]
 - OWNER 설정 확인 → Dev 단계 재개 → 감사로그/리포트 업데이트 후 공유`;
 }
