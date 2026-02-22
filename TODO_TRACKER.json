@@ -110,7 +110,7 @@
     {
       "id": 8,
       "title": "주간 KPI 대시보드 카드 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "render weekly kpi highlights in status section",

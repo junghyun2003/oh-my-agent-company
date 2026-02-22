@@ -1458,6 +1458,49 @@ function renderStatusMetrics(jobs = []) {
     .join("");
 }
 
+function renderWeeklyKpiCards(requestsPayload, jobsPayload) {
+  const root = document.getElementById("weeklyKpiCards");
+  if (!root) return;
+  const requests = Array.isArray(requestsPayload?.requests) ? requestsPayload.requests : [];
+  const jobs = Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : [];
+  const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const inWindow = (ts) => eventTimestamp(ts) >= since;
+
+  const reqIn = requests.filter((r) => inWindow(r.created_at));
+  const jobsIn = jobs.filter((j) => inWindow(j.created_at));
+  const doneIn = jobsIn.filter((j) => j.status === "done");
+  const failIn = jobsIn.filter((j) => j.status === "failed");
+
+  const lead = doneIn
+    .map((j) => {
+      const s = eventTimestamp(j.created_at);
+      const e = eventTimestamp(j.completed_at);
+      if (!s || !e || e < s) return 0;
+      return (e - s) / 60000;
+    })
+    .filter((n) => n > 0);
+  const avgLead = lead.length ? Math.round((lead.reduce((a, b) => a + b, 0) / lead.length) * 10) / 10 : 0;
+  const success = jobsIn.length ? Math.round((doneIn.length / jobsIn.length) * 1000) / 10 : 0;
+
+  const items = [
+    { label: "7일 요청", value: reqIn.length, helper: "최근 1주 접수" },
+    { label: "7일 성공률", value: `${success}%`, helper: "done / created" },
+    { label: "7일 평균 리드타임", value: `${avgLead}분`, helper: "created→completed" },
+    { label: "7일 실패", value: failIn.length, helper: "재처리 대상" }
+  ];
+  root.innerHTML = items
+    .map(
+      (item) => `
+        <div class="metric-card">
+          <div class="metric-value">${esc(item.value)}</div>
+          <div class="metric-label">${esc(item.label)}</div>
+          <p>${esc(item.helper)}</p>
+        </div>
+      `
+    )
+    .join("");
+}
+
 function renderOpsQueueMetrics(queue) {
   const root = document.getElementById("opsQueueMetrics");
   if (!root || !queue) return;
@@ -2967,6 +3010,7 @@ async function loadAll() {
     renderPolicy(policies);
     renderAudit(audit);
     renderExecutionAudit(requests, jobs, audit);
+    renderWeeklyKpiCards(requests, jobs);
     renderDesignReview(state, requests, jobs, audit);
     renderLocalTrustBoard(jobs, requests, audit);
     renderUsage(usage);

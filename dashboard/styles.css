@@ -912,6 +912,10 @@ main {
   align-content: start;
 }
 
+#weeklyKpiCards {
+  margin-bottom: 0.85rem;
+}
+
 .metric-card {
   border: 1px solid var(--line);
   border-radius: 12px;

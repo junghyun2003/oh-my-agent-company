@@ -126,6 +126,7 @@ bash ./scripts/smoke_core_flows.sh
   - 표시 필드: `담당 팀`, `차단 이슈`, `다음 업데이트 시각`, `최근 변경`
 - 팀원 지시는 표준 작업 지시 카드(목표/범위/수용기준/의존성/리스크/ETA)로 기록
 - CEO/CTO/팀장 합의 결과는 정책 문서 및 감사로그로 추적
+- 실행 상태 화면에는 최근 7일 KPI(요청수/성공률/평균 리드타임/실패 수) 카드가 표시됩니다.
 
 ## Core Concepts
 - Local Trust Mode (default): no login required for local operation
