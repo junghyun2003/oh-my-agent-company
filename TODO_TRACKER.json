@@ -35,7 +35,7 @@
     {
       "id": 3,
       "title": "포크 baseline 자동 대체 경로 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "docs",
       "commit_type": "feat",
       "summary": "add baseline fallback chain for fork diff report when upstream ref is missing",

@@ -321,6 +321,7 @@ If you allow public forks, keep original/custom changes separate with the baseli
 ./scripts/fork_diff_report.sh --save
 ```
 - Saved report path: `reports/fork/customization-report-<UTC>.md`
+- `UPSTREAM_REF`가 비어 있어도 baseline fallback 체인(`upstream branch -> origin/main -> origin/master -> latest tag -> root commit`)으로 리포트를 생성합니다.
 
 ## Troubleshooting
 - Browser cannot connect:

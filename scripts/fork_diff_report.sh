@@ -51,12 +51,39 @@ if ! git rev-parse --git-dir >/dev/null 2>&1; then
 fi
 
 BASE=""
+BASE_SOURCE=""
 if [[ -n "${UPSTREAM_REF}" ]]; then
   BASE="${UPSTREAM_REF}"
+  BASE_SOURCE="UPSTREAM_REF"
 else
   if git remote get-url "${UPSTREAM_REMOTE}" >/dev/null 2>&1; then
     git fetch "${UPSTREAM_REMOTE}" "${UPSTREAM_BRANCH}" --quiet || true
     BASE="$(git merge-base HEAD "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}" 2>/dev/null || true)"
+    if [[ -n "${BASE}" ]]; then
+      BASE_SOURCE="${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"
+    fi
+  fi
+  if [[ -z "${BASE}" ]]; then
+    for fallback_ref in "origin/main" "origin/master"; do
+      if git rev-parse --verify "${fallback_ref}" >/dev/null 2>&1; then
+        BASE="$(git merge-base HEAD "${fallback_ref}" 2>/dev/null || true)"
+        if [[ -n "${BASE}" ]]; then
+          BASE_SOURCE="${fallback_ref}"
+          break
+        fi
+      fi
+    done
+  fi
+  if [[ -z "${BASE}" ]]; then
+    tag_ref="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+    if [[ -n "${tag_ref}" ]]; then
+      BASE="${tag_ref}"
+      BASE_SOURCE="latest_tag"
+    fi
+  fi
+  if [[ -z "${BASE}" ]]; then
+    BASE="$(git rev-list --max-parents=0 HEAD | tail -n 1)"
+    BASE_SOURCE="root_commit"
   fi
 fi
 
@@ -67,6 +94,7 @@ if [[ -z "${BASE}" ]]; then
 fi
 
 echo "resolved_baseline=${BASE}"
+echo "resolved_baseline_source=${BASE_SOURCE:-unknown}"
 echo
 
 echo "[Commits since baseline]"

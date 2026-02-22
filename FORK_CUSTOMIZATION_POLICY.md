@@ -23,6 +23,11 @@
   - `LAST_SYNC_AT`
 
 `UPSTREAM_REF`는 일반적으로 태그 또는 커밋 SHA를 사용한다.
+- 비어 있을 경우 fallback 순서:
+  - `<UPSTREAM_REMOTE>/<UPSTREAM_BRANCH>`
+  - `origin/main` -> `origin/master`
+  - 최신 태그
+  - 루트 커밋
 
 ## Commit Footer Standard
 기본 형식:
