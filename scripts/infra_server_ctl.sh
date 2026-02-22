@@ -19,6 +19,7 @@ STABILITY_PROBES="${STABILITY_PROBES:-3}"
 AUTO_WATCHDOG="${INFRA_AUTO_WATCHDOG:-1}"
 START_GUARD_SEC="${START_GUARD_SEC:-60}"
 START_GUARD_INTERVAL_SEC="${START_GUARD_INTERVAL_SEC:-5}"
+HEALTH_CURL_TIMEOUT_SEC="${HEALTH_CURL_TIMEOUT_SEC:-2}"
 
 get_port_pid() {
   lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true
@@ -87,7 +88,7 @@ is_running() {
     # PID file can be lost; recover from listening socket when possible.
     local port_pid
     port_pid="$(get_port_pid)"
-    if [[ -n "${port_pid}" ]] && is_orchestrator_pid "${port_pid}" && curl -fsS "${health_url}" > /dev/null 2>&1; then
+    if [[ -n "${port_pid}" ]] && is_orchestrator_pid "${port_pid}" && curl -fsS --max-time "${HEALTH_CURL_TIMEOUT_SEC}" "${health_url}" > /dev/null 2>&1; then
       echo "${port_pid}" > "${PID_FILE}"
       return 0
     fi
@@ -111,7 +112,7 @@ wait_health() {
   local tries="${1:-25}"
   local i=0
   while [[ "${i}" -lt "${tries}" ]]; do
-    if curl -fsS "${health_url}" > /dev/null 2>&1; then
+    if curl -fsS --max-time "${HEALTH_CURL_TIMEOUT_SEC}" "${health_url}" > /dev/null 2>&1; then
       return 0
     fi
     sleep 0.4
@@ -121,7 +122,7 @@ wait_health() {
 }
 
 health_ok() {
-  curl -fsS "${health_url}" > /dev/null 2>&1
+  curl -fsS --max-time "${HEALTH_CURL_TIMEOUT_SEC}" "${health_url}" > /dev/null 2>&1
 }
 
 ts_utc() {
