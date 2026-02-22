@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile backend scripts
+        run: |
+          python -m py_compile scripts/orchestrator_server.py
+          python -m py_compile scripts/todo_workflow.py
+
+      - name: Docs sync check
+        run: python scripts/docs_sync_check.py
+
+      - name: Setup Node (for playwright prerequisites)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install playwright cli
+        run: npm install -g @playwright/cli@latest
+
+      - name: Infra ensure
+        run: bash ./scripts/infra_server_ctl.sh ensure
+
+      - name: Smoke checks
+        run: bash ./scripts/smoke_core_flows.sh
+
+      - name: Theme regression check
+        run: bash ./scripts/theme_regression_check.sh

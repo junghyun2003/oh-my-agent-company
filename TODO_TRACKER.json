@@ -19,7 +19,7 @@
     {
       "id": 2,
       "title": "CI 워크플로 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "ops",
       "commit_type": "feat",
       "summary": "add github actions workflow for docs sync smoke compile and theme checks",

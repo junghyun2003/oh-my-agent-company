@@ -328,6 +328,7 @@ Stalled-job recovery (built-in):
 ## Open Source Collaboration
 - How to contribute: `/Users/junghyen2003/Documents/oh-my-agent-company/CONTRIBUTING.md`
 - Security reporting: `/Users/junghyen2003/Documents/oh-my-agent-company/SECURITY.md`
+- CI workflow: `/Users/junghyen2003/Documents/oh-my-agent-company/.github/workflows/ci.yml`
 - Fork policy: `/Users/junghyen2003/Documents/oh-my-agent-company/FORK_CUSTOMIZATION_POLICY.md`
 - Upstream baseline: `/Users/junghyen2003/Documents/oh-my-agent-company/UPSTREAM_BASELINE.env`
 - Custom log: `/Users/junghyen2003/Documents/oh-my-agent-company/CUSTOMIZATION_LOG.md`
