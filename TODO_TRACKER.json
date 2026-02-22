@@ -69,7 +69,7 @@
     {
       "id": 5,
       "title": "대시보드 운영 패널(백로그/진행중/실패 액션)",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "add ops dashboard panel for backlog and failure actions",
@@ -83,7 +83,7 @@
     {
       "id": 6,
       "title": "회귀 테스트/스모크 테스트 자동화",
-      "status": "pending",
+      "status": "done",
       "scope": "qa",
       "commit_type": "test",
       "summary": "add smoke checks for approval, audit log and assignment flows",

@@ -157,6 +157,12 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   -d '{"owner_id":"local-owner","action":"reprioritize","job_ids":["job-123"],"priority":"urgent"}' | jq
 ```
 
+Smoke test automation:
+```bash
+bash ./scripts/smoke_core_flows.sh
+```
+- Covers: request intake, job assignment, pre-approval gate, audit evidence, ops queue API.
+
 Direct run (fallback):
 ```bash
 python3 scripts/orchestrator_server.py
