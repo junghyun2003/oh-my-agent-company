@@ -11,4 +11,11 @@ state/orchestrator.pid
 state/orchestrator.log
 state/orchestrator_watchdog.pid
 state/orchestrator_watchdog.log
+state/orchestrator_lifecycle.log
+state/launchd.out.log
+state/launchd.err.log
+state/backups/
+state/*.log
+state/*.pid
+state/*.tmp
 dashboard/assets/pixel/vendor/

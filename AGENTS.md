@@ -57,6 +57,7 @@
 - 저장소 수정은 `state/agent_company.db`의 `repo_policies`/`app_settings` 정책을 따른다.
 - 승인 모드(`auto/manual_pre/manual_post/manual_both`)를 작업마다 적용한다.
 - 감사로그는 `state/agent_company.db`의 `audit_events` 테이블에 append-only로 기록한다.
+- `state/` 런타임 산출물(log/pid/backup)은 운영 데이터로 취급하며 버전 관리 대상에서 제외한다.
 - 작업이 완료(`job_done`)되면 같은 작업 ID에 대해 `post_job_audit` 이벤트를 추가로 기록한다.
 - 팀별 의견 수렴 결과는 `TEAM_FEEDBACK_YYYY-MM-DD.md`로 남기고 정책 문서에 반영한다.
 - 팀 의견 충돌 시 의사결정 우선순위는 `CEO > CTO > Product/QA > other teams`를 따른다.

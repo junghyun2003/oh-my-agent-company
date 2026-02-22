@@ -116,7 +116,7 @@
     {
       "id": 8,
       "title": "state 산출물 git 추적 정책 보강",
-      "status": "pending",
+      "status": "done",
       "scope": "ops",
       "commit_type": "chore",
       "summary": "expand gitignore coverage for volatile state artifacts and logs",

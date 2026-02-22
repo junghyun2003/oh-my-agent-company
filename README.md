@@ -301,6 +301,7 @@ Stalled-job recovery (built-in):
 - Agent status table: `agent_status`
 - Audit table: `audit_events`
 - Deliverables: `/Users/junghyen2003/Documents/oh-my-agent-company/deliverables/`
+- Runtime state artifacts (`state/*.log`, `state/*.pid`, `state/backups/*`) are treated as volatile and excluded from git tracking.
 
 ## Team and Governance Docs
 - Company policy: `/Users/junghyen2003/Documents/oh-my-agent-company/AGENTS.md`
