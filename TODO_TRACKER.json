@@ -159,7 +159,7 @@
     {
       "id": 11,
       "title": "보안 점검 스크립트 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "security",
       "commit_type": "feat",
       "summary": "add sensitive data scan script for logs docs and responses",
