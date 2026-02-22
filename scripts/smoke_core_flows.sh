@@ -94,4 +94,9 @@ echo "[smoke] validating ops queue API..."
 json_get '/api/ops/queue' | python3 -c 'import json,sys; data=json.load(sys.stdin); queue=data.get("queue") or {}; req={"counts","backlog","in_progress","failed"}; missing=[k for k in req if k not in queue]; (print("ok") if data.get("ok") and not missing else (_ for _ in ()).throw(SystemExit("ops queue snapshot invalid")))' >/dev/null
 json_post '/api/ops/queue/manage' "{\"owner_id\":\"${OWNER_ID}\",\"action\":\"recover_stalled\"}" | python3 -c 'import json,sys; (print("ok") if json.load(sys.stdin).get("ok") else (_ for _ in ()).throw(SystemExit("recover_stalled action failed")))' >/dev/null
 
+if [[ "${ENABLE_PLAYWRIGHT_VISUAL:-0}" == "1" ]]; then
+  echo "[smoke] running playwright visual regression..."
+  bash "${ROOT_DIR}/scripts/visual_regression_playwright.sh"
+fi
+
 echo "[smoke] success: assignment/approval/audit/ops queue checks passed (job=${JOB_ID})"

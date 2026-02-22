@@ -228,6 +228,22 @@ Smoke test automation:
 bash ./scripts/smoke_core_flows.sh
 ```
 - Covers: request intake, job assignment, pre-approval gate, audit evidence, ops queue API, dashboard core section render tokens.
+- Playwright visual regression (optional in smoke):
+```bash
+ENABLE_PLAYWRIGHT_VISUAL=1 bash ./scripts/smoke_core_flows.sh
+bash ./scripts/visual_regression_playwright.sh
+```
+- `npx` prerequisite:
+```bash
+# Verify Node/npm are installed
+node --version
+npm --version
+
+# If missing, install Node.js/npm, then:
+npm install -g @playwright/cli@latest
+playwright-cli --help
+```
+- Baseline screenshots are stored in `output/playwright/baseline/*`, latest runs in `output/playwright/current/*`.
 
 Direct run (fallback):
 ```bash
