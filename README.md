@@ -150,6 +150,15 @@ python3 ./scripts/ops_queue_manager.py apply --dry-run
 python3 ./scripts/ops_queue_manager.py apply --requeue-failed
 ```
 
+DB backup / restore:
+```bash
+bash ./scripts/db_maintenance.sh backup
+bash ./scripts/db_maintenance.sh list
+bash ./scripts/db_maintenance.sh restore ./state/backups/agent_company-YYYYMMDDTHHMMSSZ.db
+bash ./scripts/db_maintenance.sh prune 15
+```
+- `schema_version` is tracked in `state_meta` for startup migration baselines.
+
 Queue management API:
 ```bash
 # snapshot

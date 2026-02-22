@@ -388,6 +388,8 @@ def seed_defaults():
         exec_sql("INSERT INTO state_meta (key, value) VALUES (?,?)", ("work_type", "대기"))
     if not q1("SELECT key FROM state_meta WHERE key='updated_at'"):
         exec_sql("INSERT INTO state_meta (key, value) VALUES (?,?)", ("updated_at", utc_now()))
+    if not q1("SELECT key FROM state_meta WHERE key='schema_version'"):
+        exec_sql("INSERT INTO state_meta (key, value) VALUES (?,?)", ("schema_version", "1"))
 
 
 def list_git_repositories():
