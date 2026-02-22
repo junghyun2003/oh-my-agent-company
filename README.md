@@ -204,6 +204,7 @@ ORCHESTRATOR_PORT=19090 python3 scripts/orchestrator_server.py
 Tech Leader audit:
 ```bash
 ./scripts/tech_leader_audit.sh
+python3 ./scripts/docs_sync_check.py
 ```
 
 Stalled-job recovery (built-in):
