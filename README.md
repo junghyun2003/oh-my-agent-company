@@ -351,6 +351,7 @@ Stalled-job recovery (built-in):
 - Runtime state artifacts (`state/*.log`, `state/*.pid`, `state/backups/*`) are treated as volatile and excluded from git tracking.
 
 ## Team and Governance Docs
+- Docs index: `/Users/junghyen2003/Documents/oh-my-agent-company/docs/INDEX.md`
 - Company policy: `/Users/junghyen2003/Documents/oh-my-agent-company/AGENTS.md`
 - Team index: `/Users/junghyen2003/Documents/oh-my-agent-company/teams/AGENTS.md`
 - Team docs: `/Users/junghyen2003/Documents/oh-my-agent-company/teams/*/AGENTS.md`

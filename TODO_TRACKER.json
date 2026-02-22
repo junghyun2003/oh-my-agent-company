@@ -174,7 +174,7 @@
     {
       "id": 12,
       "title": "문서 인덱스 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "docs",
       "commit_type": "docs",
       "summary": "add role based docs index for faster onboarding",
