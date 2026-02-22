@@ -64,7 +64,7 @@
     {
       "id": 5,
       "title": "보안 스캔 allowlist 지원",
-      "status": "pending",
+      "status": "done",
       "scope": "security",
       "commit_type": "feat",
       "summary": "add allowlist support to reduce false positives in security scan",

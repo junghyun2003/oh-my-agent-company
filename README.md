@@ -329,6 +329,7 @@ python3 ./scripts/kpi_weekly_report.py --dry-run
 python3 ./scripts/kpi_weekly_report.py --days 7 --output ./reports/kpi/weekly-kpi.json
 bash ./scripts/security_scan.sh --dry-run
 ```
+- 오탐 제외 규칙은 `.security_scan_allowlist`에 substring 단위로 추가합니다.
 
 Pre-push enforcement (required for local release safety):
 ```bash

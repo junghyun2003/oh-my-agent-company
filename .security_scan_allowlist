@@ -1,0 +1,4 @@
+# one substring per line. matching lines are ignored by security_scan.sh
+scripts/docs_sync_check.py
+owner_token_required
+status-${token
