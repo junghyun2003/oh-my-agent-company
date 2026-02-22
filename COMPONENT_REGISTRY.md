@@ -17,6 +17,12 @@
 - `Workflow`: intake form, approval form, kanban card
 - `Feedback`: alert, muted hint, loading/error message
 
+## 현재 공통 컴포넌트(적용 중)
+- `Form Select` (`.control-select`): 작업할당/승인/운영 액션 드롭다운 공통 스타일
+  - 목적: 드롭다운 높이/정렬/테마 색상 일관화
+  - 적용 대상: `requestSelect`, `repoSelect`, `jobPriority`, `ops*`, `approve*`
+  - 소유: Frontend Team Lead + Design Team Lead
+
 ## 팀 역할
 - Design Team Lead: 정보구조/가독성/시각 규칙 관리
 - Frontend Team Lead: 구현 규칙/접근성/재사용 API 관리

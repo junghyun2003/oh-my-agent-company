@@ -1336,6 +1336,16 @@ select {
   min-width: 0;
 }
 
+.control-select {
+  width: 100%;
+  min-height: 40px;
+  line-height: 1.2;
+  border-radius: 10px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--text);
+}
+
 #repoSelect {
   max-width: 100%;
 }

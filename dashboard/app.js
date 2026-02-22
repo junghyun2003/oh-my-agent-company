@@ -2681,6 +2681,23 @@ function setupFlowTabs() {
   });
 }
 
+function setupSharedFormControls() {
+  const selectors = [
+    "#requestSelect",
+    "#repoSelect",
+    "#jobPriority",
+    "#opsFailedJobSelect",
+    "#opsPriorityJobSelect",
+    "#opsPriorityValue",
+    "#approveJobSelect",
+    "#approvePhase"
+  ];
+  selectors.forEach((query) => {
+    const el = document.querySelector(query);
+    if (el) el.classList.add("control-select");
+  });
+}
+
 function setupIntakePresets() {
   const chips = Array.from(document.querySelectorAll(".preset-chip"));
   if (!chips.length) return;
@@ -3092,6 +3109,7 @@ if (ownerInput) {
 }
 
 setupAutoRefineControls();
+setupSharedFormControls();
 setupSnbNavigation();
 setupFlowTabs();
 setupPaginationDelegation();
