@@ -25,5 +25,6 @@
 
 ## Client / External User
 - `/Users/junghyen2003/Documents/oh-my-agent-company/README.md`
+- `/Users/junghyen2003/Documents/oh-my-agent-company/docs/ONBOARDING_10MIN.md`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/FORK_CUSTOMIZATION_POLICY.md`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/CONTRIBUTING.md`

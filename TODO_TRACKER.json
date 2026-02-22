@@ -125,7 +125,7 @@
     {
       "id": 9,
       "title": "10분 온보딩 문서 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "docs",
       "commit_type": "docs",
       "summary": "add concise 10 minute onboarding guide for external users",

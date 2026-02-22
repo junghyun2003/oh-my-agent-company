@@ -360,6 +360,7 @@ Stalled-job recovery (built-in):
 
 ## Team and Governance Docs
 - Docs index: `/Users/junghyen2003/Documents/oh-my-agent-company/docs/INDEX.md`
+- 10-minute onboarding: `/Users/junghyen2003/Documents/oh-my-agent-company/docs/ONBOARDING_10MIN.md`
 - Company policy: `/Users/junghyen2003/Documents/oh-my-agent-company/AGENTS.md`
 - Team index: `/Users/junghyen2003/Documents/oh-my-agent-company/teams/AGENTS.md`
 - Team docs: `/Users/junghyen2003/Documents/oh-my-agent-company/teams/*/AGENTS.md`
