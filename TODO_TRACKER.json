@@ -81,7 +81,7 @@
     {
       "id": 6,
       "title": "Linux/Windows 자동기동 가이드 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "docs",
       "commit_type": "docs",
       "summary": "document systemd and windows task scheduler startup options",

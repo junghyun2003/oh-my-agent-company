@@ -162,6 +162,34 @@ bash ./scripts/install_launchd_agent.sh --dry-run
 bash ./scripts/uninstall_launchd_agent.sh
 ```
 
+Linux systemd auto-start (reference):
+```bash
+sudo tee /etc/systemd/system/oh-my-agent-company.service >/dev/null <<'UNIT'
+[Unit]
+Description=oh-my-agent-company orchestrator
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/oh-my-agent-company
+ExecStart=/usr/bin/python3 /path/to/oh-my-agent-company/scripts/orchestrator_server.py
+Restart=always
+Environment=ORCHESTRATOR_PORT=18765
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+sudo systemctl daemon-reload
+sudo systemctl enable --now oh-my-agent-company.service
+```
+
+Windows Task Scheduler auto-start (reference):
+1. Trigger: At log on
+2. Action: Start a program
+3. Program/script: `python`
+4. Arguments: `scripts\\orchestrator_server.py`
+5. Start in: `C:\\path\\to\\oh-my-agent-company`
+
 Availability hardening defaults:
 - `ensure` retries auto-recovery up to `3` attempts (`ENSURE_MAX_ATTEMPTS` override 가능)
 - health stability probes run before declaring healthy (`STABILITY_PROBES` override 가능)
