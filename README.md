@@ -21,6 +21,11 @@ and delivers auditable outcomes with approval gates.
 - Dashboard: `/Users/junghyen2003/Documents/oh-my-agent-company/dashboard/index.html`
 
 ## Installation Guide
+### 0. Environment self-check
+```bash
+bash ./scripts/setup_dev_env.sh --check-only
+```
+
 ### A. Python-only quick run
 ```bash
 python3 --version
