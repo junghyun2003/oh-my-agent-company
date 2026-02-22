@@ -15,6 +15,7 @@ const approveUrl = "/api/jobs/approve";
 const settingsSaveUrl = "/api/settings/save";
 const fallbackCodexModels = ["gpt-5", "gpt-5-mini", "gpt-4.1", "o4-mini"];
 const THEME_STORAGE_KEY = "omac-theme-mode";
+const NAV_TARGET_STORAGE_KEY = "omac-nav-target";
 
 let timer = null;
 let auditSearchTimer = null;
@@ -2602,18 +2603,39 @@ function setupSnbNavigation() {
   };
 
   const routeTarget = () => {
-    const raw = decodeURIComponent((window.location.hash || "").replace(/^#/, "")).trim();
-    return normalizeTarget(raw || "all");
+    const hashRaw = decodeURIComponent((window.location.hash || "").replace(/^#/, "")).trim();
+    if (hashRaw) return normalizeTarget(hashRaw);
+    const query = new URLSearchParams(window.location.search || "");
+    const fromQuery = query.get("section");
+    if (fromQuery) return normalizeTarget(fromQuery.trim());
+    try {
+      const saved = window.localStorage.getItem(NAV_TARGET_STORAGE_KEY) || "";
+      if (saved) return normalizeTarget(saved);
+    } catch (_) {
+      // ignore storage failures
+    }
+    return "all";
   };
 
   const setRoute = (target) => {
-    const next = `#${normalizeTarget(target)}`;
+    const safeTarget = normalizeTarget(target);
+    const next = `#${safeTarget}`;
     if (window.location.hash === next) return;
     window.history.replaceState(null, "", next);
+    try {
+      window.localStorage.setItem(NAV_TARGET_STORAGE_KEY, safeTarget);
+    } catch (_) {
+      // ignore storage failures
+    }
   };
 
   const applyTarget = (target) => {
     const safeTarget = normalizeTarget(target);
+    try {
+      window.localStorage.setItem(NAV_TARGET_STORAGE_KEY, safeTarget);
+    } catch (_) {
+      // ignore storage failures
+    }
     const activeBtn =
       navItems.find((btn) => btn.dataset.target === safeTarget) ||
       navItems.find((btn) => btn.dataset.target === "all") ||
