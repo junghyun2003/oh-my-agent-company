@@ -1,194 +1,125 @@
 {
-  "version": 4,
+  "version": 5,
   "steps": [
     {
       "id": 1,
-      "title": "워크플로 트래커 커밋 원자화",
-      "status": "done",
+      "title": "Node/Playwright 환경 점검 스크립트 추가",
+      "status": "pending",
       "scope": "ops",
-      "commit_type": "fix",
-      "summary": "make todo workflow tracker updates commit atomically with step completion",
-      "files": [
-        "scripts/todo_workflow.py",
-        "README.md"
-      ],
-      "verify": [
-        "python3 -m py_compile scripts/todo_workflow.py"
-      ]
+      "commit_type": "feat",
+      "summary": "add setup script to validate node npm and playwright prerequisites",
+      "files": ["scripts/setup_dev_env.sh", "README.md"],
+      "verify": ["bash ./scripts/setup_dev_env.sh --check-only"]
     },
     {
       "id": 2,
-      "title": "Playwright 시각회귀 엄격 모드 분리",
-      "status": "done",
-      "scope": "qa",
+      "title": "CI 워크플로 추가",
+      "status": "pending",
+      "scope": "ops",
       "commit_type": "feat",
-      "summary": "add strict mode handling for playwright visual regression prerequisites",
-      "files": [
-        "scripts/visual_regression_playwright.sh",
-        "scripts/smoke_core_flows.sh",
-        "README.md"
-      ],
-      "verify": [
-        "STRICT_PLAYWRIGHT_VISUAL=0 bash ./scripts/visual_regression_playwright.sh"
-      ]
+      "summary": "add github actions workflow for docs sync smoke compile and theme checks",
+      "files": [".github/workflows/ci.yml", "README.md"],
+      "verify": ["bash -lc 'test -f .github/workflows/ci.yml'"]
     },
     {
       "id": 3,
-      "title": "포크 baseline 자동 대체 경로 추가",
-      "status": "done",
-      "scope": "docs",
+      "title": "incident 알림 스크립트 추가",
+      "status": "pending",
+      "scope": "infra",
       "commit_type": "feat",
-      "summary": "add baseline fallback chain for fork diff report when upstream ref is missing",
-      "files": [
-        "scripts/fork_diff_report.sh",
-        "FORK_CUSTOMIZATION_POLICY.md",
-        "README.md"
-      ],
-      "verify": [
-        "bash ./scripts/fork_diff_report.sh"
-      ]
+      "summary": "add incident alert notifier with webhook and file output support",
+      "files": ["scripts/incident_notify.sh", "README.md"],
+      "verify": ["bash ./scripts/incident_notify.sh --dry-run"]
     },
     {
       "id": 4,
-      "title": "로컬 서버 자동기동 launchd 스크립트 추가",
-      "status": "done",
-      "scope": "infra",
+      "title": "Preflight 상태 UI 연동",
+      "status": "pending",
+      "scope": "frontend",
       "commit_type": "feat",
-      "summary": "add launchd install uninstall scripts for local auto start management",
-      "files": [
-        "scripts/install_launchd_agent.sh",
-        "scripts/uninstall_launchd_agent.sh",
-        "README.md"
-      ],
-      "verify": [
-        "bash ./scripts/install_launchd_agent.sh --dry-run",
-        "bash ./scripts/uninstall_launchd_agent.sh --dry-run"
-      ]
+      "summary": "show codex preflight summary in owner settings panel",
+      "files": ["dashboard/index.html", "dashboard/app.js", "dashboard/styles.css", "README.md"],
+      "verify": ["bash ./scripts/infra_server_ctl.sh ensure"]
     },
     {
       "id": 5,
-      "title": "요청/작업 API 페이지네이션 지원",
-      "status": "done",
-      "scope": "backend",
+      "title": "요청/작업 서버측 페이지 이동 연동",
+      "status": "pending",
+      "scope": "frontend",
       "commit_type": "feat",
-      "summary": "add limit and offset support to requests and jobs endpoints",
-      "files": [
-        "scripts/orchestrator_server.py",
-        "dashboard/app.js",
-        "README.md"
-      ],
-      "verify": [
-        "python3 -m py_compile scripts/orchestrator_server.py"
-      ]
+      "summary": "wire requests and jobs pagination controls to server side offset fetch",
+      "files": ["dashboard/app.js", "README.md"],
+      "verify": ["bash ./scripts/infra_server_ctl.sh ensure"]
     },
     {
       "id": 6,
-      "title": "bootstrap 의존성 강제 모드 추가",
-      "status": "done",
-      "scope": "ops",
-      "commit_type": "feat",
-      "summary": "add require-node mode and clearer diagnostics to bootstrap flow",
-      "files": [
-        "scripts/bootstrap_local.sh",
-        "README.md"
-      ],
-      "verify": [
-        "RUN_SMOKE=0 REQUIRE_NODE=0 bash ./scripts/bootstrap_local.sh"
-      ]
+      "title": "Linux/Windows 자동기동 가이드 추가",
+      "status": "pending",
+      "scope": "docs",
+      "commit_type": "docs",
+      "summary": "document systemd and windows task scheduler startup options",
+      "files": ["README.md"],
+      "verify": ["python3 scripts/docs_sync_check.py"]
     },
     {
       "id": 7,
-      "title": "Local Trust 모드에서 owner/token 입력 간소화",
-      "status": "done",
-      "scope": "frontend",
+      "title": "DB 복구 드릴 자동화 스크립트 추가",
+      "status": "pending",
+      "scope": "infra",
       "commit_type": "feat",
-      "summary": "hide owner identity inputs by default in local trust mode and keep advanced toggle",
-      "files": [
-        "dashboard/index.html",
-        "dashboard/app.js",
-        "dashboard/styles.css",
-        "README.md"
-      ],
-      "verify": [
-        "bash ./scripts/infra_server_ctl.sh ensure"
-      ]
+      "summary": "add automated restore drill script with health and api checks",
+      "files": ["scripts/db_restore_drill.sh", "README.md"],
+      "verify": ["bash ./scripts/db_restore_drill.sh --dry-run"]
     },
     {
       "id": 8,
-      "title": "state 산출물 git 추적 정책 보강",
-      "status": "done",
-      "scope": "ops",
-      "commit_type": "chore",
-      "summary": "expand gitignore coverage for volatile state artifacts and logs",
-      "files": [
-        ".gitignore",
-        "README.md",
-        "AGENTS.md"
-      ],
-      "verify": [
-        "bash -lc 'git check-ignore -v state/orchestrator_lifecycle.log >/dev/null'"
-      ]
+      "title": "주간 KPI 대시보드 카드 추가",
+      "status": "pending",
+      "scope": "frontend",
+      "commit_type": "feat",
+      "summary": "render weekly kpi highlights in status section",
+      "files": ["dashboard/index.html", "dashboard/app.js", "dashboard/styles.css", "README.md"],
+      "verify": ["bash ./scripts/infra_server_ctl.sh ensure"]
     },
     {
       "id": 9,
-      "title": "Codex 실행 preflight 점검 API 추가",
-      "status": "done",
-      "scope": "backend",
+      "title": "감사로그 주요 컬럼 필터 강화",
+      "status": "pending",
+      "scope": "frontend",
       "commit_type": "feat",
-      "summary": "add ops preflight endpoint for codex binary model and writable path checks",
-      "files": [
-        "scripts/orchestrator_server.py",
-        "README.md"
-      ],
-      "verify": [
-        "python3 -m py_compile scripts/orchestrator_server.py"
-      ]
+      "summary": "add quick filter chips for owner and phase fields in audit log",
+      "files": ["dashboard/index.html", "dashboard/app.js", "README.md"],
+      "verify": ["bash ./scripts/infra_server_ctl.sh ensure"]
     },
     {
       "id": 10,
-      "title": "주간 KPI 리포트 스크립트 추가",
-      "status": "done",
-      "scope": "strategy",
-      "commit_type": "feat",
-      "summary": "add weekly kpi report generator from audit events and jobs",
-      "files": [
-        "scripts/kpi_weekly_report.py",
-        "README.md"
-      ],
-      "verify": [
-        "python3 ./scripts/kpi_weekly_report.py --dry-run"
-      ]
+      "title": "다국어 표기 정책 문서 추가",
+      "status": "pending",
+      "scope": "design",
+      "commit_type": "docs",
+      "summary": "add bilingual labeling policy for korean first ui copy",
+      "files": ["teams/design-ops/LANGUAGE_POLICY.md", "README.md", "AGENTS.md"],
+      "verify": ["python3 scripts/docs_sync_check.py"]
     },
     {
       "id": 11,
-      "title": "테마 3모드 회귀 점검 스크립트 추가",
-      "status": "done",
-      "scope": "design",
-      "commit_type": "test",
-      "summary": "add theme regression check script for system light dark modes",
-      "files": [
-        "scripts/theme_regression_check.sh",
-        "README.md"
-      ],
-      "verify": [
-        "bash ./scripts/theme_regression_check.sh"
-      ]
+      "title": "보안 점검 스크립트 추가",
+      "status": "pending",
+      "scope": "security",
+      "commit_type": "feat",
+      "summary": "add sensitive data scan script for logs docs and responses",
+      "files": ["scripts/security_scan.sh", "README.md"],
+      "verify": ["bash ./scripts/security_scan.sh --dry-run"]
     },
     {
       "id": 12,
-      "title": "장애 요약 진단 커맨드 고도화",
-      "status": "done",
-      "scope": "infra",
-      "commit_type": "feat",
-      "summary": "add concise incident summary command for rapid failure triage",
-      "files": [
-        "scripts/infra_server_ctl.sh",
-        "README.md"
-      ],
-      "verify": [
-        "bash ./scripts/infra_server_ctl.sh ensure",
-        "bash ./scripts/infra_server_ctl.sh incident"
-      ]
+      "title": "문서 인덱스 추가",
+      "status": "pending",
+      "scope": "docs",
+      "commit_type": "docs",
+      "summary": "add role based docs index for faster onboarding",
+      "files": ["docs/INDEX.md", "README.md"],
+      "verify": ["python3 scripts/docs_sync_check.py"]
     }
   ]
 }
