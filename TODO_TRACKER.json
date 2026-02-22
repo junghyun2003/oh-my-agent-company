@@ -34,7 +34,7 @@
     {
       "id": 3,
       "title": "incident 알림 스크립트 추가",
-      "status": "pending",
+      "status": "done",
       "scope": "infra",
       "commit_type": "feat",
       "summary": "add incident alert notifier with webhook and file output support",

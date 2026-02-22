@@ -152,6 +152,7 @@ Safe infra control script:
 ./scripts/infra_server_ctl.sh incident
 ./scripts/infra_server_ctl.sh incident-summary
 ./scripts/infra_server_ctl.sh logs 120
+bash ./scripts/incident_notify.sh --dry-run
 ```
 
 macOS launchd auto-start (optional):
