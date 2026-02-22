@@ -1,13 +1,13 @@
 {
-  "version": 2,
+  "version": 3,
   "steps": [
     {
       "id": 1,
-      "title": "서버 상시 가용성 고정",
-      "status": "done",
+      "title": "infra 재시작 플랩 원인 고정",
+      "status": "pending",
       "scope": "infra",
       "commit_type": "feat",
-      "summary": "stabilize infra control start/ensure/watchdog flow for zero-downtime local ops",
+      "summary": "harden infra server lifecycle with post-start survival guard and flap diagnostics",
       "files": [
         "scripts/infra_server_ctl.sh",
         "README.md"
@@ -20,27 +20,26 @@
     },
     {
       "id": 2,
-      "title": "서버 다운 원인 자동 진단 리포트",
-      "status": "done",
-      "scope": "infra",
+      "title": "서버 수명 추적 API 추가",
+      "status": "pending",
+      "scope": "backend",
       "commit_type": "feat",
-      "summary": "add standard incident diagnosis output for port/process/health failures",
+      "summary": "add runtime ops endpoint exposing uptime restart_count and last_crash markers",
       "files": [
-        "scripts/infra_server_ctl.sh",
+        "scripts/orchestrator_server.py",
         "README.md"
       ],
       "verify": [
-        "./scripts/infra_server_ctl.sh doctor",
-        "./scripts/infra_server_ctl.sh logs 80"
+        "python3 -m py_compile scripts/orchestrator_server.py"
       ]
     },
     {
       "id": 3,
-      "title": "Ops API 권한/입력 검증 강화",
-      "status": "done",
+      "title": "워커 헬스 분리 지표 추가",
+      "status": "pending",
       "scope": "backend",
       "commit_type": "feat",
-      "summary": "harden ops queue action schema and state transition validation",
+      "summary": "split http health and pipeline worker health for stalled-dispatch detection",
       "files": [
         "scripts/orchestrator_server.py",
         "README.md"
@@ -51,14 +50,13 @@
     },
     {
       "id": 4,
-      "title": "DB 안정성(마이그레이션/백업) 도입",
-      "status": "done",
+      "title": "Ops Queue 감사 상세(before/after) 강화",
+      "status": "pending",
       "scope": "infra",
       "commit_type": "feat",
-      "summary": "add schema versioning and backup/restore scripts for sqlite state",
+      "summary": "include queue snapshot delta in ops queue action audit detail payload",
       "files": [
         "scripts/orchestrator_server.py",
-        "scripts",
         "README.md"
       ],
       "verify": [
@@ -67,11 +65,11 @@
     },
     {
       "id": 5,
-      "title": "핵심 화면 라우팅/새로고침 UX 정리",
-      "status": "done",
+      "title": "작업할당/승인 폼 사전 검증 강화",
+      "status": "pending",
       "scope": "frontend",
       "commit_type": "feat",
-      "summary": "preserve section route and context on reload across dashboard hash paths",
+      "summary": "add client-side preflight validation for assignment and approval forms",
       "files": [
         "dashboard/index.html",
         "dashboard/app.js",
@@ -83,47 +81,30 @@
     },
     {
       "id": 6,
-      "title": "다크/라이트/시스템 테마 전수 QA",
-      "status": "done",
+      "title": "감사로그 대량 데이터 성능 개선",
+      "status": "pending",
       "scope": "frontend",
-      "commit_type": "fix",
-      "summary": "normalize tone and contrast tokens across all dashboard sections",
+      "commit_type": "feat",
+      "summary": "add server-side pagination for audit feed and update ui query controls",
       "files": [
-        "dashboard/styles.css",
+        "scripts/orchestrator_server.py",
         "dashboard/app.js",
         "README.md"
       ],
       "verify": [
-        "./scripts/infra_server_ctl.sh ensure"
+        "python3 -m py_compile scripts/orchestrator_server.py"
       ]
     },
     {
       "id": 7,
-      "title": "작업할당/승인 UI 깨짐 방지 공통화",
-      "status": "done",
-      "scope": "frontend",
-      "commit_type": "refactor",
-      "summary": "stabilize assignment and approval layouts with shared component styles",
-      "files": [
-        "dashboard/index.html",
-        "dashboard/app.js",
-        "dashboard/styles.css",
-        "COMPONENT_REGISTRY.md"
-      ],
-      "verify": [
-        "./scripts/infra_server_ctl.sh ensure"
-      ]
-    },
-    {
-      "id": 8,
-      "title": "감사로그 검색성 개선",
-      "status": "done",
+      "title": "픽셀 실행상태 대시보드 고도화",
+      "status": "pending",
       "scope": "frontend",
       "commit_type": "feat",
-      "summary": "improve audit filters by job_id request_id kind and free-text keywords",
+      "summary": "improve pixel status board with richer state animation and role signaling",
       "files": [
-        "dashboard/app.js",
         "dashboard/index.html",
+        "dashboard/app.js",
         "dashboard/styles.css"
       ],
       "verify": [
@@ -131,46 +112,60 @@
       ]
     },
     {
-      "id": 9,
-      "title": "시간 표기 표준화(일자+시간+타임존)",
-      "status": "done",
-      "scope": "frontend",
-      "commit_type": "fix",
-      "summary": "standardize datetime rendering with date time timezone across tables and logs",
+      "id": 8,
+      "title": "문서-코드 불일치 pre-push 강제",
+      "status": "pending",
+      "scope": "ops",
+      "commit_type": "chore",
+      "summary": "enforce docs sync checker in git hook for local release safety",
       "files": [
-        "dashboard/app.js",
-        "dashboard/index.html"
+        "scripts/docs_sync_check.py",
+        "scripts",
+        "README.md"
       ],
       "verify": [
-        "./scripts/infra_server_ctl.sh ensure"
+        "python3 scripts/docs_sync_check.py"
+      ]
+    },
+    {
+      "id": 9,
+      "title": "DB 백업 운영 정책 고정",
+      "status": "pending",
+      "scope": "infra",
+      "commit_type": "docs",
+      "summary": "document backup cadence retention and restore drill runbook",
+      "files": [
+        "README.md",
+        "AGENTS.md"
+      ],
+      "verify": [
+        "bash ./scripts/db_maintenance.sh list"
       ]
     },
     {
       "id": 10,
-      "title": "정책 문서 동기화 자동 검증",
-      "status": "done",
+      "title": "온보딩 단일 bootstrap 명령 추가",
+      "status": "pending",
       "scope": "ops",
-      "commit_type": "chore",
-      "summary": "add docs sync checker for AGENTS README and teams policy index",
+      "commit_type": "feat",
+      "summary": "add bootstrap command for install start health and smoke in one flow",
       "files": [
         "scripts",
-        "AGENTS.md",
-        "teams/AGENTS.md",
+        "package.json",
         "README.md"
       ],
       "verify": [
-        "python3 scripts/todo_workflow.py list"
+        "bash ./scripts/infra_server_ctl.sh ensure"
       ]
     },
     {
       "id": 11,
-      "title": "E2E/시각 회귀 자동화 확대",
-      "status": "done",
+      "title": "Playwright 시각회귀 본격 도입",
+      "status": "pending",
       "scope": "qa",
       "commit_type": "test",
-      "summary": "expand smoke and visual regression checks for core sections and ops panel",
+      "summary": "add playwright screenshot baseline checks for key dashboard sections",
       "files": [
-        "scripts/smoke_core_flows.sh",
         "scripts",
         "README.md"
       ],
@@ -180,15 +175,15 @@
     },
     {
       "id": 12,
-      "title": "외부 사용자 온보딩 가이드 강화",
-      "status": "done",
+      "title": "포크 변경 추적 자동 리포트 개선",
+      "status": "pending",
       "scope": "docs",
-      "commit_type": "docs",
-      "summary": "simplify npm/python setup and failure handling guide for fork users",
+      "commit_type": "chore",
+      "summary": "automate customization report generation workflow for fork releases",
       "files": [
-        "README.md",
         "FORK_CUSTOMIZATION_POLICY.md",
-        "CONTRIBUTING.md"
+        "README.md",
+        "scripts"
       ],
       "verify": [
         "python3 scripts/todo_workflow.py list"

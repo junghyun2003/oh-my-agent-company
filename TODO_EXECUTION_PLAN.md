@@ -1,4 +1,4 @@
-# TODO Execution Plan (2026-02-22 Refresh)
+# TODO Execution Plan (2026-02-22 v3)
 
 이 문서는 로컬 에이전트 회사 운영 개선 TODO를
 `한 단계 실행 -> 검증 -> 커밋 -> 푸시` 방식으로 수행하기 위한 실행 규약이다.
@@ -25,19 +25,19 @@ Change-Origin: custom
 Upstream-Ref: none
 ```
 
-## Current Step Set (v2)
-- Step 1. 서버 상시 가용성 고정
-- Step 2. 서버 다운 원인 자동 진단 리포트
-- Step 3. Ops API 권한/입력 검증 강화
-- Step 4. DB 안정성(마이그레이션/백업) 도입
-- Step 5. 핵심 화면 라우팅/새로고침 UX 정리
-- Step 6. 다크/라이트/시스템 테마 전수 QA
-- Step 7. 작업할당/승인 UI 깨짐 방지 공통화
-- Step 8. 감사로그 검색성 개선
-- Step 9. 시간 표기 표준화(일자+시간+타임존)
-- Step 10. 정책 문서 동기화 자동 검증
-- Step 11. E2E/시각 회귀 자동화 확대
-- Step 12. 외부 사용자 온보딩 가이드 강화
+## Current Step Set (v3)
+- Step 1. infra 재시작 플랩 원인 고정
+- Step 2. 서버 수명 추적 API 추가
+- Step 3. 워커 헬스 분리 지표 추가
+- Step 4. Ops Queue 감사 상세(before/after) 강화
+- Step 5. 작업할당/승인 폼 사전 검증 강화
+- Step 6. 감사로그 대량 데이터 성능 개선
+- Step 7. 픽셀 실행상태 대시보드 고도화
+- Step 8. 문서-코드 불일치 pre-push 강제
+- Step 9. DB 백업 운영 정책 고정
+- Step 10. 온보딩 단일 bootstrap 명령 추가
+- Step 11. Playwright 시각회귀 본격 도입
+- Step 12. 포크 변경 추적 자동 리포트 개선
 
 ## Operator Routine
 ```bash
