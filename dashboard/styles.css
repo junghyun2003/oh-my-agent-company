@@ -308,6 +308,31 @@ h1 {
   padding: 0.18rem 0.45rem;
 }
 
+.owner-identity-panel {
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+}
+
+.owner-identity-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.owner-identity-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.owner-identity-panel.is-collapsed .owner-identity-body {
+  display: none;
+}
+
 .mode-badge,
 .pill {
   border: 1px solid var(--line-strong);

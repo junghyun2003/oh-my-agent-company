@@ -89,17 +89,25 @@
 
           <div class="panel-split">
             <form id="ownerForm" class="job-form two-col">
-            <label>운영자 ID
-              <input id="ownerId" placeholder="예: owner" value="owner" required />
-            </label>
-            <label>운영자 토큰(선택)
-              <input id="ownerToken" placeholder="토큰 미사용 시 비워두기" />
-            </label>
+            <div class="owner-identity-panel is-collapsed full" id="ownerIdentityPanel">
+              <div class="owner-identity-head">
+                <strong>Local Trust 입력 간소화</strong>
+                <button type="button" class="ghost" id="ownerIdentityToggle" aria-expanded="false">고급 입력 보기</button>
+              </div>
+              <div class="owner-identity-body" id="ownerIdentityBody">
+                <label>운영자 ID
+                  <input id="ownerId" placeholder="예: owner" value="owner" required />
+                </label>
+                <label>운영자 토큰(선택)
+                  <input id="ownerToken" placeholder="토큰 미사용 시 비워두기" />
+                </label>
 
-            <label class="check-row">
-              <input id="ownerTokenRequired" type="checkbox" />
-              토큰 검증 활성화
-            </label>
+                <label class="check-row">
+                  <input id="ownerTokenRequired" type="checkbox" />
+                  토큰 검증 활성화
+                </label>
+              </div>
+            </div>
             <label>실행 엔진
               <select id="executionMode">
                 <option value="template">template (내장 액션)</option>

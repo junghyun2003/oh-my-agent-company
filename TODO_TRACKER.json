@@ -99,7 +99,7 @@
     {
       "id": 7,
       "title": "Local Trust 모드에서 owner/token 입력 간소화",
-      "status": "pending",
+      "status": "done",
       "scope": "frontend",
       "commit_type": "feat",
       "summary": "hide owner identity inputs by default in local trust mode and keep advanced toggle",

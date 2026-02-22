@@ -124,6 +124,7 @@ bash ./scripts/smoke_core_flows.sh
 
 ## Core Concepts
 - Local Trust Mode (default): no login required for local operation
+- Local Trust UI: 운영자/토큰 입력은 기본 축약 표시되며, 필요 시 `고급 입력 보기`로 확장
 - Repository policy enforcement (`allowed_actions`, `writable_paths`)
 - Approval modes: `auto`, `manual_pre`, `manual_post`, `manual_both`
 - Audit-first delivery with post-completion audit event

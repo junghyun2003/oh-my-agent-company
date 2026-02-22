@@ -92,6 +92,7 @@ let conversationLangMode = "kor";
 let lastClientDigestText = "";
 let lastPolicySnapshotHtml = "";
 let themeMode = "system";
+let ownerUiState = { data: null, expandIdentity: false };
 const themeMediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
 const TRANSLATION_RULES = [
   { pattern: /\bclient\b/gi, replacement: "클라이언트" },
@@ -565,6 +566,27 @@ function renderMission(data) {
 function renderOwnerModeBadge(owner) {
   const mode = owner.owner_mode_enabled ? "Owner 모드 (기본)" : "Owner 모드 비활성";
   document.getElementById("ownerModeBadge").textContent = `모드: ${mode}`;
+}
+
+function syncOwnerIdentityPanel() {
+  const panel = document.getElementById("ownerIdentityPanel");
+  const toggle = document.getElementById("ownerIdentityToggle");
+  if (!panel || !toggle) return;
+  const owner = ownerUiState.data || {};
+  const allowCollapse = owner.owner_mode_enabled && !owner.owner_token_required;
+  const collapsed = allowCollapse && !ownerUiState.expandIdentity;
+  panel.classList.toggle("is-collapsed", collapsed);
+  toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  toggle.textContent = collapsed ? "고급 입력 보기" : "고급 입력 숨기기";
+}
+
+function setupOwnerIdentityToggle() {
+  const toggle = document.getElementById("ownerIdentityToggle");
+  if (!toggle) return;
+  toggle.addEventListener("click", () => {
+    ownerUiState.expandIdentity = !ownerUiState.expandIdentity;
+    syncOwnerIdentityPanel();
+  });
 }
 
 function renderSummary(summary) {
@@ -2835,11 +2857,13 @@ async function loadRepositories() {
 async function loadOwnerInfo() {
   const res = await fetch(`${ownerUrl}?t=${Date.now()}`);
   const data = await res.json();
+  ownerUiState.data = data;
   if (data.owner_id) {
     document.getElementById("ownerId").value = data.owner_id;
   }
   document.getElementById("ownerTokenRequired").checked = !!data.owner_token_required;
   renderOwnerModeBadge(data);
+  syncOwnerIdentityPanel();
 }
 
 async function loadSettings() {
@@ -3187,6 +3211,7 @@ setupClientDigestCopyButton();
 setupTemplateCopyButtons();
 setupOpsQueueActions();
 setupThemeMode();
+setupOwnerIdentityToggle();
 loadOwnerInfo()
   .then(loadSettings)
   .then(loadRepositories)
