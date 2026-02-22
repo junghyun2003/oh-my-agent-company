@@ -8,6 +8,7 @@ PID_FILE="${ROOT_DIR}/state/orchestrator.pid"
 WATCHDOG_PID_FILE="${ROOT_DIR}/state/orchestrator_watchdog.pid"
 LOG_FILE="${ROOT_DIR}/state/orchestrator.log"
 WATCHDOG_LOG_FILE="${ROOT_DIR}/state/orchestrator_watchdog.log"
+LIFECYCLE_LOG_FILE="${ROOT_DIR}/state/orchestrator_lifecycle.log"
 SERVER_PY="${ROOT_DIR}/scripts/orchestrator_server.py"
 
 health_url="http://localhost:${PORT}/api/health"
@@ -16,6 +17,8 @@ LOCK_PID_FILE="${LOCK_DIR}/pid"
 ENSURE_MAX_ATTEMPTS="${ENSURE_MAX_ATTEMPTS:-3}"
 STABILITY_PROBES="${STABILITY_PROBES:-3}"
 AUTO_WATCHDOG="${INFRA_AUTO_WATCHDOG:-1}"
+START_GUARD_SEC="${START_GUARD_SEC:-60}"
+START_GUARD_INTERVAL_SEC="${START_GUARD_INTERVAL_SEC:-5}"
 
 get_port_pid() {
   lsof -nP -iTCP:"${PORT}" -sTCP:LISTEN -t 2>/dev/null | head -n 1 || true
@@ -121,6 +124,43 @@ health_ok() {
   curl -fsS "${health_url}" > /dev/null 2>&1
 }
 
+ts_utc() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+log_lifecycle() {
+  local kind="${1:-event}"
+  local detail="${2:-}"
+  mkdir -p "${ROOT_DIR}/state"
+  touch "${LIFECYCLE_LOG_FILE}"
+  echo "$(ts_utc)|${kind}|${detail}" >> "${LIFECYCLE_LOG_FILE}"
+}
+
+start_flap_guard() {
+  local pid="${1:-}"
+  if [[ -z "${pid}" ]]; then
+    return 0
+  fi
+  (
+    local elapsed=0
+    sleep "${START_GUARD_INTERVAL_SEC}"
+    elapsed="${START_GUARD_INTERVAL_SEC}"
+    while [[ "${elapsed}" -le "${START_GUARD_SEC}" ]]; do
+      if ! ps -p "${pid}" > /dev/null 2>&1; then
+        log_lifecycle "FLAP_EXIT" "pid=${pid} elapsed_sec=${elapsed}"
+        "${SCRIPT_PATH}" ensure >> "${LOG_FILE}" 2>&1 || true
+        exit 0
+      fi
+      if ! health_ok; then
+        log_lifecycle "FLAP_HEALTH_FAIL" "pid=${pid} elapsed_sec=${elapsed}"
+      fi
+      sleep "${START_GUARD_INTERVAL_SEC}"
+      elapsed=$((elapsed + START_GUARD_INTERVAL_SEC))
+    done
+    log_lifecycle "START_STABLE" "pid=${pid} guard_sec=${START_GUARD_SEC}"
+  ) >/dev/null 2>&1 &
+}
+
 wait_health_stable() {
   local probes="${1:-${STABILITY_PROBES}}"
   local i=0
@@ -146,6 +186,7 @@ auto_watchdog_hint() {
 start_server() {
   if is_running && health_ok; then
     echo "already running: pid $(cat "${PID_FILE}")"
+    log_lifecycle "START_SKIP_ALREADY_RUNNING" "pid=$(cat "${PID_FILE}")"
     auto_watchdog_hint
     return 0
   fi
@@ -158,6 +199,7 @@ start_server() {
       if health_ok; then
         echo "${port_pid}" > "${PID_FILE}"
         echo "already running (recovered): pid ${port_pid}"
+        log_lifecycle "START_RECOVER_EXISTING" "pid=${port_pid}"
         auto_watchdog_hint
         return 0
       fi
@@ -189,12 +231,15 @@ start_server() {
   if wait_health && wait_health_stable; then
     if is_running && health_ok; then
       echo "started: pid ${pid} port ${PORT}"
+      log_lifecycle "START_OK" "pid=${pid} port=${PORT}"
+      start_flap_guard "${pid}"
       auto_watchdog_hint
       return 0
     fi
   fi
 
   echo "failed to start; check ${LOG_FILE}" >&2
+  log_lifecycle "START_FAIL" "port=${PORT}"
   rm -f "${PID_FILE}"
   tail -n 80 "${LOG_FILE}" >&2 || true
   return 1
@@ -224,6 +269,7 @@ stop_server() {
   fi
   wait_port_release 20 || true
   rm -f "${PID_FILE}"
+  log_lifecycle "STOP_OK" "pid=${pid}"
   echo "stopped: pid ${pid}"
 }
 
@@ -249,6 +295,10 @@ status_server() {
     fi
   else
     echo "not running"
+    if [[ -f "${LIFECYCLE_LOG_FILE}" ]]; then
+      echo "hint: recent lifecycle events"
+      tail -n 3 "${LIFECYCLE_LOG_FILE}" || true
+    fi
     return 1
   fi
 }
@@ -256,6 +306,7 @@ status_server() {
 ensure_server() {
   if status_server > /dev/null 2>&1 && wait_health_stable; then
     echo "healthy: pid $(cat "${PID_FILE}") port ${PORT}"
+    log_lifecycle "ENSURE_HEALTHY" "pid=$(cat "${PID_FILE}") port=${PORT}"
     auto_watchdog_hint
     return 0
   fi
@@ -275,6 +326,7 @@ ensure_server() {
     fi
     if start_server && status_server > /dev/null 2>&1 && wait_health_stable; then
       echo "recovered on attempt ${attempt}/${ENSURE_MAX_ATTEMPTS}"
+      log_lifecycle "ENSURE_RECOVERED" "attempt=${attempt} port=${PORT}"
       auto_watchdog_hint
       return 0
     fi
@@ -282,6 +334,7 @@ ensure_server() {
     attempt=$((attempt + 1))
   done
   echo "failed to recover server after ${ENSURE_MAX_ATTEMPTS} attempts" >&2
+  log_lifecycle "ENSURE_FAIL" "attempts=${ENSURE_MAX_ATTEMPTS} port=${PORT}"
   return 1
 }
 

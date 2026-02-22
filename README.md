@@ -146,6 +146,7 @@ Availability hardening defaults:
 - health stability probes run before declaring healthy (`STABILITY_PROBES` override 가능)
 - watchdog auto-start is enabled by default on `start/ensure` (`INFRA_AUTO_WATCHDOG=0` to disable)
 - `incident` command prints standard diagnosis (`OK|NOT_RUNNING|PORT_CONFLICT|HEALTH_FAIL|PID_STALE`)
+- lifecycle events are tracked at `state/orchestrator_lifecycle.log` (`START_OK`, `FLAP_EXIT`, `ENSURE_RECOVERED` 등)
 
 npm-supported commands:
 ```bash
