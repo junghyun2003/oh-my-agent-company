@@ -295,6 +295,7 @@ bash ./scripts/theme_regression_check.sh
 ```bash
 STRICT_PLAYWRIGHT_VISUAL=1 bash ./scripts/visual_regression_playwright.sh
 ENABLE_PLAYWRIGHT_VISUAL=1 STRICT_PLAYWRIGHT_VISUAL=1 bash ./scripts/smoke_core_flows.sh
+STRICT_VISUAL_BASELINE=1 bash ./scripts/visual_regression_playwright.sh
 ```
 - `npx` prerequisite:
 ```bash

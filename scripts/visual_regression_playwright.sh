@@ -6,6 +6,7 @@ BASE_URL="${BASE_URL:-http://localhost:${ORCHESTRATOR_PORT:-18765}}"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 PWCLI="${PWCLI:-$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh}"
 STRICT_PLAYWRIGHT_VISUAL="${STRICT_PLAYWRIGHT_VISUAL:-0}"
+STRICT_VISUAL_BASELINE="${STRICT_VISUAL_BASELINE:-0}"
 
 mkdir -p "${ROOT_DIR}/output/playwright/current" "${ROOT_DIR}/output/playwright/baseline"
 
@@ -70,6 +71,10 @@ capture_section() {
 
   baseline="${baseline_dir}/baseline.png"
   if [[ ! -f "${baseline}" ]]; then
+    if [[ "${STRICT_VISUAL_BASELINE}" == "1" ]]; then
+      echo "baseline_missing:${label}:${baseline}" >&2
+      return 2
+    fi
     cp "${after}" "${baseline}"
     echo "baseline_created:${label}:${baseline}"
     return 0

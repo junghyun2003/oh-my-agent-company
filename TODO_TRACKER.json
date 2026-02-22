@@ -19,7 +19,7 @@
     {
       "id": 2,
       "title": "시각회귀 기준 정책 보강",
-      "status": "pending",
+      "status": "done",
       "scope": "qa",
       "commit_type": "feat",
       "summary": "add visual baseline strictness controls and mismatch handling policy notes",
