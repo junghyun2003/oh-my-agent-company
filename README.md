@@ -144,6 +144,13 @@ Safe infra control script:
 ./scripts/infra_server_ctl.sh logs 120
 ```
 
+macOS launchd auto-start (optional):
+```bash
+bash ./scripts/install_launchd_agent.sh
+bash ./scripts/install_launchd_agent.sh --dry-run
+bash ./scripts/uninstall_launchd_agent.sh
+```
+
 Availability hardening defaults:
 - `ensure` retries auto-recovery up to `3` attempts (`ENSURE_MAX_ATTEMPTS` override 가능)
 - health stability probes run before declaring healthy (`STABILITY_PROBES` override 가능)
