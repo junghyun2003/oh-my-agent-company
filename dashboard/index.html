@@ -274,6 +274,62 @@
             <p id="timelineEmptyState" class="muted">타임라인에 표시할 이벤트가 없습니다.</p>
           </div>
 
+          <div class="stalled-board" id="stalledBoard">
+            <div class="stalled-header">
+              <div>
+                <p class="eyebrow">CEO 워치</p>
+                <h3>정체 업무 플로우 재현</h3>
+                <p class="muted">PM→CTO→Dev→Design→QA 흐름에서 멈춘 항목을 CEO가 직접 검토하고 '진행/제거' 결정을 내릴 수 있도록 재현 경로와 증빙을 즉시 제공합니다.</p>
+              </div>
+              <div class="stalled-metrics" id="stalledMetrics"></div>
+            </div>
+            <div class="stalled-flow">
+              <article class="stalled-card" id="stalledJobsCard">
+                <header>
+                  <h4>정체된 작업</h4>
+                  <span class="tag" id="stalledJobsTag">--</span>
+                </header>
+                <p class="muted">상태가 '처리중'으로 남았지만 최근 이벤트가 없는 작업을 자동 감지합니다.</p>
+                <ol class="stalled-list" id="stalledJobsList"></ol>
+                <p class="muted" id="stalledJobsEmpty">정체된 작업이 없습니다.</p>
+              </article>
+              <article class="stalled-card" id="stalledRequestsCard">
+                <header>
+                  <h4>대기중인 요청</h4>
+                  <span class="tag" id="stalledRequestsTag">--</span>
+                </header>
+                <p class="muted">접수되었지만 작업으로 연결되지 않은 요청을 다시 PM 단계로 알립니다.</p>
+                <ol class="stalled-list" id="stalledRequestsList"></ol>
+                <p class="muted" id="stalledRequestsEmpty">모든 요청이 작업으로 연결되어 있습니다.</p>
+              </article>
+            </div>
+            <div class="stalled-report">
+              <section>
+                <p class="eyebrow">플로우 재현 단계</p>
+                <ol id="stalledFlowSteps" class="stalled-steps"></ol>
+              </section>
+              <section>
+                <p class="eyebrow">리포트 첨부 메모</p>
+                <div id="stalledReportNote" class="stalled-note"></div>
+              </section>
+              <section>
+                <p class="eyebrow">정체 진단</p>
+                <dl id="stalledDiagnosis" class="stalled-diagnosis">
+                  <dt>대상 작업</dt>
+                  <dd>활성화된 정체 작업이 없으면 비어 있습니다.</dd>
+                </dl>
+              </section>
+              <section>
+                <p class="eyebrow">재처리 기록 템플릿</p>
+                <div id="stalledRecoveryTemplate" class="stalled-note"></div>
+              </section>
+              <section>
+                <p class="eyebrow">클라이언트 응대 (변경/영향/리스크/다음 조치)</p>
+                <div id="stalledClientTemplate" class="stalled-note"></div>
+              </section>
+            </div>
+          </div>
+
           <div id="alerts" class="alert-stack"></div>
           <div class="office" id="officeView"></div>
           <div class="grid" id="agentGrid"></div>

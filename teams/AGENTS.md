@@ -46,6 +46,7 @@
 - Team leadership: C-Level 제외 각 팀은 `팀장(Lead Agent)`을 두고, 외부 레퍼런스 탐색/내부 정책 정제/업무 우선순위 정리를 담당
 - Tech leadership: `Tech Leader Agent`는 전사 기술 리딩 역할로 CEO/CTO와 긴밀히 협업하며 신기술 적용 여부와 팀 문서 업데이트를 주도
 - Design system: Design Ops는 공통 컴포넌트 분리/재사용 정책을 유지하고 Frontend와 함께 컴포넌트 레지스트리를 관리
+- Design authority: Design Ops는 UI/UX 변경의 정책 준수 최종 판단권(`pass/block/waive`)을 가진다.
 - Decision priority: 팀 의견 충돌 시 의사결정 우선순위는 `CEO > CTO > Product/QA > other teams`
 - Theme policy: 테마 모드(`system/light/dark`)는 `teams/design-ops/THEME_POLICY.md`를 기준으로 유지
 - Commit/Push policy: 커밋/푸시 절차는 `COMMIT_PUSH_RULES.md`를 기준으로 운영
@@ -53,6 +54,19 @@
 - Release gate: 릴리즈 전 `정책(문서)-코드(구현)-검증(스크립트)` 3축 체크를 수행
 - Leadership council: CEO/CTO/Tech Leader/팀장은 주 1회 의사결정 회의를 수행하고 결과를 추적 가능하게 기록
 - Client transparency: 요청 단위 단일 상태판(칸반+타임라인) 업데이트를 필수 운영
+- Queue order: 큐 소진 순서는 `urgent -> high -> normal -> low`, 동순위는 FIFO(`created_at`)
+- Stalled threshold: `queued 30분`, `in_progress 60분` 초과 시 정체 작업으로 분류
+- Stalled recovery: 정체 작업은 `failed(stalled_timeout_recovery)` 종료 + 요청 `received` 재등록 + 감사로그(`job_stalled_recovered`) 기록을 표준화
+- Reassignment rule: 정체 복구 후 재할당 시 기존 `repository/work_type/mission/priority`를 기본값으로 재사용
+
+## Design Involvement Contract (Required)
+- 모든 팀은 디자인 영향이 있는 변경(화면/문구/레이아웃/테마/컴포넌트)을 Design Ops와 사전 공유해야 한다.
+- PR/릴리즈/작업 완료 판단 시 Design Ops 결과가 없으면 `완료`로 처리할 수 없다.
+- 디자인 관련 작업 지시에는 최소 3개 수용기준을 포함한다:
+1. 시각 일관성(토큰/컴포넌트 규약 준수)
+2. 가독성(한글 기준 문장/간격/대비)
+3. 상호작용 명확성(버튼/입력/오류 메시지)
+- Design Ops가 `block`을 선언하면 Frontend/QA/PM은 우선순위를 상향해 즉시 재작업한다.
 
 ## Final Workload Reorg (Activated: 2026-02-21)
 - Project Manager: 파이프라인 `PM` 단계 오너로서 범위/우선순위/의존성 잠금 및 CTO 핸드오프 전담
@@ -79,3 +93,4 @@
 - CTO -> Dev: 기술 구조/의존성/리스크 전달
 - Dev -> QA: 변경 파일/검증 포인트 전달
 - QA -> Report: 승인 결과/known issue 전달
+- Infrastructure -> Executive: 정체 복구가 동일 요청에서 2회 이상 발생하면 CEO/CTO 즉시 에스컬레이션

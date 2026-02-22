@@ -77,6 +77,8 @@ const TABLE_PAGINATION = {
 };
 const paginationState = { requests: 1, jobs: 1, audit: 1 };
 const tableCache = { requests: null, jobs: null, audit: null };
+let lastRequestsHeadId = "";
+let lastRequestsCount = 0;
 const auditFilterState = { kind: "all", q: "" };
 let reposCache = [];
 let conversationLangMode = "kor";
@@ -106,6 +108,25 @@ const STAGE_FALLBACK_KO = {
   pre_approval: "변경 전 승인 단계 안내입니다.",
   post_approval: "변경 후 승인 결과입니다."
 };
+const STALL_THRESHOLD_MINUTES = 30;
+const REQUEST_STALL_MINUTES = 20;
+const FLOW_STEPS = [
+  { label: "요청 로그 확인", detail: "감사 로그에서 job_assigned 이전 이벤트 확인" },
+  { label: "파이프라인 재현", detail: "PM→CTO→Dev→Design→QA 순으로 최근 메시지 검토" },
+  { label: "CEO 결론 기록", detail: "진행/제거 여부와 이유를 리포트 메모에 남김" }
+];
+const RECOVERY_TEMPLATE = `1) 정체 원인: __
+2) 즉시 조치: __
+3) 필요 승인/검증: __
+4) 재시도 타임라인: __`;
+const CLIENT_TEMPLATE = `[변경점]
+- (예: Dev 단계 재기동 예정)
+[영향]
+- (예: 전달 일정 30분 지연)
+[리스크]
+- (예: owner ID 누락 재발 가능)
+[다음 조치]
+- (예: OWNER 재검증 → Dev 재시작 → 감사 보고)`;
 
 function rememberRequests(requests = []) {
   requestLookup.clear();
@@ -930,7 +951,15 @@ function formatDateTimeFull(value) {
 
 function renderRequests(payload) {
   tableCache.requests = payload;
-  const requests = [...(payload.requests || [])].reverse();
+  const requests = [...(payload.requests || [])].sort((a, b) => eventTimestamp(b.created_at) - eventTimestamp(a.created_at));
+  const headId = String(requests[0]?.id || "");
+  const hasNewHead = headId && headId !== lastRequestsHeadId;
+  const countChanged = requests.length !== lastRequestsCount;
+  if (hasNewHead || countChanged) {
+    paginationState.requests = 1;
+  }
+  lastRequestsHeadId = headId;
+  lastRequestsCount = requests.length;
   rememberRequests(requests);
   const root = document.getElementById("requestsTable");
   if (!requests.length) {
@@ -1378,6 +1407,209 @@ function renderStatusMetrics(jobs = []) {
     .join("");
 }
 
+function isJobStalled(job) {
+  if (!job) return false;
+  const status = String(job.status || "");
+  if (["done", "failed"].includes(status)) return false;
+  if (![...RUNNING_STATUSES, ...APPROVAL_WAIT_STATUSES, ...QUEUED_STATUSES].includes(status)) return false;
+  const lastTs = jobTimestamp(job);
+  if (!lastTs) return false;
+  const minutes = (Date.now() - lastTs) / 60000;
+  return minutes >= STALL_THRESHOLD_MINUTES;
+}
+
+function renderStalledMetrics(jobs, requests) {
+  const metricsRoot = document.getElementById("stalledMetrics");
+  if (!metricsRoot) return;
+  const stalledJobs = jobs.filter(isJobStalled);
+  const stalledRequests = requests.filter((req) => req.status === "received" && !req.linked_job_id && (Date.now() - eventTimestamp(req.created_at)) / 60000 >= REQUEST_STALL_MINUTES);
+  const totalQueuing = jobs.filter((job) => QUEUED_STATUSES.has(job.status)).length;
+  const blocks = [
+    { label: "정체 작업", value: stalledJobs.length, helper: `30분+ 이벤트 정지` },
+    { label: "미할당 요청", value: stalledRequests.length, helper: `20분+ 대기` },
+    { label: "대기열", value: totalQueuing, helper: "큐 상태 유지" }
+  ];
+  metricsRoot.innerHTML = blocks
+    .map((block) => `
+      <div class="stalled-metric">
+        <strong>${esc(block.value)}</strong>
+        <small>${esc(block.label)}</small>
+        <p class="muted">${esc(block.helper)}</p>
+      </div>
+    `)
+    .join("");
+}
+
+function renderStalledJobs(jobs) {
+  const list = document.getElementById("stalledJobsList");
+  const empty = document.getElementById("stalledJobsEmpty");
+  const tag = document.getElementById("stalledJobsTag");
+  if (!list || !empty || !tag) return;
+  const stalled = jobs.filter(isJobStalled);
+  tag.textContent = `${stalled.length}건`;
+  if (!stalled.length) {
+    list.innerHTML = "";
+    empty.classList.remove("is-hidden");
+    return;
+  }
+  const rows = stalled
+    .slice()
+    .sort((a, b) => jobTimestamp(b) - jobTimestamp(a))
+    .map((job) => {
+      const minutes = Math.round((Date.now() - jobTimestamp(job)) / 60000);
+      return `
+        <li>
+          <strong>${esc(job.id)} · ${esc(statusKo(job.stage || job.status || "-"))}</strong>
+          <span class="stalled-meta">${esc(describeJob(job) || "세부 미션 미등록")}</span>
+          <span class="stalled-meta">${minutes}분 정체 · ${esc(job.client_name || "내부")}</span>
+        </li>
+      `;
+    })
+    .join("");
+  list.innerHTML = rows;
+  empty.classList.add("is-hidden");
+}
+
+function renderStalledRequests(requests) {
+  const list = document.getElementById("stalledRequestsList");
+  const empty = document.getElementById("stalledRequestsEmpty");
+  const tag = document.getElementById("stalledRequestsTag");
+  if (!list || !empty || !tag) return;
+  const stalled = requests
+    .filter((req) => req.status === "received" && !req.linked_job_id)
+    .filter((req) => (Date.now() - eventTimestamp(req.created_at)) / 60000 >= REQUEST_STALL_MINUTES);
+  tag.textContent = `${stalled.length}건`;
+  if (!stalled.length) {
+    list.innerHTML = "";
+    empty.classList.remove("is-hidden");
+    return;
+  }
+  const rows = stalled
+    .slice()
+    .sort((a, b) => eventTimestamp(b.created_at) - eventTimestamp(a.created_at))
+    .map((req) => {
+      const minutes = Math.round((Date.now() - eventTimestamp(req.created_at)) / 60000);
+      return `
+        <li>
+          <strong>${esc(req.id)} · ${esc(req.client_name || "클라이언트")}</strong>
+          <span class="stalled-meta">${esc(req.raw_request || "원문 없음")}</span>
+          <span class="stalled-meta">접수 후 ${minutes}분 경과</span>
+        </li>
+      `;
+    })
+    .join("");
+  list.innerHTML = rows;
+  empty.classList.add("is-hidden");
+}
+
+function renderStalledFlowSteps(activeJob) {
+  const stepsRoot = document.getElementById("stalledFlowSteps");
+  const noteRoot = document.getElementById("stalledReportNote");
+  const diagRoot = document.getElementById("stalledDiagnosis");
+  const recoveryRoot = document.getElementById("stalledRecoveryTemplate");
+  const clientRoot = document.getElementById("stalledClientTemplate");
+  if (!stepsRoot || !noteRoot) return;
+  stepsRoot.innerHTML = FLOW_STEPS.map((step) => `<li><strong>${esc(step.label)}</strong> · ${esc(step.detail)}</li>`).join("");
+  if (!activeJob) {
+    noteRoot.textContent = "우선 CEO 워치 대상 작업을 선택하세요. 파이프라인에서 정체된 항목을 탭하면 메모 양식이 활성화됩니다.";
+    if (diagRoot) {
+      diagRoot.innerHTML = `<dt>대상 작업</dt><dd>활성화된 정체 작업이 없습니다.</dd>`;
+    }
+    if (recoveryRoot) recoveryRoot.textContent = RECOVERY_TEMPLATE;
+    if (clientRoot) clientRoot.textContent = CLIENT_TEMPLATE;
+  } else {
+    const minutes = Math.round((Date.now() - jobTimestamp(activeJob)) / 60000);
+    const lines = [
+      `[요청 ID] ${activeJob.request_id || "-"} / ${activeJob.client_name || "내부"}`,
+      `[작업 ID] ${activeJob.id} (${statusKo(activeJob.stage || activeJob.status)})`,
+      `[정체 원인] ${minutes}분 동안 이벤트 없음 → CEO 검토 필요`,
+      `[조치] 진행 재개 또는 제거 결정 · 보고서에 첨부`
+    ];
+    noteRoot.textContent = lines.join("\n");
+    if (diagRoot) {
+      const summary = extractRequestSummary(activeJob);
+      const lastEvent = Array.isArray(activeJob.timeline) ? activeJob.timeline[activeJob.timeline.length - 1] : null;
+      const auditSummary = renderAuditSummary(activeJob);
+      diagRoot.innerHTML = [
+        `<dt>요청 ID</dt><dd>${esc(activeJob.request_id || "-")}</dd>`,
+        `<dt>작업/단계</dt><dd>${esc(activeJob.id)} · ${esc(statusKo(activeJob.stage || activeJob.status || "-"))}</dd>`,
+        summary ? `<dt>요약</dt><dd>${esc(summary)}</dd>` : "",
+        `<dt>마지막 이벤트</dt><dd>${esc(formatTimelineTime(lastEvent?.at))} · ${esc(lastEvent?.message || "기록 없음")}</dd>`,
+        `<dt>감사 로그</dt><dd>${esc(auditSummary)}</dd>`
+      ]
+        .filter(Boolean)
+        .join("");
+    }
+    if (recoveryRoot) {
+      recoveryRoot.textContent = buildRecoveryTemplate(activeJob);
+    }
+    if (clientRoot) {
+      clientRoot.textContent = buildClientTemplate(activeJob);
+    }
+  }
+}
+
+function renderAuditSummary(job) {
+  const events = getAuditEventsForJob(job);
+  if (!events.length) return "감사 이벤트 없음";
+  const latest = events[events.length - 1];
+  return `${formatDateTimeFull(latest.at)} · ${latest.kind}`;
+}
+
+function buildRecoveryTemplate(job) {
+  const timeline = Array.isArray(job.timeline) ? job.timeline : [];
+  const lastEvent = timeline[timeline.length - 1];
+  const stage = statusKo(job.stage || job.status || "-");
+  const summary = extractRequestSummary(job);
+  return `1) 정체 원인: ${summary || lastEvent?.message || stage} 단계에서 멈춤
+2) 즉시 조치: PM/CTO/Dev 이벤트 강제 재기록, 승인 상태 확인
+3) 필요 승인/검증: ${job.approval_mode || "auto"} · QA 재검토 필요 여부 확인
+4) 재시도 타임라인: ${new Date().toLocaleString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 재기동 → 30분 후 상태 점검`;
+}
+
+function buildClientTemplate(job) {
+  const mission = job.mission || job.work_type || "작업 진행";
+  const client = job.client_name || "클라이언트";
+  const summary = extractRequestSummary(job);
+  const riskLine = summary && summary.toLowerCase().includes("owner")
+    ? "- Owner ID 누락 재발 시 즉시 차단 및 운영자 설정 재검증 필요"
+    : "- Dev 단계 장기 정체 시 승인/QA 일정 추가 지연 가능";
+  return `[변경점]
+- ${mission} 재시작 준비 (${summary || "요청 요약 미기록"})
+[영향]
+- ${client} 전달 일정 약 30분 지연 예상
+[리스크]
+${riskLine}
+[다음 조치]
+- OWNER 설정 확인 → Dev 단계 재개 → 감사로그/리포트 업데이트 후 공유`;
+[다음 조치]
+- OWNER 설정 확인 → Dev 단계 재개 → 감사로그/리포트 업데이트 후 공유`;
+[다음 조치]
+- OWNER 설정 확인 → Dev 단계 재개 → 감사로그/리포트 업데이트 후 공유`;
+}
+
+function getAuditEventsForJob(job) {
+  if (!job) return [];
+  const events = Array.isArray(tableCache.audit?.events) ? tableCache.audit.events : [];
+  if (!events.length) return [];
+  const jobId = String(job.id || "");
+  const requestId = String(job.request_id || "");
+  return events
+    .filter((event) => {
+      const jobIds = extractAuditJobIds(event);
+      const matchesJob = jobId && jobIds.includes(jobId);
+      const matchesRequest = requestId && String(event.request_id || "") === requestId;
+      return matchesJob || matchesRequest;
+    })
+    .sort((a, b) => eventTimestamp(a.at) - eventTimestamp(b.at));
+}
+
+function extractRequestSummary(job) {
+  const note = String(job?.refined_request || "");
+  const match = note.match(/\[요약\]\s*(.+)/i);
+  return match ? match[1].trim() : "";
+}
+
 function renderJobsKanban(jobs = []) {
   const root = document.getElementById("jobsKanban");
   if (!root) return;
@@ -1437,7 +1669,7 @@ function renderJobsKanban(jobs = []) {
 function renderJobs(payload) {
   tableCache.jobs = payload;
   const originalJobs = payload.jobs || [];
-  const jobs = [...originalJobs].reverse();
+  const jobs = [...originalJobs].sort((a, b) => jobTimestamp(b) - jobTimestamp(a));
   const root = document.getElementById("jobsTable");
   if (!jobs.length) {
     root.innerHTML = `<p class="muted">할당된 작업이 없습니다.</p>`;
@@ -1480,6 +1712,10 @@ function renderJobs(payload) {
   renderPipeline(activeJob);
   renderTimeline(activeJob);
   renderStatusMetrics(originalJobs);
+  renderStalledMetrics(originalJobs, tableCache.requests?.requests || []);
+  renderStalledJobs(originalJobs);
+  renderStalledRequests(tableCache.requests?.requests || []);
+  renderStalledFlowSteps(activeJob && isJobStalled(activeJob) ? activeJob : null);
   renderConversation(activeJob);
   renderReportHub(originalJobs);
   renderJobsKanban(originalJobs);
@@ -1502,6 +1738,27 @@ function renderPolicy(data) {
 function pickDefaultRepoPath() {
   if (!Array.isArray(reposCache) || !reposCache.length) return "";
   return reposCache[0]?.path || "";
+}
+
+async function resolveRepositorySelection() {
+  const select = document.getElementById("repoSelect");
+  let repository = (select?.value || "").trim();
+  if (repository) return repository;
+
+  // Try one lazy refresh in case repository list has not been loaded yet.
+  if (!Array.isArray(reposCache) || !reposCache.length) {
+    try {
+      await loadRepositories();
+    } catch (_error) {
+      // Keep graceful fallback below.
+    }
+  }
+
+  repository = (select?.value || "").trim() || pickDefaultRepoPath();
+  if (repository && select && !select.value) {
+    select.value = repository;
+  }
+  return repository;
 }
 
 function applyAuditFilter(events = []) {
@@ -1560,7 +1817,7 @@ function syncAuditQuickFilters() {
 
 function renderAudit(payload) {
   tableCache.audit = payload;
-  const allEvents = [...(payload.events || [])].reverse();
+  const allEvents = [...(payload.events || [])].sort((a, b) => eventTimestamp(b.at) - eventTimestamp(a.at));
   const events = applyAuditFilter(allEvents);
   syncAuditQuickFilters();
   const statsEl = document.getElementById("auditFilterStats");
@@ -1590,6 +1847,10 @@ function renderAudit(payload) {
       </tbody>
     </table></div>`;
   renderPaginationControls("audit", pagination);
+  const activeJob = pickActiveJob(tableCache.jobs?.jobs || []);
+  if (activeJob) {
+    renderStalledFlowSteps(isJobStalled(activeJob) ? activeJob : null);
+  }
 }
 
 function hasTemplateSections(text) {
@@ -1855,7 +2116,7 @@ async function submitDesignTask(event) {
   const resultEl = document.getElementById("designTaskResult");
   const memo = document.getElementById("designTaskMemo").value.trim();
   const approvalMode = document.getElementById("approvalMode").value || "manual_post";
-  const repository = document.getElementById("repoSelect").value || pickDefaultRepoPath();
+  const repository = await resolveRepositorySelection();
   if (!repository) {
     resultEl.textContent = "실패: 대상 저장소를 찾지 못했습니다. 저장소 목록을 먼저 로드하세요.";
     return;
@@ -2105,14 +2366,18 @@ function setupClientDigestCopyButton() {
 async function loadRepositories() {
   const res = await fetch(`${reposUrl}?t=${Date.now()}`);
   const data = await res.json();
+  reposCache = Array.isArray(data.repositories) ? data.repositories : [];
   const select = document.getElementById("repoSelect");
   refillSelectPreservingValue(
     select,
     "저장소 선택",
-    data.repositories
+    reposCache
       .map((r) => `<option value="${esc(r.path)}">${esc(r.name)} · ${esc(shortRepoName(r.path))}</option>`)
       .join("")
   );
+  if (select && !select.value && reposCache.length) {
+    select.value = reposCache[0].path;
+  }
 }
 
 async function loadOwnerInfo() {
@@ -2279,12 +2544,17 @@ async function submitRequest(event) {
 async function submitJob(event) {
   event.preventDefault();
   const result = document.getElementById("jobSubmitResult");
+  const repository = await resolveRepositorySelection();
+  if (!repository) {
+    result.textContent = "실패: 대상 저장소를 찾지 못했습니다. 저장소 목록을 먼저 로드하세요.";
+    return;
+  }
   const payload = {
     ...ownerPayload(),
     request_id: document.getElementById("requestSelect").value,
     work_type: document.getElementById("workTypeInput").value.trim(),
     mission: document.getElementById("missionInput").value.trim(),
-    repository: document.getElementById("repoSelect").value,
+    repository,
     priority: document.getElementById("jobPriority").value,
     refined_request: document.getElementById("refinedRequestInput").value.trim(),
     apply_changes: document.getElementById("applyChanges").checked,

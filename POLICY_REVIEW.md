@@ -85,13 +85,40 @@
 1. 로컬 무로그인 운영 고정: Local Trust Mode 기본값 유지, `owner_id` 미입력 시 자동 보정
 2. 요청 처리 안정성: `ensure/doctor` 표준화로 서버 비가용 즉시 복구
 3. 클라이언트 피드백 재처리: 미만족 요청은 반복 개선 큐로 즉시 재등록
+4. 정체 작업 강제 복구: `queued 30분` / `in_progress 60분` 초과 작업은 `stalled_timeout_recovery` 규칙으로 종료 후 재할당
 
 ### P1 (단기)
 1. 대상 디렉토리 온보딩 개선: Git clone/빈 디렉토리/외부 자산 경로를 단일 입력 흐름으로 통합
 2. 상태 전이 회귀 방지: 요청/작업/승인 전이에 대한 자동 검증 케이스 강화
 3. 릴리즈 가시성 강화: Design Review + QA + post_job_audit 누락 감지 자동화
+4. 큐 운영 표준화: 우선순위(`urgent>high>normal>low`) + FIFO 규칙을 대시보드/문서/운영 스크립트에 동기화
 
 ### P2 (지속)
 1. 고객 만족 지표화: 피드백 반복 횟수/해결 리드타임/재요청률 추적
 2. 팀 KPI 통합: 전 팀 공통 주기로 대시보드 동기화
 3. 문서 일관성: AGENTS/README/팀 문서를 릴리즈마다 동시 점검
+4. 정체 재발 억제: 동일 요청의 정체 복구 2회 이상 발생 시 CEO/CTO 원인 분석 회의 의무화
+
+## Queue Governance Activation (2026-02-22)
+- 발동 사유: 장기 `in_progress` 작업 누적으로 운영 혼선 발생
+- 조치 결과:
+  - 장기 정체 작업 2건을 `failed(stalled_timeout_recovery)`로 종료
+  - 연계 요청을 `received`로 복구 후 4건 재할당 완료
+- 확정 규칙:
+  1. 큐 소진 순서 `urgent -> high -> normal -> low`, 동순위 FIFO
+  2. 정체 임계치 `queued 30분`, `in_progress 60분`
+  3. 복구 이벤트 `job_stalled_recovered` 감사로그 의무 기록
+  4. 동일 요청 2회 정체 복구 시 CEO/CTO 자동 에스컬레이션
+
+## Design Authority Activation (2026-02-22)
+- 발동 사유: 디자인 정책 불일치 및 업무 단계별 디자인 개입 부족
+- 결정:
+1. Design Ops를 전사 `필수 개입 팀`으로 승격
+2. UI/UX 변경 건에 대한 Design Review 최종 verdict(`pass/block/waive`) 권한 부여
+3. 테마/토큰/컴포넌트 정책 위반 시 릴리즈 `block` 권한 부여
+4. 디자인 영향도 SLA 도입(`critical 4h`, `high 24h`, `normal 48h`)
+- 적용 범위:
+1. 요청 접수(UX 영향도 분류)
+2. PM 수용기준(디자인 기준 강제)
+3. Dev 변경 검토(토큰/컴포넌트)
+4. 릴리즈 게이트(Design Review 결과 필수)

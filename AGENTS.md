@@ -75,11 +75,38 @@
 - Tech Leader Agent는 CEO/CTO와 기술 의사결정을 공동 리딩하며, 신기술 트렌드 검토/적용 판단/팀별 기술 정책 문서 업데이트를 총괄한다.
 - Design Ops는 공통 컴포넌트 분리/재사용 정책을 유지하고 Frontend와 함께 컴포넌트 레지스트리를 운영한다.
 - 테마 모드(`system/light/dark`)는 Design Ops 테마 정책(`teams/design-ops/THEME_POLICY.md`)을 따른다.
+- Design Ops는 UI/UX 관련 변경에 대해 `Design Authority`를 가진다. (정책 위반 시 릴리즈 보류 요청 권한)
 - 커밋/푸시 운영은 `COMMIT_PUSH_RULES.md`를 기본 규약으로 사용한다.
 - 포크 커스터마이징 추적은 `FORK_CUSTOMIZATION_POLICY.md`, `UPSTREAM_BASELINE.env`, `CUSTOMIZATION_LOG.md`를 함께 사용한다.
 - 요청 접수 시 우선순위 필드(`긴급도/중요도/의존성`)를 필수 입력으로 관리한다.
 - 상태 전이(요청/작업/승인) 규칙은 문서와 테스트로 동기화해 변경 시 동시 갱신한다.
 - 핵심 릴리즈 게이트는 `정책(문서) - 코드(구현) - 검증(스크립트/체크)` 3축으로 운영한다.
+
+## Design Authority Policy (Company-Wide)
+- 디자인팀은 회사 전 업무에서 선택 사항이 아닌 `필수 개입 팀`으로 운영한다.
+- 개입 시점:
+1. Intake: 요청 접수 시 UX 영향도 분류(`critical/high/normal`)를 지정한다.
+2. PM: 수용기준에 디자인 기준(가독성/일관성/접근성)을 필수 포함한다.
+3. Dev: 공통 컴포넌트/디자인 토큰 변경 여부를 검토한다.
+4. Design Review: 릴리즈 전 최종 승인 판단(`pass/block/waive`)을 기록한다.
+5. Report: 디자인 변경 요약과 사용자 영향을 클라이언트 메시지에 포함한다.
+- 권한:
+1. 테마/토큰/컴포넌트 정책 위반 시 `block` 권한을 행사할 수 있다.
+2. Frontend/QA에 보강 테스트를 요청할 수 있다.
+3. 반복 위반 요청은 CTO/CEO에 직접 에스컬레이션할 수 있다.
+- SLA:
+1. `critical` 디자인 이슈: 4시간 내 1차 판단
+2. `high` 디자인 이슈: 24시간 내 1차 판단
+3. `normal` 디자인 이슈: 48시간 내 1차 판단
+
+## Queue Governance Policy (Stalled Work Recovery)
+- 작업 큐 소진 순서는 `urgent -> high -> normal -> low`, 동순위 내에서는 `created_at` 오름차순(FIFO)으로 고정한다.
+- `queued` 상태가 30분 이상 유지되면 `stalled_queue` 경고로 분류하고 운영 경고를 발생시킨다.
+- `in_progress` 상태가 60분 이상 진행 갱신 없이 유지되면 `stalled_in_progress`로 분류한다.
+- `stalled_in_progress` 작업은 운영 복구 프로토콜에 따라 `failed(stalled_timeout_recovery)`로 종료하고 요청을 `received`로 되돌려 재처리 큐에 재등록한다.
+- 정체 복구 이벤트는 `audit_events`에 `job_stalled_recovered`로 기록하고, 원인/조치/재발방지 항목을 detail에 남긴다.
+- 동일 요청이 2회 이상 정체 복구되면 CEO/CTO 자동 에스컬레이션 대상으로 승격한다.
+- 복구 후 재할당 시 기존 작업의 `repository/work_type/mission/priority`를 우선 재사용해 컨텍스트 손실을 최소화한다.
 
 ## Mandatory Enforcement (Non-Negotiable)
 - 본 문서의 규칙은 권고가 아니라 강제 정책이며, 예외는 `CEO` 또는 `CTO`의 명시 승인 없이는 허용되지 않는다.
@@ -92,6 +119,7 @@
 - 정책 위반 또는 반복 실패는 감사로그에 원인/조치/재발방지 항목을 남기고 CEO/CTO 에스컬레이션 대상으로 자동 승격한다.
 - 클라이언트 피드백 루프는 단발성으로 종료하지 않으며, 만족 기준 충족까지 반복 수행 상태를 유지한다.
 - 각 작업 종료 시 팀 기여 항목 1개 이상(개선/학습/재사용 자산)을 `report` 또는 `audit`에 남기지 않으면 완료 승인하지 않는다.
+- 정체 복구 기준(`queued 30분`, `in_progress 60분`)을 초과한 작업을 방치할 수 없으며, 복구 조치 없이 릴리즈/운영 완료 선언을 금지한다.
 
 ## Release Block Conditions
 - 아래 항목 중 하나라도 충족하면 배포/납품을 즉시 보류한다.
