@@ -116,6 +116,14 @@ bash ./scripts/ci_local_check.sh --quick
 - P2: 운영 투명성 강화 (작업 지시 카드 표준화, 요청별 한눈에 보기 상태판 유지)
 - 변경 원칙: `정책 -> 코드 -> 검증` 순서로 반영하고, 릴리즈마다 개선 근거를 문서화
 
+## Fast Review Map
+- 구조 빠르게 파악: `/Users/junghyen2003/Documents/oh-my-agent-company/README.md`
+- 팀 역할/게이트 요약: `/Users/junghyen2003/Documents/oh-my-agent-company/docs/TEAM_ROLE_MATRIX.md`
+- 팀별 상세 책임: `/Users/junghyen2003/Documents/oh-my-agent-company/teams/AGENTS.md`, `/Users/junghyen2003/Documents/oh-my-agent-company/teams/*/AGENTS.md`
+- 실행 흐름 블루프린트: `/Users/junghyen2003/Documents/oh-my-agent-company/AGENT_ORCHESTRATION.md`
+- 런타임 엔트리포인트: `/Users/junghyen2003/Documents/oh-my-agent-company/scripts/orchestrator_server.py`
+- 유지보수 검증: `python3 ./scripts/docs_sync_check.py`, `python3 ./scripts/team_policy_check.py`, `python3 ./scripts/language_policy_check.py`
+
 ## Client Operation Flow (Sequential)
 1. Request intake: register raw client request
 2. Work assignment: select request/repository, define mission and refined instruction
@@ -214,6 +222,7 @@ npm run server:watch
 npm run server:health
 npm run check:api
 npm run check:smoke
+npm run check:team-policy
 npm run check:codex
 npm run check:playwright:ops
 npm run check:playwright:visual
@@ -347,6 +356,7 @@ Tech Leader audit:
 ```bash
 ./scripts/tech_leader_audit.sh
 python3 ./scripts/docs_sync_check.py
+python3 ./scripts/team_policy_check.py
 python3 ./scripts/kpi_weekly_report.py --dry-run
 python3 ./scripts/kpi_weekly_report.py --days 7 --output ./reports/kpi/weekly-kpi.json
 python3 ./scripts/kpi_weekly_report.py --days 7 --save-latest --save-history
@@ -360,7 +370,7 @@ Pre-push enforcement (required for local release safety):
 bash ./scripts/install_pre_push_hook.sh
 bash ./scripts/install_pre_commit_hook.sh
 ```
-- Installed hook runs `python3 ./scripts/docs_sync_check.py` and `bash ./scripts/smoke_core_flows.sh` before every push.
+- Installed hook runs `python3 ./scripts/docs_sync_check.py`, `python3 ./scripts/team_policy_check.py`, `python3 ./scripts/language_policy_check.py`, and `bash ./scripts/smoke_core_flows.sh` before every push.
 - Push is blocked when policy docs and runtime behavior are out of sync.
 
 Stalled-job recovery (built-in):
@@ -388,8 +398,10 @@ Stalled-job recovery (built-in):
 - Docs index: `/Users/junghyen2003/Documents/oh-my-agent-company/docs/INDEX.md`
 - 10-minute onboarding: `/Users/junghyen2003/Documents/oh-my-agent-company/docs/ONBOARDING_10MIN.md`
 - Company policy: `/Users/junghyen2003/Documents/oh-my-agent-company/AGENTS.md`
+- Team role matrix: `/Users/junghyen2003/Documents/oh-my-agent-company/docs/TEAM_ROLE_MATRIX.md`
 - Team index: `/Users/junghyen2003/Documents/oh-my-agent-company/teams/AGENTS.md`
 - Team docs: `/Users/junghyen2003/Documents/oh-my-agent-company/teams/*/AGENTS.md`
+- Orchestration blueprint: `/Users/junghyen2003/Documents/oh-my-agent-company/AGENT_ORCHESTRATION.md`
 - Component governance: `/Users/junghyen2003/Documents/oh-my-agent-company/COMPONENT_REGISTRY.md`
 - Theme policy (Design Ops): `/Users/junghyen2003/Documents/oh-my-agent-company/teams/design-ops/THEME_POLICY.md`
 - Language policy (Design Ops): `/Users/junghyen2003/Documents/oh-my-agent-company/teams/design-ops/LANGUAGE_POLICY.md`

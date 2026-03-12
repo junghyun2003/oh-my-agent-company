@@ -13,6 +13,7 @@
     "server:health": "bash ./scripts/infra_server_ctl.sh health",
     "check:api": "bash ./scripts/api_contract_smoke.sh",
     "check:smoke": "bash ./scripts/smoke_core_flows.sh",
+    "check:team-policy": "python3 ./scripts/team_policy_check.py",
     "check:codex": "bash ./scripts/codex_runtime_canary.sh",
     "check:playwright:ops": "bash ./scripts/playwright_ops_e2e.sh",
     "check:playwright:visual": "bash ./scripts/visual_regression_playwright.sh",

@@ -49,6 +49,27 @@ else
   warn "rg not found; skipped typo scan"
 fi
 
+if python3 "${ROOT_DIR}/scripts/docs_sync_check.py" >/dev/null 2>&1; then
+  pass "docs sync check passed"
+else
+  fail "docs sync check failed"
+  EXIT_CODE=1
+fi
+
+if python3 "${ROOT_DIR}/scripts/team_policy_check.py" >/dev/null 2>&1; then
+  pass "team policy check passed"
+else
+  fail "team policy check failed"
+  EXIT_CODE=1
+fi
+
+if python3 "${ROOT_DIR}/scripts/language_policy_check.py" >/dev/null 2>&1; then
+  pass "language policy check passed"
+else
+  fail "language policy check failed"
+  EXIT_CODE=1
+fi
+
 if [[ ${EXIT_CODE} -eq 0 ]]; then
   printf "== Result: OK ==\n"
 else

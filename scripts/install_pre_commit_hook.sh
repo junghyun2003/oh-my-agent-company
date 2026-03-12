@@ -17,6 +17,7 @@ ROOT_DIR="$(git rev-parse --show-toplevel)"
 cd "${ROOT_DIR}"
 
 python3 ./scripts/docs_sync_check.py
+python3 ./scripts/team_policy_check.py
 python3 -m py_compile scripts/todo_workflow.py
 HOOK
 

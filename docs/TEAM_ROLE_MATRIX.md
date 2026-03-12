@@ -1,6 +1,6 @@
 # Team Role Matrix
 
-빠르게 팀 구성을 검토할 때 보는 요약표입니다. 상세 정책은 각 `teams/*/AGENTS.md`를 기준으로 합니다.
+빠르게 팀 구성을 검토할 때 보는 요약표입니다. 상세 정책은 각 `teams/*/AGENTS.md`를 기준으로 하며, 승인/감사/큐(`queue`) 복구 기준은 각 팀의 Mandatory Gate와 함께 읽습니다.
 
 | Team | Primary Stage | Position Fit | Critical Metric | Mandatory Gate | Primary Handoff |
 | --- | --- | --- | --- | --- | --- |

@@ -3,11 +3,15 @@
 ## CEO
 - `/Users/junghyen2003/Documents/oh-my-agent-company/AGENTS.md`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/README.md`
+- `/Users/junghyen2003/Documents/oh-my-agent-company/docs/TEAM_ROLE_MATRIX.md`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/GOVERNANCE_SOURCES_2026-02-21.md`
 
 ## CTO / Tech Leader
+- `/Users/junghyen2003/Documents/oh-my-agent-company/AGENT_ORCHESTRATION.md`
+- `/Users/junghyen2003/Documents/oh-my-agent-company/docs/TEAM_ROLE_MATRIX.md`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/scripts/tech_leader_audit.sh`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/scripts/docs_sync_check.py`
+- `/Users/junghyen2003/Documents/oh-my-agent-company/scripts/team_policy_check.py`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/scripts/kpi_weekly_report.py`
 
 ## Infrastructure
@@ -26,5 +30,6 @@
 ## Client / External User
 - `/Users/junghyen2003/Documents/oh-my-agent-company/README.md`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/docs/ONBOARDING_10MIN.md`
+- `/Users/junghyen2003/Documents/oh-my-agent-company/docs/TEAM_ROLE_MATRIX.md`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/FORK_CUSTOMIZATION_POLICY.md`
 - `/Users/junghyen2003/Documents/oh-my-agent-company/CONTRIBUTING.md`

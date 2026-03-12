@@ -1,150 +1,166 @@
 # Enterprise Agent Group Blueprint
 
-이 문서는 일반적인 기업 조직을 참고해, Codex 기반으로 운영할 수 있는 역할형 에이전트 그룹을 정의합니다.
+이 문서는 현재 `oh-my-agent-company` 저장소에서 실제로 운영 중인 팀 구조와 파이프라인을 빠르게 이해하기 위한 블루프린트입니다.
 
 ## 1) 조직 구조
 
 ### Executive Layer
 - CEO Agent
-  - 미션: 회사 방향성과 우선순위 결정
-  - 책임: 분기 목표(OKR), 투자/채용/시장 진출 판단, 최종 의사결정
-  - 입력: KPI 대시보드, CTO/사업전략 보고, 리스크 리포트
-  - 출력: 분기 전략 메모, 우선순위 지시
+  - 미션: 클라이언트 가치와 납품 신뢰를 동시에 만족하는 최종 우선순위를 결정
+  - 책임: 범위 축소/확장 판단, 클라이언트 메시지 승인, 고위험 변경 에스컬레이션 결정
+  - 핵심 게이트: `Design Review`, `QA verdict`, `post_job_audit` 누락 시 납품 금지
 
 - CTO Agent
-  - 미션: 제품/기술 전략 통합
-  - 책임: 아키텍처 방향, 기술 부채 관리, 개발 조직 생산성
-  - 입력: 제품 로드맵, 장애/품질 리포트, 인프라 비용
-  - 출력: 기술 로드맵, 기술 표준, 팀별 실행 지시
+  - 미션: 요청을 구현 가능한 기술 실행안으로 변환
+  - 책임: 병렬 Dev 경계 설정, A/B 대체안과 롤백 방향 제시, 릴리즈 블로커 기술 판단
+  - 핵심 게이트: PM 패키지 미완성 시 Dev handoff 금지
 
-### Business Layer
-- Business Strategy Agent (사업전략팀)
-  - 미션: 성장 전략 수립
-  - 책임: 시장 분석, 경쟁사 분석, 수익 모델 설계
-  - 입력: 사용자/매출 데이터, 마케팅 성과, 제품 지표
-  - 출력: 성장 전략안, 신규 사업 제안, 가격 정책
+### Planning and Business Layer
+- Business Strategy Agent
+  - 미션: 요청 가치/ROI/KPI 기준선을 정리해 우선순위 판단 지원
+  - 책임: 가치 가설, 범위 축소/확장 제안, KPI 기준선 설정
 
-- Marketing Agent (마케팅팀)
-  - 미션: 수요 창출 및 브랜드 성장
-  - 책임: 캠페인 기획/실행, 퍼널 최적화, 콘텐츠 운영
-  - 입력: 타깃 세그먼트, 제품 포지셔닝, 예산
-  - 출력: 캠페인 계획, CAC/ROAS 보고, 실험 결과
+- Marketing Agent
+  - 미션: 결과물이 고객 반응과 외부 포지셔닝으로 이어지도록 메시지 정제
+  - 책임: `한 줄 가치제안 + 3개 핵심 강점`, 4블록 응답 템플릿, 한글 우선 메시지 일관성 유지
 
-- Product Planning Agent (제품기획팀)
-  - 미션: 문제 정의와 제품 방향 설계
-  - 책임: PRD 작성, 요구사항 우선순위화, 성공지표 정의
-  - 입력: 고객 피드백, 비즈니스 목표, 기술 제약
-  - 출력: PRD, 릴리즈 범위, 수용 기준(Acceptance Criteria)
+- Product Planning Agent
+  - 미션: `raw_request -> refined_request` 정제와 수용 기준 정의
+  - 책임: 우선순위(`긴급/중요/의존성`) 완비, MDR 정의, PM 입력 품질 보장
 
-### Engineering Layer
-- Backend Team Agent
-  - 책임: API, DB 모델, 도메인 로직, 보안/성능
-  - 산출물: API 명세, 마이그레이션, 서버 코드, 기술 문서
+- Project Manager Agent
+  - 미션: 파이프라인 `PM` 단계 전담 오너
+  - 책임: 범위/의존성/ETA 잠금, CTO handoff 패키지 완성, 작업 지시 카드 기준 유지
 
-- Frontend Team Agent
-  - 책임: 웹 UX/UI 구현, 상태관리, 접근성, 성능 최적화
-  - 산출물: 화면 구현, 컴포넌트, E2E 시나리오
+### Delivery Layer
+- Backend Engineering Agent
+  - 책임: API/DB/상태 전이/런타임 복구 구현
+  - 핵심 검증: 상태 전이 규칙 문서+테스트 동시 갱신
 
-- App Team Agent
-  - 책임: iOS/Android 앱 기능 구현, 배포 파이프라인, 스토어 릴리즈
-  - 산출물: 앱 기능 코드, 빌드/배포 설정, 릴리즈 노트
+- Frontend Engineering Agent
+  - 책임: 대시보드 UI/상호작용 구현, 공통 컴포넌트 재사용
+  - 핵심 검증: Design Ops 기준과 충돌 없는 UI 반영
 
-### Reliability Layer
-- QA Agent
-  - 미션: 릴리즈 품질 보증
-  - 책임: 테스트 전략, 회귀 테스트, 릴리즈 게이트
-  - 입력: PRD, 빌드 아티팩트, 변경 로그
-  - 출력: 테스트 리포트, 결함 우선순위, 출시 승인/보류
+- App Engineering Agent
+  - 책임: 모바일 영향 평가와 API 응답 계약 안정화
+  - 핵심 검증: 앱 영향 메모 또는 후속 작업 티켓 유지
+
+- Design Ops Agent
+  - 책임: 디자인 정책 집행, `Design Review` verdict 기록, 테마/토큰/컴포넌트 통제
+  - 핵심 검증: UI 변경마다 Design Authority 게이트 반영
+
+- Security Ops Agent
+  - 책임: 민감정보/권한/입력 검증 리스크 점검과 완화안 제시
+  - 핵심 검증: `low/medium/high` 위험도와 완화 조치 구조화
+
+### Reliability and Governance Layer
+- Quality Assurance Agent
+  - 책임: `pass/block/waive` verdict, 핵심 화면 스모크, 브라우저 E2E, `post_job_audit` 확인
+  - 핵심 검증: 릴리즈 전 QA 증거와 고객 영향 설명 완비
 
 - Infrastructure Agent
-  - 미션: 안정적이고 비용 효율적인 운영
-  - 책임: CI/CD, 모니터링, 클라우드 비용 최적화, 장애 대응
-  - 입력: 트래픽/장애 데이터, 배포 계획
-  - 출력: 운영 대시보드, SLO/에러버짓, 인프라 개선안
+  - 책임: 로컬 오케스트레이터 실행, `Codex Preflight`, 재시작/정체 복구, 운영 런북 관리
+  - 핵심 검증: `process + port + api` 헬스와 운영 표준 체크 유지
+
+- Technology Lead Agent
+  - 미션: 전사 기술 리딩과 문서/코드/검증 정합성 유지
+  - 책임: 기술 트렌드 리뷰, 팀 정책 정렬, 릴리즈 게이트 불일치 탐지
+  - 핵심 검증: `정책-코드-검증` 3축 불일치 시 CTO/CEO 보류 권고
 
 ## 2) 핵심 의사결정 체계 (RACI Lite)
 
-- 회사 방향/예산: CEO(A), CTO/CFO 유사 에이전트(C), 나머지(I)
-- 기술 스택/아키텍처: CTO(A), 인프라/개발팀(R), 제품기획(C)
-- 기능 우선순위: 제품기획(A), CEO/CTO(C), 개발/QA(R for execution)
-- 출시 승인: QA(A), CTO(C), 제품/개발(R), 마케팅(I)
-- 캠페인 집행: 마케팅(A/R), 사업전략(C), 제품기획(I)
+- 우선순위 충돌: CEO(A), CTO/Product/QA(C), 나머지(I)
+- 기술 구조/롤백 방향: CTO(A), Tech Lead/Infra/Backend(R), PM/Product(C)
+- 요청 정제와 PM 패키지 잠금: Product Planning(A/R), PM(R), CTO(C)
+- 디자인/UX 정책 준수: Design Ops(A), Frontend(R), QA/PM(C)
+- 보안 위험도와 완화 방향: Security Ops(R), QA/CTO(A/C), CEO(I)
+- 릴리즈 승인: QA(A), CTO/Design Ops/Infra(C), CEO(I)
 
 `A=Accountable, R=Responsible, C=Consulted, I=Informed`
 
 ## 3) 실행 워크플로우
 
-1. CEO Agent가 분기 목표를 선언한다.
-2. 사업전략/마케팅/제품기획 Agent가 목표를 기능/성장 가설로 분해한다.
-3. CTO Agent가 기술 실행 가능성, 리스크, 일정 프레임을 확정한다.
-4. 백엔드/프론트/앱 Agent가 병렬 구현한다.
-5. QA Agent가 릴리즈 게이트를 적용한다.
-6. 인프라 Agent가 배포/모니터링/롤백 계획을 실행한다.
-7. 마케팅 Agent가 GTM 실행 후 성과를 회수한다.
-8. CEO/CTO가 결과를 리뷰하고 다음 스프린트 목표를 갱신한다.
+1. 클라이언트 요청을 Intake로 등록하고 우선순위(`긴급/중요/의존성`)를 수집한다.
+2. Business Strategy / Marketing / Product Planning이 가치, 메시지, refined request를 정리한다.
+3. Project Manager가 `PM` 단계에서 범위/의존성/ETA를 잠근다.
+4. CTO와 Technology Lead가 기술 실행안, 롤백 방향, Dev 경계선을 확정한다.
+5. Dev 단계에서 `Backend / Frontend / App / Design / Security / Infra`가 병렬로 움직인다.
+6. Design Ops가 `Design Review` verdict(`pass/block/waive`)를 남긴다.
+7. QA가 스모크, Codex canary, 브라우저 E2E, `post_job_audit` 증거를 점검한다.
+8. CEO/Marketing이 `변경점/영향/리스크/다음 조치` 형식으로 클라이언트 전달 메시지를 확정한다.
+
+파이프라인 표준:
+- `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Security/Infra) -> Design Review -> QA -> Report`
 
 ## 4) 커뮤니케이션 규약
 
-- 모든 Agent는 아래 포맷으로 응답:
-  - `Context`: 현재 상황 요약
-  - `Decision`: 이번 턴의 결정
-  - `Action`: 즉시 실행 항목 (담당/기한 포함)
-  - `Risk`: 주요 리스크와 완화책
+- 모든 팀 산출물은 최소 아래 항목을 남긴다.
+  - `Context`
+  - `Decision`
+  - `Action`
+  - `Risk`
+  - `Client Message`
+  - `MDR`
+  - `Instruction Card`
+  - `Visibility`
 
-- 핸드오프 기준:
-  - 제품기획 -> 개발: PRD + 수용 기준 + 비기능 요구사항 필수
-  - 개발 -> QA: 변경점 요약 + 테스트 체크리스트 + 배포 노트 필수
-  - QA -> 인프라: 출시 승인 상태 + known issue 필수
+- 주요 handoff 기준:
+  - Product Planning -> PM: refined request + 우선순위 + 수용기준 + MDR
+  - PM -> CTO: 범위/포함·제외/비기능요구/의존성/ETA
+  - CTO -> Dev: 기술 경계/검증 포인트/롤백 방향
+  - Dev -> Design Review/QA: 변경 파일 + 체크 포인트 + known risk
+  - QA -> Report: verdict + 고객 영향 + known issue + `post_job_audit` 확인
 
-## 5) 운영 리듬 (권장)
+## 5) 운영 리듬
 
 - Weekly:
-  - 월요일: CEO/CTO 전략 싱크 (30분)
-  - 화요일: 제품기획-개발 스펙 정렬 (45분)
-  - 수요일: QA/인프라 릴리즈 리스크 리뷰 (30분)
-  - 금요일: 성과 리뷰 + 다음 주 우선순위 확정 (45분)
+  - CEO/CTO/Tech Leader/팀장 운영 의사결정 회의
+  - Design Ops / Marketing 경제지표 및 UX 레퍼런스 리뷰
+  - QA / Infrastructure 릴리즈 리스크 점검
 
-- Sprint (2주):
-  - 스프린트 시작: 범위 동결, 목표 KPI 확정
-  - 스프린트 종료: 데모, 회고, KPI 달성 평가
+- Monthly:
+  - `THIRD_PARTY_REVIEW_YYYY-MM-DD.md` 작성
+  - DB 복구 드릴 실행
+  - Technology Lead 기술 트렌드 리뷰 및 팀 정책 정합성 점검
 
 ## 6) 실패 방지 가드레일
 
-- 우선순위 충돌 시: CEO Agent 단일 결정
-- 기술/일정 충돌 시: CTO Agent 단일 결정
-- 품질 기준 미달 시: QA Agent가 배포 차단 권한 보유
-- SLO 위반 위험 시: 인프라 Agent가 기능 플래그/롤백 우선 실행
+- `queued 30분`, `dispatching 5분`, `in_progress 60분` 초과 작업은 자동 복구/에스컬레이션 대상
+- `Local Trust Mode=ON`에서는 로그인/토큰을 기본 비활성화하되 `owner_id`는 자동 보정
+- `manual_pre/manual_post/manual_both` 승인 게이트 우회 금지
+- `Design Review`, `QA verdict`, `post_job_audit`, `Codex Preflight` 치명 이슈 해결 전 릴리즈 금지
+- 실패 작업은 `원인-조치-재발방지` 형태로 감사로그에 남긴다.
 
-## 7) 바로 적용 가능한 최소 세트 (MVP)
+## 7) 빠른 검토용 핵심 문서
 
-초기에는 아래 5개 Agent만으로 시작:
-- CEO
-- CTO
-- Product Planning
-- Engineering Lead (백엔드/프론트/앱 통합)
-- QA/Infra (통합)
-
-팀 성숙도에 따라 마케팅/사업전략/플랫폼을 분리 확장한다.
+- 역할 요약표: `docs/TEAM_ROLE_MATRIX.md`
+- 회사 규약: `AGENTS.md`
+- 팀 규약 인덱스: `teams/AGENTS.md`
+- 런타임 엔트리포인트: `scripts/orchestrator_server.py`
+- 운영 점검: `scripts/tech_leader_audit.sh`, `scripts/docs_sync_check.py`, `scripts/team_policy_check.py`
 
 ## 8) 팀별 AGENTS 할당 경로
-
-팀별 상세 역할 정의는 아래 파일을 사용한다.
 
 - `teams/executive-ceo/AGENTS.md`
 - `teams/executive-cto/AGENTS.md`
 - `teams/business-strategy/AGENTS.md`
 - `teams/marketing/AGENTS.md`
 - `teams/product-planning/AGENTS.md`
+- `teams/project-manager/AGENTS.md`
 - `teams/engineering-backend/AGENTS.md`
 - `teams/engineering-frontend/AGENTS.md`
 - `teams/engineering-app/AGENTS.md`
+- `teams/design-ops/AGENTS.md`
+- `teams/security-ops/AGENTS.md`
 - `teams/quality-assurance/AGENTS.md`
 - `teams/infrastructure/AGENTS.md`
+- `teams/technology-lead/AGENTS.md`
 
 ## 9) 로컬 운영 통제 모델
 
-- Owner Mode: `state/owner_config.json` 기준으로 Owner(`owner_id=owner`) 식별을 강제한다.
-- Repository Policy: `state/repo_policies.json`에서 허용 저장소/수정경로/액션을 통제한다.
-- Pipeline Standard: `PM -> CTO -> Dev(병렬) -> QA -> Report` 고정 파이프라인으로 실행한다.
-- Approval Gates: `auto/manual_pre/manual_post/manual_both`를 지원한다.
-- Audit Trail: 모든 주요 이벤트는 `state/audit_log.jsonl`에 append-only로 기록한다.
+- Owner / Local Trust: `state/owner_config.json` + `app_settings.local_trust_mode` 기준 운영
+- Repository Policy: `state/agent_company.db`의 `repo_policies`, `app_settings`
+- Audit Trail: `state/agent_company.db (table: audit_events)` append-only 기록
+- Runtime State: `state/agent_company.db`의 `requests`, `jobs`, `agent_status`, `usage_stats`
+- Required Gates: approval modes, `Design Review`, `QA verdict`, `post_job_audit`, `Codex Preflight`
+- Standard Verification Order: `API smoke -> flow smoke -> Codex canary -> Playwright 브라우저 E2E -> visual/theme regression`

@@ -16,6 +16,8 @@ assert_preflight_ready() {
 python3 -m py_compile scripts/orchestrator_server.py
 python3 -m py_compile scripts/todo_workflow.py
 python3 scripts/docs_sync_check.py
+python3 scripts/team_policy_check.py
+python3 scripts/language_policy_check.py
 
 bash ./scripts/infra_server_ctl.sh ensure >/dev/null
 bash ./scripts/api_contract_smoke.sh

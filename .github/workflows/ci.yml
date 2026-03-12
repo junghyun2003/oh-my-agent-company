@@ -19,9 +19,16 @@ jobs:
         run: |
           python -m py_compile scripts/orchestrator_server.py
           python -m py_compile scripts/todo_workflow.py
+          python -m py_compile scripts/team_policy_check.py
 
       - name: Docs sync check
         run: python scripts/docs_sync_check.py
+
+      - name: Team policy check
+        run: python scripts/team_policy_check.py
+
+      - name: Language policy check
+        run: python scripts/language_policy_check.py
 
       - name: Setup Node (for playwright prerequisites)
         uses: actions/setup-node@v4

@@ -7,6 +7,8 @@ FILES = {
     "company_agents": ROOT / "AGENTS.md",
     "team_index": ROOT / "teams" / "AGENTS.md",
     "readme": ROOT / "README.md",
+    "team_matrix": ROOT / "docs" / "TEAM_ROLE_MATRIX.md",
+    "agent_blueprint": ROOT / "AGENT_ORCHESTRATION.md",
 }
 
 REQUIRED_TOKENS = {
@@ -17,13 +19,30 @@ REQUIRED_TOKENS = {
     ],
     "team_index": [
         "Universal Output Contract",
+        "Team File Standard",
         "Universal Control Rules",
         "Handoff Gate",
     ],
     "readme": [
+        "Fast Review Map",
         "Quick Start (Sequential)",
         "Queue management API",
         "Team and Governance Docs",
+        "team_policy_check.py",
+        "TEAM_ROLE_MATRIX.md",
+    ],
+    "team_matrix": [
+        "Team Role Matrix",
+        "Technology Lead",
+        "Mandatory Gate",
+    ],
+    "agent_blueprint": [
+        "Project Manager Agent",
+        "Design Ops Agent",
+        "Security Ops Agent",
+        "Technology Lead Agent",
+        "PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Security/Infra) -> Design Review -> QA -> Report",
+        "state/agent_company.db (table: audit_events)",
     ],
 }
 

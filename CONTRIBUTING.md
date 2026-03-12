@@ -18,13 +18,17 @@ Thank you for contributing to `oh-my-agent-company`.
 2. Check health
   - `./scripts/infra_server_ctl.sh doctor`
   - `./scripts/infra_server_ctl.sh incident`
-3. Run smoke baseline
+3. Validate policy docs
+  - `python3 ./scripts/docs_sync_check.py`
+  - `python3 ./scripts/team_policy_check.py`
+4. Run smoke baseline
   - `bash ./scripts/smoke_core_flows.sh`
-4. Only then start feature edits
+5. Only then start feature edits
 
 ## Pull Request Checklist
 - [ ] Code change is scoped and reversible
 - [ ] Relevant docs updated (`AGENTS.md`, `README.md`, team docs)
+- [ ] Team role/gate matrix and policy checks still pass
 - [ ] No policy-violating file/path changes
 - [ ] Approval flow impact described
 - [ ] Audit/operational impact described
