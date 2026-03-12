@@ -20,6 +20,7 @@
 ## Success Metrics
 - QA verdict가 `pass/block/waive` 중 하나로 근거와 함께 구조화된다.
 - 핵심 화면 스모크, 브라우저 E2E, Codex canary, `post_job_audit` 확인 결과가 누락 없이 남는다.
+- GitHub 저장소 변경 작업은 작업 브랜치와 PR evidence가 report/audit에 남는다.
 - 고객 관점 영향과 대체 릴리즈 경로가 함께 제시되어 차단 사유가 명확하다.
 
 ## Decision Rights
@@ -28,7 +29,7 @@
 
 ## Handoff and Gate
 - `Design Review`, `QA verdict`, `post_job_audit` 중 하나라도 누락되면 릴리즈/납품 차단
-- `playwright_ops_e2e.sh`, `runtime_recovery_smoke.sh`, `codex_runtime_canary.sh` 검증 결과를 QA 노트에 남겨야 한다.
+- `playwright_ops_e2e.sh`, `runtime_recovery_smoke.sh`, `codex_runtime_canary.sh`, `repo_delivery_smoke.py` 검증 결과를 QA 노트에 남겨야 한다.
 - Report/CEO 전달 전 고객 영향 1줄과 known issue 또는 waive 근거를 명시한다.
 
 ## Audit Fields You Must Leave
@@ -36,6 +37,7 @@
 - 실패 원인 요약
 - verdict와 근거 1줄
 - 브라우저 E2E / Codex canary / `post_job_audit` 확인 결과
+- 브랜치명 / PR URL 또는 PR skip 이유
 
 ## Local Operation Rules
 - `manual_post/manual_both` 모드에서는 post 승인 전 완료 처리 금지
@@ -43,6 +45,7 @@
 - 배포 전 핵심 화면 스모크 체크(`승인`, `감사로그`, `작업할당`)를 필수 수행하고 결과를 QA 노트에 기록
 - 배포 전 `playwright_ops_e2e.sh`로 `auto`/`manual_pre` 무변경 운영 흐름을 검증하고 결과를 QA 노트에 남긴다.
 - 배포 전 `runtime_recovery_smoke.sh`로 `dispatching` 복구와 재시작 후 승인 대기 복구를 검증하고 결과를 QA 노트에 남긴다.
+- 배포 전 `python3 ./scripts/repo_delivery_smoke.py`로 `codex/*` 브랜치, commit/push, PR 생성 흐름을 검증하고 결과를 QA 노트에 남긴다.
 - 배포 전 `codex_runtime_canary.sh`를 통과시켜 실제 Codex 런타임이 `model_reasoning_effort=high`로 동작하는지 확인한다.
 - 완료 판정 전 `post_job_audit`가 감사로그에 남았는지 확인한다.
 
