@@ -8,6 +8,11 @@ and delivers auditable outcomes with approval gates.
 ## Project Hero
 ![oh-my-agent-company project hero](assets/readme-hero.svg)
 
+## Brand Assets
+- README hero SVG: `assets/readme-hero.svg`
+- GitHub social preview PNG: `assets/github-social-preview.png` (`GitHub repo Settings -> General -> Social preview`)
+- Regenerate preview asset: `python3 ./scripts/generate_social_preview.py`
+
 ## Why This Repo Is Global-Ready
 - Bilingual operation context (Korean-first, globally understandable structure)
 - MIT license for open collaboration
