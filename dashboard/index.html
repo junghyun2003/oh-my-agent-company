@@ -492,6 +492,8 @@
           <div class="report-grid">
             <article class="report-card" id="reportSummary"></article>
             <article class="report-card" id="reportEvidence"></article>
+            <article class="report-card" id="playwrightReport"></article>
+            <article class="report-card" id="reportSmoke"></article>
           </div>
         </section>
 
@@ -509,25 +511,56 @@
             <p>우선순위 기반 큐 + 칸반으로 누적 업무를 관리합니다. 승인 게이트는 아래에서 처리합니다.</p>
           </div>
 
-          <div id="jobsKanban" class="kanban-board"></div>
-          <div id="jobsTable"></div>
-          <div id="jobsPagination" class="pagination"></div>
+          <div id="approvalSummary" class="approval-summary-panel"></div>
 
-          <form id="approveForm" class="job-form two-col">
-            <label>승인 대기 작업
-              <select id="approveJobSelect" required>
-                <option value="">승인 대기 작업 선택</option>
-              </select>
-            </label>
-            <label>승인 단계
-              <select id="approvePhase" required>
-                <option value="pre">pre (변경 전)</option>
-                <option value="post">post (변경 후)</option>
-              </select>
-            </label>
-            <button type="submit" class="full">승인 처리</button>
-            <span id="approveResult" class="muted full"></span>
-          </form>
+          <section class="card approval-control-card">
+            <div class="approval-control-head">
+              <div>
+                <h3>빠른 승인 처리</h3>
+                <p>승인 대기 작업만 바로 선택해서 pre/post 게이트를 처리합니다.</p>
+              </div>
+            </div>
+            <form id="approveForm" class="job-form two-col">
+              <label>승인 대기 작업
+                <select id="approveJobSelect" required>
+                  <option value="">승인 대기 작업 선택</option>
+                </select>
+              </label>
+              <label>승인 단계
+                <select id="approvePhase" required>
+                  <option value="pre">pre (변경 전)</option>
+                  <option value="post">post (변경 후)</option>
+                </select>
+              </label>
+              <button type="submit" class="full">승인 처리</button>
+              <span id="approveResult" class="muted full"></span>
+            </form>
+          </section>
+
+          <details class="approval-fold" id="approvalKanbanFold">
+            <summary>
+              <div>
+                <strong>작업 보드</strong>
+                <small id="approvalKanbanMeta" class="muted">상태별 요약</small>
+              </div>
+            </summary>
+            <div class="approval-fold-body">
+              <div id="jobsKanban" class="kanban-board"></div>
+            </div>
+          </details>
+
+          <details class="approval-fold" id="approvalTableFold">
+            <summary>
+              <div>
+                <strong>전체 작업 목록</strong>
+                <small id="approvalTableMeta" class="muted">최근 작업 순</small>
+              </div>
+            </summary>
+            <div class="approval-fold-body">
+              <div id="jobsTable"></div>
+              <div id="jobsPagination" class="pagination"></div>
+            </div>
+          </details>
         </section>
 
         <section class="panel" id="section-design">

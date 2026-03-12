@@ -121,6 +121,7 @@ const STAGE_FALLBACK_KO = {
 const STALL_THRESHOLD_MINUTES = 30;
 const REQUEST_STALL_MINUTES = 20;
 const LOCAL_TRUST_KEYWORDS = ["local trust", "local-trust"];
+const JOBS_KANBAN_PREVIEW_LIMIT = 4;
 const FLOW_STEPS = [
   { label: "요청 로그 확인", detail: "감사 로그에서 job_assigned 이전 이벤트 확인" },
   { label: "파이프라인 재현", detail: "PM→CTO→Dev→Design→QA 순으로 최근 메시지 검토" },
@@ -150,6 +151,12 @@ const CLIENT_TEMPLATE = `[변경점]
 - (예: owner ID 누락 재발 가능)
 [다음 조치]
 - (예: OWNER 재검증 → Dev 재시작 → 감사 보고)`;
+const SMOKE_FLOW_TARGET = {
+  requestId: "req-1771742696-949",
+  keyword: "smoke request 20260222154456",
+  client: "smoke-client"
+};
+const SMOKE_FLOW_COMMAND = "bash ./scripts/smoke_core_flows.sh";
 
 function rememberRequests(requests = []) {
   requestLookup.clear();
@@ -168,6 +175,10 @@ function findRequestById(id) {
 function safeDomId(prefix, seed) {
   const slug = String(seed ?? "").trim().replace(/[^a-zA-Z0-9_-]/g, "-") || "x";
   return `${prefix}-${slug}`;
+}
+
+function safeLower(value) {
+  return String(value ?? "").trim().toLowerCase();
 }
 
 function normalizeErrorPayload(error) {
@@ -518,7 +529,18 @@ function statusKo(status) {
     done: "완료",
     failed: "실패"
   };
-  return map[status] || status || "-";
+  const token = String(status || "").toLowerCase();
+  return map[token] || status || "-";
+}
+
+function jobStatusTagClass(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "done") return "tag status-ok";
+  if (normalized === "failed") return "tag status-bad";
+  if (APPROVAL_WAIT_STATUSES.has(normalized) || RUNNING_STATUSES.has(normalized) || QUEUED_STATUSES.has(normalized)) {
+    return "tag status-warn";
+  }
+  return "tag";
 }
 
 function priorityKo(priority) {
@@ -1129,6 +1151,22 @@ function reportPathToHref(pathValue) {
   return raw;
 }
 
+function isPlaywrightAutoJob(job) {
+  if (!job) return false;
+  const client = String(job.client_name || "").toLowerCase();
+  if (client.startsWith("pw auto")) return true;
+  const text = [job.work_type, job.mission, job.refined_request]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+  if (!text.includes("playwright")) return false;
+  if (text.includes("manual-pre") || text.includes("manual pre")) return false;
+  return text.includes("playwright auto") || text.includes("pw auto");
+}
+
+function latestPlaywrightAutoJob(jobs = []) {
+  return [...jobs].filter(isPlaywrightAutoJob).sort((a, b) => jobTimestamp(b) - jobTimestamp(a))[0] || null;
+}
+
 function pickActiveJob(jobs = []) {
   if (!jobs.length) return null;
   const priority = jobs.find((job) => RUNNING_STATUSES.has(job.status) || APPROVAL_WAIT_STATUSES.has(job.status) || QUEUED_STATUSES.has(job.status));
@@ -1419,9 +1457,121 @@ function renderConversation(job) {
   }
 }
 
+function findSmokeRequest(requests = []) {
+  if (!Array.isArray(requests)) return null;
+  const byId = requests.find((req) => String(req.id) === SMOKE_FLOW_TARGET.requestId);
+  if (byId) return byId;
+  const keyword = safeLower(SMOKE_FLOW_TARGET.keyword);
+  const byKeyword = requests.find((req) => safeLower(req.raw_request).includes(keyword));
+  if (byKeyword) return byKeyword;
+  const targetClient = safeLower(SMOKE_FLOW_TARGET.client);
+  return requests.find((req) => safeLower(req.client_name) === targetClient) || null;
+}
+
+function findSmokeJob(jobs = [], request = null) {
+  if (!Array.isArray(jobs)) return null;
+  const requestId = request?.id ? String(request.id) : "";
+  if (requestId) {
+    const matched = jobs.find((job) => String(job.request_id) === requestId);
+    if (matched) return matched;
+  }
+  const targetClient = safeLower(SMOKE_FLOW_TARGET.client);
+  const byClient = jobs.find((job) => safeLower(job.client_name) === targetClient);
+  if (byClient) return byClient;
+  return (
+    jobs.find((job) => {
+      const work = safeLower(job.work_type);
+      const mission = safeLower(job.mission);
+      return work.includes("smoke") || mission.includes("smoke");
+    }) || null
+  );
+}
+
+function renderSmokeFlowEvidence(jobs = []) {
+  const root = document.getElementById("reportSmoke");
+  if (!root) return;
+  const requests = Array.isArray(tableCache.requests?.requests) ? tableCache.requests.requests : [];
+  const smokeRequest = findSmokeRequest(requests);
+  const smokeJob = findSmokeJob(jobs, smokeRequest);
+  const targetRequestId = smokeRequest?.id || SMOKE_FLOW_TARGET.requestId;
+  const targetSummary = smokeRequest?.raw_request || SMOKE_FLOW_TARGET.keyword;
+  const targetClient = smokeRequest?.client_name || SMOKE_FLOW_TARGET.client;
+  const qaNote = smokeJob?.qa_result || smokeJob?.qa_summary || "";
+  const qaSummary = normalizeWhitespace(qaNote) || "QA 증빙 대기중입니다.";
+  const reportHref = reportPathToHref(smokeJob?.report_path);
+  const reportLine = smokeJob?.report_path
+    ? `<a href="${esc(reportHref)}" target="_blank" rel="noopener noreferrer"><code>${esc(smokeJob.report_path)}</code></a>`
+    : "리포트 경로가 아직 없습니다.";
+  const actions = Array.isArray(smokeJob?.executed_actions) ? smokeJob.executed_actions : [];
+  const actionLine = actions.length ? actions.slice(0, 3).map((action) => `<code>${esc(action)}</code>`).join(", ") : esc("-");
+  const approvalMode = smokeJob?.approval_mode || "auto";
+  const approvalDone = Boolean(smokeJob && (smokeJob.pre_approved || approvalMode === "auto"));
+  const reproductionLine = smokeJob
+    ? `<p><strong>재현 명령</strong>: <code>${esc(SMOKE_FLOW_COMMAND)}</code></p>`
+    : `<p><strong>재현 필요</strong>: <code>${esc(SMOKE_FLOW_COMMAND)}</code> 실행 후 새로고침하세요.</p>`;
+
+  const steps = [
+    {
+      label: "요청 생성",
+      done: !!smokeRequest,
+      primary: `${targetRequestId} · ${targetClient}`,
+      secondary: smokeRequest ? `${formatDateTimeFull(smokeRequest.created_at)} · ${targetSummary}` : `요약: ${targetSummary}`
+    },
+    {
+      label: "작업 할당",
+      done: !!smokeJob,
+      primary: smokeJob ? smokeJob.id : "작업 없음",
+      secondary: smokeJob ? `${statusKo(smokeJob.status)} · ${statusKo(smokeJob.stage || "-")}` : "smoke 작업이 아직 시작되지 않았습니다."
+    },
+    {
+      label: "승인 게이트",
+      done: approvalDone,
+      primary: smokeJob ? (approvalDone ? (smokeJob.pre_approved ? "pre 승인 완료" : "자동 승인") : "승인 대기") : "작업 없음",
+      secondary: smokeJob
+        ? smokeJob.pre_approved
+          ? formatDateTimeFull(smokeJob.pre_approved_at)
+          : `모드 ${approvalMode} · pre 승인 필요`
+        : "manual_pre 승인 필요"
+    },
+    {
+      label: "리포트 · QA",
+      done: Boolean(smokeJob?.report_path),
+      primary: smokeJob?.report_path ? "리포트 첨부 완료" : smokeJob ? "리포트 준비중" : "진행 전",
+      secondary: qaSummary
+    }
+  ];
+
+  const stepsHtml = steps
+    .map(
+      (step) => `
+        <li class="smoke-step ${step.done ? "ok" : "pending"}">
+          <div class="smoke-label">${esc(step.label)}</div>
+          <div>
+            <strong>${esc(step.primary)}</strong><br />
+            <small>${esc(step.secondary)}</small>
+          </div>
+        </li>
+      `
+    )
+    .join("");
+
+  root.innerHTML = `
+    <h3>Smoke 플로우 증적</h3>
+    <p class="muted">타겟: <code>${esc(targetRequestId)}</code> · ${esc(SMOKE_FLOW_TARGET.keyword)}</p>
+    <ul class="smoke-steps">${stepsHtml}</ul>
+    <div class="smoke-meta">
+      <p><strong>리포트</strong>: ${reportLine}</p>
+      <p><strong>QA 증빙</strong>: ${esc(qaSummary)}</p>
+      <p><strong>실행 액션</strong>: ${actionLine}</p>
+      ${reproductionLine}
+    </div>
+  `;
+}
+
 function renderReportHub(jobs = []) {
   const summaryRoot = document.getElementById("reportSummary");
   const evidenceRoot = document.getElementById("reportEvidence");
+  renderPlaywrightAutoCard(jobs);
   if (!summaryRoot || !evidenceRoot) return;
 
   if (!jobs.length) {
@@ -1472,6 +1622,67 @@ function renderReportHub(jobs = []) {
       <li>실행 액션 ${esc(actions.length)}개 · ${esc(actions.join(", ") || "-")}</li>
       <li>QA 증빙: ${esc(qaNote)}</li>
     </ul>
+  `;
+  renderSmokeFlowEvidence(jobs);
+}
+
+function renderPlaywrightAutoCard(jobs = []) {
+  const root = document.getElementById("playwrightReport");
+  if (!root) return;
+  const job = latestPlaywrightAutoJob(Array.isArray(jobs) ? jobs : []);
+  if (!job) {
+    root.innerHTML = `
+      <h3>Playwright 자동 플로우</h3>
+      <p class="muted">Playwright auto 모드 검증 작업을 찾지 못했습니다. <code>bash ./scripts/playwright_ops_e2e.sh</code> 실행 후 새로고침하세요.</p>
+    `;
+    return;
+  }
+  const qaNotes = Array.isArray(job.qa_notes) ? job.qa_notes : [];
+  const qaTail = qaNotes.length ? qaNotes[qaNotes.length - 1] : "";
+  const qaTailText =
+    typeof qaTail === "string" ? qaTail : typeof qaTail === "object" ? qaTail.note || qaTail.message || "" : "";
+  const qaNote = job.qa_result || job.qa_summary || qaTailText || "QA 증빙 수집중";
+  const timeline = Array.isArray(job.timeline) ? [...job.timeline] : [];
+  const recentTimeline = timeline.sort((a, b) => eventTimestamp(b?.at) - eventTimestamp(a?.at)).slice(0, 3);
+  const timelineHtml = recentTimeline.length
+    ? `<ul class="playwright-timeline-list">${recentTimeline
+        .map(
+          (event) => `
+          <li>
+            <span>${esc(formatTimelineTime(event?.at))}</span>
+            <p>${esc(event?.message || "-")}</p>
+          </li>
+        `
+        )
+        .join("")}</ul>`
+    : `<p class="muted">타임라인 데이터가 아직 없습니다.</p>`;
+  const reportHref = reportPathToHref(job.report_path);
+  const reportLine = reportHref
+    ? `<a href="${esc(reportHref)}" target="_blank" rel="noopener noreferrer">${esc(job.report_path)}</a>`
+    : "리포트 생성 대기중";
+  const createdLabel = job.created_at ? formatTimelineTime(job.created_at) : "--";
+  const stageLabel = statusKo(job.stage || job.status);
+
+  root.innerHTML = `
+    <h3>Playwright 자동 플로우</h3>
+    <div class="playwright-head">
+      <div>
+        <strong>${esc(job.client_name || "PW Auto flow")}</strong>
+        <p class="muted">요청 ${esc(job.request_id || "-")} · ${esc(createdLabel)}</p>
+      </div>
+      <span class="${jobStatusTagClass(job.status)}">${esc(statusKo(job.status))}</span>
+    </div>
+    <ul class="report-list">
+      <li>작업 ${esc(job.id)} · 단계 ${esc(stageLabel)}</li>
+      <li>승인 모드 ${esc(job.approval_mode || "auto")} · 우선순위 ${esc(job.priority || "normal")}</li>
+      <li>QA 증빙: ${esc(qaNote)}</li>
+      <li>리포트: ${reportLine}</li>
+      <li>Playwright 캡처: <a href="/output/playwright/ops-e2e/" target="_blank" rel="noopener noreferrer">output/playwright/ops-e2e/</a></li>
+    </ul>
+    <div class="playwright-timeline">
+      <strong>최근 진행</strong>
+      ${timelineHtml}
+    </div>
   `;
 }
 
@@ -2099,6 +2310,105 @@ function ownerStateForJob(job) {
   return { text, isRisk };
 }
 
+function waitingApprovalPhase(job) {
+  if (!job) return "";
+  if (job.status === "waiting_pre_approval") return "pre";
+  if (job.status === "waiting_post_approval") return "post";
+  return "";
+}
+
+function approvalPhaseKo(phase) {
+  return phase === "post" ? "변경 후 승인" : "변경 전 승인";
+}
+
+function renderApprovalSummary(jobs = []) {
+  const root = document.getElementById("approvalSummary");
+  if (!root) return;
+
+  const waitingJobs = jobs
+    .filter((job) => APPROVAL_WAIT_STATUSES.has(job.status))
+    .sort((a, b) => jobTimestamp(b) - jobTimestamp(a));
+  const activeCount = jobs.filter((job) => ["queued", "dispatching", "in_progress"].includes(job.status)).length;
+  const failedCount = jobs.filter((job) => job.status === "failed").length;
+  const doneJobs = jobs
+    .filter((job) => job.status === "done")
+    .sort((a, b) => jobTimestamp(b) - jobTimestamp(a));
+  const latestDone = doneJobs[0] || null;
+  const previewJobs = waitingJobs.slice(0, 3);
+
+  root.innerHTML = `
+    <div class="summary approval-summary-grid">
+      <article class="card approval-stat-card">
+        <span class="label">승인 대기</span>
+        <strong>${waitingJobs.length}</strong>
+        <small>${waitingJobs.length ? "바로 승인 가능" : "대기 없음"}</small>
+      </article>
+      <article class="card approval-stat-card">
+        <span class="label">진행중</span>
+        <strong>${activeCount}</strong>
+        <small>할당 후 진행 상태</small>
+      </article>
+      <article class="card approval-stat-card">
+        <span class="label">실패</span>
+        <strong>${failedCount}</strong>
+        <small>재처리 필요 항목</small>
+      </article>
+      <article class="card approval-stat-card">
+        <span class="label">최근 완료</span>
+        <strong>${latestDone ? 1 : 0}</strong>
+        <small>${esc(latestDone ? (latestDone.mission || latestDone.work_type || latestDone.id) : "완료 이력 없음")}</small>
+      </article>
+    </div>
+    <div class="card approval-queue-preview">
+      <div class="approval-queue-head">
+        <div>
+          <strong>승인 대기 큐</strong>
+          <p class="muted">아래 항목을 누르면 승인 폼이 바로 채워집니다.</p>
+        </div>
+        <span class="tag ${waitingJobs.length ? "status-warn" : "status-ok"}">${waitingJobs.length ? `${waitingJobs.length}건 대기` : "대기 없음"}</span>
+      </div>
+      <div class="approval-queue-list">
+        ${
+          previewJobs.length
+            ? previewJobs
+                .map((job) => {
+                  const phase = waitingApprovalPhase(job);
+                  return `
+                    <button
+                      type="button"
+                      class="approval-queue-item"
+                      data-approval-job="${esc(job.id)}"
+                      data-approval-phase="${esc(phase)}"
+                    >
+                      <span class="approval-queue-main">
+                        <code>${esc(job.id)}</code>
+                        <strong>${esc(job.mission || job.work_type || "-")}</strong>
+                      </span>
+                      <span class="approval-queue-meta">
+                        <span class="tag ${phase === "post" ? "status-bad" : "status-warn"}">${esc(approvalPhaseKo(phase))}</span>
+                        <small>${esc(shortRepoName(job.repository))}</small>
+                      </span>
+                    </button>
+                  `;
+                })
+                .join("")
+            : `<p class="muted">현재 승인 대기 작업이 없습니다.</p>`
+        }
+      </div>
+      ${waitingJobs.length > previewJobs.length ? `<p class="muted">외 ${waitingJobs.length - previewJobs.length}건은 아래 상세 보드에서 확인할 수 있습니다.</p>` : ""}
+    </div>
+  `;
+
+  const kanbanMeta = document.getElementById("approvalKanbanMeta");
+  if (kanbanMeta) {
+    kanbanMeta.textContent = `전체 ${jobs.length}건 · 진행 ${activeCount}건 · 대기 ${waitingJobs.length}건`;
+  }
+  const tableMeta = document.getElementById("approvalTableMeta");
+  if (tableMeta) {
+    tableMeta.textContent = `최근 작업 ${jobs.length}건 · 실패 ${failedCount}건`;
+  }
+}
+
 function renderJobsKanban(jobs = []) {
   const root = document.getElementById("jobsKanban");
   if (!root) return;
@@ -2123,6 +2433,7 @@ function renderJobsKanban(jobs = []) {
           if (p !== 0) return p;
           return eventTimestamp(b.created_at) - eventTimestamp(a.created_at);
         });
+      const previewItems = items.slice(0, JOBS_KANBAN_PREVIEW_LIMIT);
       return `
         <article class="kanban-column">
           <header>
@@ -2132,7 +2443,7 @@ function renderJobsKanban(jobs = []) {
           <div class="kanban-list">
             ${
               items.length
-                ? items
+                ? previewItems
                     .map(
                       (job) => `
                         <div class="kanban-card ${priorityClass(job.priority)}">
@@ -2148,6 +2459,7 @@ function renderJobsKanban(jobs = []) {
                     .join("")
                 : `<p class="muted">작업 없음</p>`
             }
+            ${items.length > previewItems.length ? `<button type="button" class="kanban-more" data-open-fold="approvalTableFold">+${items.length - previewItems.length}건 더 보기</button>` : ""}
           </div>
         </article>
       `;
@@ -2159,6 +2471,7 @@ function renderJobs(payload) {
   tableCache.jobs = payload;
   const originalJobs = payload.jobs || [];
   const jobs = [...originalJobs].sort((a, b) => jobTimestamp(b) - jobTimestamp(a));
+  renderApprovalSummary(originalJobs);
   const root = document.getElementById("jobsTable");
   if (!jobs.length) {
     root.innerHTML = `<p class="muted">할당된 작업이 없습니다.</p>`;
@@ -3384,6 +3697,27 @@ document.getElementById("ownerForm").addEventListener("submit", submitOwnerSetti
 document.getElementById("requestForm").addEventListener("submit", submitRequest);
 document.getElementById("jobForm").addEventListener("submit", submitJob);
 document.getElementById("approveForm").addEventListener("submit", approveJob);
+document.getElementById("approvalSummary")?.addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-approval-job]");
+  if (!trigger) return;
+  const jobId = trigger.getAttribute("data-approval-job") || "";
+  const phase = trigger.getAttribute("data-approval-phase") || "pre";
+  const approveJobSelect = document.getElementById("approveJobSelect");
+  const approvePhase = document.getElementById("approvePhase");
+  if (!approveJobSelect || !approvePhase) return;
+  approveJobSelect.value = jobId;
+  approvePhase.value = phase === "post" ? "post" : "pre";
+  approveJobSelect.focus();
+});
+document.getElementById("section-jobs")?.addEventListener("click", (event) => {
+  const trigger = event.target.closest("[data-open-fold]");
+  if (!trigger) return;
+  const targetId = trigger.getAttribute("data-open-fold");
+  const fold = targetId ? document.getElementById(targetId) : null;
+  if (!(fold instanceof HTMLDetailsElement)) return;
+  fold.open = true;
+  fold.scrollIntoView({ block: "nearest", behavior: "smooth" });
+});
 document.getElementById("refreshInterval").addEventListener("change", restartPolling);
 document.getElementById("pollingEnabled").addEventListener("change", restartPolling);
 document.getElementById("manualRefreshBtn").addEventListener("click", loadAll);
