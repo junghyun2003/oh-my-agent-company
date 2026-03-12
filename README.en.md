@@ -20,6 +20,7 @@ and delivers auditable outcomes with approval gates.
 - Dedicated README variants for Korean, English, and Simplified Chinese
 - MIT license for open collaboration
 - End-to-end auditable workflow: `request -> assign -> execute -> QA -> report -> response`
+- `apply_changes=true` jobs create a `codex/*` work branch and, for GitHub remotes, auto commit/push/pull request evidence before report handoff
 - Safe local operation with health checks and restart controls
 
 ## Repository Information
@@ -35,6 +36,7 @@ bash ./scripts/setup_dev_env.sh --check-only
 bash ./scripts/ci_local_check.sh --quick
 ```
 - You should see `codex`, `node`, `npm`, `npx`, and the Playwright wrapper before running the full verification flow.
+- Install `gh` as well if you want automatic push and pull request creation for GitHub target repositories.
 - The Codex runtime explicitly overrides `model_reasoning_effort="high"` regardless of global `~/.codex/config.toml`.
 
 ### A. Python-only quick run
@@ -155,6 +157,7 @@ bash ./scripts/ci_local_check.sh --quick
 - Repository policy enforcement via `allowed_actions` and `writable_paths`
 - Approval modes: `auto`, `manual_pre`, `manual_post`, `manual_both`
 - Audit-first delivery with `post_job_audit` after completion
+- Change-applying jobs create a `codex/*` branch at Dev start and store branch/PR results in the final report
 - Team leads and a Tech Leader for governance
 - Theme modes: `system`, `light`, `dark`
 - Tycoon-style pixel dashboard for team activity and queue visibility
@@ -289,7 +292,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   -d '{"owner_id":"local-owner","action":"reprioritize","job_ids":["job-123"],"priority":"urgent"}' | jq
 ```
 - The operations settings view exposes the same information through the `Codex Preflight` card.
-- `GET /api/ops/preflight` includes `node_path`, `npm_path`, `npx_path`, `playwright_wrapper_path`, `playwright_ready`, `codex_reasoning_effort`, `effective_codex_args`, `issues`, and `remediations`.
+- `GET /api/ops/preflight` includes `node_path`, `npm_path`, `npx_path`, `playwright_wrapper_path`, `playwright_ready`, `gh_bin_path`, `codex_reasoning_effort`, `effective_codex_args`, `issues`, and `remediations`.
 - `GET /api/health` includes `worker_health`.
 - `GET /api/requests`, `GET /api/jobs`, and `GET /api/audit` support `limit` and `offset`.
 - Request and job pagination in the dashboard is backed by server-side `offset` refetching.
@@ -304,6 +307,7 @@ Smoke test automation:
 ```bash
 bash ./scripts/api_contract_smoke.sh
 bash ./scripts/smoke_core_flows.sh
+python3 ./scripts/repo_delivery_smoke.py
 bash ./scripts/runtime_recovery_smoke.sh
 bash ./scripts/codex_runtime_canary.sh
 bash ./scripts/playwright_ops_e2e.sh
@@ -311,10 +315,11 @@ bash ./scripts/ci_local_check.sh
 ```
 - `api_contract_smoke.sh`: validates core `/api/*` contracts
 - `smoke_core_flows.sh`: verifies request intake, work assignment, pre-approval, `job_done`, and `post_job_audit`
+- `repo_delivery_smoke.py`: verifies `codex/*` branch creation, commit/push, and pull request evidence with a temporary git repository
 - `runtime_recovery_smoke.sh`: verifies `dispatching` orphan recovery and restart reconciliation for `waiting_pre_approval`
 - `codex_runtime_canary.sh`: validates the `codex exec --ephemeral -s read-only -m gpt-5-codex -c model_reasoning_effort="high"` path
 - `playwright_ops_e2e.sh`: verifies `auto` and `manual_pre` no-change flows in a real browser
-- `ci_local_check.sh`: runs `API smoke -> flow smoke -> runtime recovery smoke -> Codex canary -> Playwright ops E2E -> visual/theme regression`
+- `ci_local_check.sh`: runs `API smoke -> flow smoke -> repo delivery smoke -> runtime recovery smoke -> Codex canary -> Playwright ops E2E -> visual/theme regression`
 
 Playwright visual regression:
 ```bash

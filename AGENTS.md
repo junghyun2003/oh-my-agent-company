@@ -6,6 +6,7 @@
 - 클라이언트 요청 접수
 - Owner(운영자)가 요청을 정제해 작업 할당
 - 파이프라인 실행: `PM -> CTO -> Dev(병렬: Backend/Frontend/App/Design/Security/Infra) -> Design Review -> QA -> Report`
+- `apply_changes=true` 작업은 Dev 착수 시 `codex/*` 브랜치를 만들고, GitHub 저장소면 완료 직전 commit/push/PR까지 자동 시도
 - 수동 승인 게이트(전/후) 처리
 - 작업 완료 후 클라이언트 응대(4블록 템플릿: 변경점/영향/리스크/다음 조치)
 - 전체 이벤트 감사로그 기록 + 작업 완료 직후 `post_job_audit` 자동 생성
@@ -79,12 +80,13 @@
 - UI 문구 표기는 Design Ops 언어 정책(`teams/design-ops/LANGUAGE_POLICY.md`)을 따른다. (한국어 우선 + 필요 시 영문 병기)
 - Design Ops는 UI/UX 관련 변경에 대해 `Design Authority`를 가진다. (정책 위반 시 릴리즈 보류 요청 권한)
 - 커밋/푸시 운영은 `COMMIT_PUSH_RULES.md`를 기본 규약으로 사용한다.
+- GitHub 저장소 대상 변경 작업은 `codex/*` 작업 브랜치, commit/push, pull request 생성 결과를 `jobs.repo_delivery`, 감사로그, 리포트에 함께 남긴다.
 - 포크 커스터마이징 추적은 `FORK_CUSTOMIZATION_POLICY.md`, `UPSTREAM_BASELINE.env`, `CUSTOMIZATION_LOG.md`를 함께 사용한다.
 - 요청 접수 시 우선순위 필드(`긴급도/중요도/의존성`)를 필수 입력으로 관리한다.
 - 상태 전이(요청/작업/승인) 규칙은 문서와 테스트로 동기화해 변경 시 동시 갱신한다.
 - 핵심 릴리즈 게이트는 `정책(문서) - 코드(구현) - 검증(스크립트/체크)` 3축으로 운영한다.
-- `Codex Preflight`는 `codex binary/model/reasoning effort + node/npm/npx + playwright wrapper + writable path`를 함께 점검해야 한다.
-- 실제 운영 검증은 기본적으로 `API smoke -> flow smoke -> Codex canary -> Playwright 브라우저 E2E -> visual/theme regression` 순서로 수행한다.
+- `Codex Preflight`는 `codex binary/model/reasoning effort + node/npm/npx + playwright wrapper + writable path + gh(optional for GitHub PR automation)`를 함께 점검해야 한다.
+- 실제 운영 검증은 기본적으로 `API smoke -> flow smoke -> repo delivery smoke -> Codex canary -> Playwright 브라우저 E2E -> visual/theme regression` 순서로 수행한다.
 - Codex 실행은 글로벌 설정에 의존하지 않고 서버가 `model_reasoning_effort="high"`를 명시 오버라이드해 재현성을 확보한다.
 
 ## Design Authority Policy (Company-Wide)

@@ -16,7 +16,7 @@ Repository: [junghyun2003/oh-my-agent-company](https://github.com/junghyun2003/o
 - Full Korean guide: [README.ko.md](README.ko.md)
 - Full English guide: [README.en.md](README.en.md)
 - Full Simplified Chinese guide: [README.zh-CN.md](README.zh-CN.md)
-- The localized guides cover install, queue operations, approval handling, audit flow, and Design review expectations.
+- The localized guides cover install, queue operations, approval handling, audit flow, Design review expectations, and the auto branch/PR delivery flow.
 
 ## Fast Review Map
 - Team role matrix: `docs/TEAM_ROLE_MATRIX.md`

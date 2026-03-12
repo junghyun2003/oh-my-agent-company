@@ -56,6 +56,7 @@
 - Decision priority: 팀 의견 충돌 시 의사결정 우선순위는 `CEO > CTO > Product/QA > other teams`
 - Theme policy: 테마 모드(`system/light/dark`)는 `teams/design-ops/THEME_POLICY.md`를 기준으로 유지
 - Commit/Push policy: 커밋/푸시 절차는 `COMMIT_PUSH_RULES.md`를 기준으로 운영
+- Git delivery: `apply_changes=true` 작업은 Dev 착수 시 `codex/*` 브랜치를 만들고, GitHub 저장소면 Report 전 commit/push/PR까지 자동 시도한 뒤 결과를 audit/report에 남긴다.
 - Intake priority contract: 요청 접수 시 `긴급도/중요도/의존성` 필드를 필수로 수집
 - Release gate: 릴리즈 전 `정책(문서)-코드(구현)-검증(스크립트)` 3축 체크를 수행
 - Runtime gate: `Codex canary`, `Playwright 브라우저 E2E`, `post_job_audit`, `Codex Preflight` 치명 이슈 여부를 함께 확인
@@ -85,7 +86,7 @@
 - Engineering App: 모바일 전환 대비 API 응답 계약 안정화 항목을 상시 추적
 - Design Ops: `Design Review` 게이트를 Dev 이후 필수 유지, 테마 정책 준수를 릴리즈 조건화
 - Quality Assurance: 배포 전 핵심 화면(`승인/감사로그/작업할당`) 스모크 체크 + 브라우저 E2E + `post_job_audit` 확인 필수
-- Infrastructure: 서버 운영은 `infra_server_ctl.sh` 표준 강제, 충돌 시 자동 진단 로그 확보 + Node/npm/npx/Playwright prerequisite 가시화
+- Infrastructure: 서버 운영은 `infra_server_ctl.sh` 표준 강제, 충돌 시 자동 진단 로그 확보 + Node/npm/npx/Playwright/gh prerequisite 가시화
 - Security Ops: 민감정보 노출(로그/응답/문서) 주기 점검을 정규 루틴으로 운영
 - Marketing: 모든 대외 문구를 `한 줄 가치제안 + 3개 핵심 강점` 템플릿으로 통일
 - Business Strategy: 팀별 KPI를 공통 대시보드에서 동일 주기로 추적

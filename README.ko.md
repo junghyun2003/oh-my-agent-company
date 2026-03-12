@@ -20,6 +20,7 @@
 - 한국어, 영어, 중국어 간체용 README를 분리 제공
 - 오픈 협업을 위한 MIT 라이선스 채택
 - `request -> assign -> execute -> QA -> report -> response` 전 구간 감사 가능
+- `apply_changes=true` 작업은 `codex/*` 작업 브랜치를 만들고 GitHub 원격이면 report 전 commit/push/PR 증적까지 남김
 - 헬스 체크와 재시작 제어를 포함한 안전한 로컬 운영
 
 ## 저장소 정보
@@ -35,6 +36,7 @@ bash ./scripts/setup_dev_env.sh --check-only
 bash ./scripts/ci_local_check.sh --quick
 ```
 - 전체 운영 검증을 돌리기 전 `codex`, `node`, `npm`, `npx`, Playwright wrapper가 보여야 합니다.
+- GitHub 대상 저장소에 자동 푸시와 풀리퀘스트 생성을 쓰려면 `gh`도 함께 설치되어 있어야 합니다.
 - Codex 런타임은 글로벌 `~/.codex/config.toml`과 무관하게 `model_reasoning_effort="high"`를 명시 오버라이드합니다.
 
 ### A. Python만으로 빠르게 실행
@@ -155,6 +157,7 @@ bash ./scripts/ci_local_check.sh --quick
 - `allowed_actions`, `writable_paths` 기반 저장소 정책 강제
 - 승인 모드: `auto`, `manual_pre`, `manual_post`, `manual_both`
 - 작업 완료 후 `post_job_audit`를 남기는 감사 우선 납품 방식
+- 실제 변경 작업은 Dev 착수 시 `codex/*` 브랜치를 만들고 report 단계 전에 브랜치/PR 결과를 기록
 - 팀장 체계와 Tech Leader를 통한 거버넌스 운영
 - 테마 모드: `system`, `light`, `dark`
 - 팀 가동과 대기열을 보여주는 타이쿤형 픽셀 대시보드
@@ -289,7 +292,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   -d '{"owner_id":"local-owner","action":"reprioritize","job_ids":["job-123"],"priority":"urgent"}' | jq
 ```
 - 운영 설정 화면의 `Codex Preflight` 카드에서도 같은 정보를 확인할 수 있습니다.
-- `GET /api/ops/preflight`는 `node_path`, `npm_path`, `npx_path`, `playwright_wrapper_path`, `playwright_ready`, `codex_reasoning_effort`, `effective_codex_args`, `issues`, `remediations`를 포함합니다.
+- `GET /api/ops/preflight`는 `node_path`, `npm_path`, `npx_path`, `playwright_wrapper_path`, `playwright_ready`, `gh_bin_path`, `codex_reasoning_effort`, `effective_codex_args`, `issues`, `remediations`를 포함합니다.
 - `GET /api/health`는 `worker_health`를 포함합니다.
 - `GET /api/requests`, `GET /api/jobs`, `GET /api/audit`는 `limit`, `offset`을 지원합니다.
 - 대시보드의 요청/작업 페이지네이션은 서버 측 `offset` 재조회 방식으로 동작합니다.
@@ -304,6 +307,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
 ```bash
 bash ./scripts/api_contract_smoke.sh
 bash ./scripts/smoke_core_flows.sh
+python3 ./scripts/repo_delivery_smoke.py
 bash ./scripts/runtime_recovery_smoke.sh
 bash ./scripts/codex_runtime_canary.sh
 bash ./scripts/playwright_ops_e2e.sh
@@ -311,10 +315,11 @@ bash ./scripts/ci_local_check.sh
 ```
 - `api_contract_smoke.sh`: 핵심 `/api/*` 계약 검증
 - `smoke_core_flows.sh`: 요청 접수, 작업 할당, pre-approval, `job_done`, `post_job_audit` 검증
+- `repo_delivery_smoke.py`: 임시 git 저장소로 `codex/*` 브랜치 생성, commit/push, 풀리퀘스트 증적 생성을 검증
 - `runtime_recovery_smoke.sh`: `dispatching` 고아 복구와 `waiting_pre_approval` 재시작 재조정 검증
 - `codex_runtime_canary.sh`: `codex exec --ephemeral -s read-only -m gpt-5-codex -c model_reasoning_effort="high"` 경로 검증
 - `playwright_ops_e2e.sh`: 실제 브라우저에서 `auto`, `manual_pre` 무변경 플로우 검증
-- `ci_local_check.sh`: `API smoke -> flow smoke -> runtime recovery smoke -> Codex canary -> Playwright ops E2E -> visual/theme regression` 순서 실행
+- `ci_local_check.sh`: `API smoke -> flow smoke -> repo delivery smoke -> runtime recovery smoke -> Codex canary -> Playwright ops E2E -> visual/theme regression` 순서 실행
 
 Playwright 시각 회귀:
 ```bash

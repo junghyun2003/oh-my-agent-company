@@ -19,6 +19,7 @@
 - 分别提供韩文、英文、简体中文 README
 - 使用 MIT 许可证，便于开放协作
 - 支持 `request -> assign -> execute -> QA -> report -> response` 全链路审计
+- `apply_changes=true` 的任务会创建 `codex/*` 工作分支，并在 GitHub 远端上于 report 前留下 commit/push/PR 证据
 - 提供健康检查与重启控制，适合安全的本地运行
 
 ## 仓库信息
@@ -34,6 +35,7 @@ bash ./scripts/setup_dev_env.sh --check-only
 bash ./scripts/ci_local_check.sh --quick
 ```
 - 运行完整验证流程前，应确保 `codex`、`node`、`npm`、`npx` 与 Playwright wrapper 可用。
+- 如果要对 GitHub 目标仓库自动推送并创建 Pull Request，还需要安装 `gh`。
 - 无论全局 `~/.codex/config.toml` 如何设置，Codex 运行时都会显式覆盖 `model_reasoning_effort="high"`。
 
 ### A. 仅用 Python 快速启动
@@ -154,6 +156,7 @@ bash ./scripts/ci_local_check.sh --quick
 - 基于 `allowed_actions` 与 `writable_paths` 的仓库策略约束
 - 审批模式: `auto`、`manual_pre`、`manual_post`、`manual_both`
 - 任务完成后追加 `post_job_audit` 的审计优先交付方式
+- 实际修改仓库的任务会在 Dev 开始时创建 `codex/*` 分支，并在 report 前记录分支与 PR 结果
 - 通过团队负责人体系与 Tech Leader 执行治理
 - 主题模式: `system`、`light`、`dark`
 - 以像素经营游戏风格展示团队状态与队列的仪表盘
@@ -288,7 +291,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   -d '{"owner_id":"local-owner","action":"reprioritize","job_ids":["job-123"],"priority":"urgent"}' | jq
 ```
 - 在运营设置页面的 `Codex Preflight` 卡片中也能查看同样的信息。
-- `GET /api/ops/preflight` 包含 `node_path`、`npm_path`、`npx_path`、`playwright_wrapper_path`、`playwright_ready`、`codex_reasoning_effort`、`effective_codex_args`、`issues`、`remediations`。
+- `GET /api/ops/preflight` 包含 `node_path`、`npm_path`、`npx_path`、`playwright_wrapper_path`、`playwright_ready`、`gh_bin_path`、`codex_reasoning_effort`、`effective_codex_args`、`issues`、`remediations`。
 - `GET /api/health` 包含 `worker_health`。
 - `GET /api/requests`、`GET /api/jobs`、`GET /api/audit` 支持 `limit` 与 `offset`。
 - 仪表盘中的请求与任务分页使用服务端 `offset` 重新拉取。
@@ -303,6 +306,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
 ```bash
 bash ./scripts/api_contract_smoke.sh
 bash ./scripts/smoke_core_flows.sh
+python3 ./scripts/repo_delivery_smoke.py
 bash ./scripts/runtime_recovery_smoke.sh
 bash ./scripts/codex_runtime_canary.sh
 bash ./scripts/playwright_ops_e2e.sh
@@ -310,10 +314,11 @@ bash ./scripts/ci_local_check.sh
 ```
 - `api_contract_smoke.sh`: 验证核心 `/api/*` 契约
 - `smoke_core_flows.sh`: 验证请求接收、任务分配、pre-approval、`job_done`、`post_job_audit`
+- `repo_delivery_smoke.py`: 使用临时 git 仓库验证 `codex/*` 分支创建、commit/push 与 Pull Request 证据生成
 - `runtime_recovery_smoke.sh`: 验证 `dispatching` 孤儿任务恢复与 `waiting_pre_approval` 重启后重整
 - `codex_runtime_canary.sh`: 验证 `codex exec --ephemeral -s read-only -m gpt-5-codex -c model_reasoning_effort="high"` 路径
 - `playwright_ops_e2e.sh`: 在真实浏览器中验证 `auto` 与 `manual_pre` 的无变更流程
-- `ci_local_check.sh`: 按 `API smoke -> flow smoke -> runtime recovery smoke -> Codex canary -> Playwright ops E2E -> visual/theme regression` 顺序执行
+- `ci_local_check.sh`: 按 `API smoke -> flow smoke -> repo delivery smoke -> runtime recovery smoke -> Codex canary -> Playwright ops E2E -> visual/theme regression` 顺序执行
 
 Playwright 视觉回归:
 ```bash

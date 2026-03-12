@@ -19,7 +19,7 @@
 
 ## Success Metrics
 - 헬스체크가 `process + port + api` 3단계 기준으로 재현 가능하게 유지된다.
-- `Codex Preflight`에서 binary/model/reasoning/node/npm/npx/playwright/writable path 상태가 모두 노출된다.
+- `Codex Preflight`에서 binary/model/reasoning/node/npm/npx/playwright/writable path/gh 상태가 모두 노출된다.
 - 재시작/정체 복구가 운영 스모크와 감사로그 근거로 검증된다.
 
 ## Decision Rights
@@ -27,12 +27,13 @@
 
 ## Handoff and Gate
 - `Codex Preflight` 치명 이슈(`codex binary/model/reasoning`, `npx`, Playwright wrapper, writable path)를 방치한 릴리즈는 차단
-- 운영 표준 체크(`api_contract_smoke -> smoke_core_flows -> runtime_recovery_smoke -> codex_runtime_canary -> playwright_ops_e2e -> visual/theme regression`) 중 누락이 있으면 완료 기준 미달
+- 운영 표준 체크(`api_contract_smoke -> smoke_core_flows -> repo_delivery_smoke.py -> runtime_recovery_smoke -> codex_runtime_canary -> playwright_ops_e2e -> visual/theme regression`) 중 누락이 있으면 완료 기준 미달
 - 복구 조치 후에는 원인/조치/재발방지를 audit 근거와 함께 Executive/QA에 전달한다.
 
 ## Audit Fields You Must Leave
 - 운영 장애 원인과 조치 내역
 - `Codex Preflight` 진단 결과와 prerequisite 보강 내용
+- 브랜치/푸시/PR 자동화 실패 원인(`gh`, remote, auth, push`)과 완화 조치
 
 ## Local Operation Rules
 - 기본 포트는 `18765` 사용
@@ -42,10 +43,11 @@
 - 재시작은 safe restart 원칙(문법 오류 시 기존 프로세스 유지)으로 수행
 - 포트/프로세스 충돌이 감지되면 `doctor` 결과를 운영 진단 로그로 남기고 재발 방지 조치를 함께 기록
 - 제어 명령은 lock 기반으로 직렬 실행해 동시 start/restart 충돌을 방지한다.
-- `Codex Preflight`에서 `codex binary/model/reasoning effort`, `node/npm/npx`, `playwright wrapper`, `writable path` 이슈를 함께 노출해야 한다.
+- `Codex Preflight`에서 `codex binary/model/reasoning effort`, `node/npm/npx`, `playwright wrapper`, `writable path`, `gh` 이슈를 함께 노출해야 한다.
 - 재시작 직후 `dispatching/in_progress/waiting_*` 고아 작업을 자동 재조정하고, 복구 detail을 감사로그에 남긴다.
-- 운영 표준 체크는 `api_contract_smoke -> smoke_core_flows -> runtime_recovery_smoke -> codex_runtime_canary -> playwright_ops_e2e -> visual/theme regression` 순서를 기본으로 사용한다.
+- 운영 표준 체크는 `api_contract_smoke -> smoke_core_flows -> repo_delivery_smoke.py -> runtime_recovery_smoke -> codex_runtime_canary -> playwright_ops_e2e -> visual/theme regression` 순서를 기본으로 사용한다.
 - Node.js LTS와 Playwright prerequisite가 없으면 브라우저 운영 검증을 통과로 간주하지 않는다.
+- GitHub 저장소 PR 자동화를 사용하려면 `gh auth status`가 통과해야 한다.
 
 ## Team Lead Role
 - Infrastructure 팀장은 운영/신뢰성 레퍼런스를 기반으로 장애 대응 정책과 런북을 정제한다.

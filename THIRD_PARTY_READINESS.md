@@ -20,10 +20,11 @@
 ## 필수 통과 기준
 1. 새로운 사용자 1명이 README만 보고 30분 내 대시보드 진입
 2. 샘플 요청 1건을 `PM -> Report`까지 완료 가능
-3. 감사로그에서 `request_received -> job_assigned -> job_done` 추적 가능
-4. 클라이언트 응답이 4블록 템플릿으로 저장됨
-5. 실패 작업의 원인과 재발방지 조치가 문서화됨
-6. `Codex canary`와 `Playwright 브라우저 E2E`를 로컬에서 재현 가능
+3. GitHub 저장소 변경 작업 1건이 `codex/*` 브랜치와 PR evidence까지 남김
+4. 감사로그에서 `request_received -> job_assigned -> job_done` 추적 가능
+5. 클라이언트 응답이 4블록 템플릿으로 저장됨
+6. 실패 작업의 원인과 재발방지 조치가 문서화됨
+7. `Codex canary`와 `Playwright 브라우저 E2E`를 로컬에서 재현 가능
 
 ## 팀별 검토 질문
 1. CEO
@@ -51,6 +52,7 @@
 - `process + port + api` 헬스체크로 상태를 즉시 진단 가능한가?
 - 로컬 환경 차이로 인한 실행 실패 대응책이 문서화됐는가?
 - `Codex Preflight`가 Node/npm/npx/Playwright/Codex reasoning effort 문제를 바로 드러내는가?
+- GitHub 저장소 대상 작업에서 브랜치/commit/push/PR prerequisite(`gh`, auth, remote)가 바로 드러나는가?
 - 재시작 뒤 고아 `dispatching/in_progress/waiting_*` 작업이 자동 재조정되는가?
 
 7. Marketing/Strategy
