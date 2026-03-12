@@ -5,8 +5,8 @@ Local multi-agent orchestration template for client delivery.
 This project receives client requests, refines work, runs a structured pipeline,
 and delivers auditable outcomes with approval gates.
 
-## Mascot
-![oh-my-agent-company mascot](assets/oh-my-agent-mascot.svg)
+## Project Hero
+![oh-my-agent-company project hero](assets/readme-hero.svg)
 
 ## Why This Repo Is Global-Ready
 - Bilingual operation context (Korean-first, globally understandable structure)

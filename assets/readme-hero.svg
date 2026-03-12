@@ -1,0 +1,111 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="oh-my-agent-company README hero image">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f4efe2"/>
+      <stop offset="52%" stop-color="#e7f0e3"/>
+      <stop offset="100%" stop-color="#d8e5ec"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10243b"/>
+      <stop offset="100%" stop-color="#17375a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff8a5b"/>
+      <stop offset="100%" stop-color="#f3c969"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#15304a" stroke-opacity="0.07" stroke-width="1"/>
+    </pattern>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#10243b" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect width="1280" height="720" fill="url(#grid)"/>
+
+  <circle cx="1088" cy="112" r="160" fill="#f3c969" fill-opacity="0.22"/>
+  <circle cx="160" cy="640" r="220" fill="#7bb0c7" fill-opacity="0.16"/>
+
+  <g filter="url(#shadow)">
+    <rect x="64" y="64" width="1152" height="592" rx="36" fill="#fcfaf4" stroke="#15304a" stroke-width="4"/>
+  </g>
+
+  <rect x="96" y="96" width="528" height="528" rx="28" fill="url(#panel)"/>
+  <rect x="128" y="130" width="138" height="36" rx="18" fill="url(#accent)"/>
+  <text x="197" y="153" text-anchor="middle" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="18" font-weight="700" fill="#10243b">LOCAL TRUST MODE</text>
+
+  <text x="128" y="248" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="58" font-weight="800" fill="#fcfaf4">oh-my-agent-</text>
+  <text x="128" y="312" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="58" font-weight="800" fill="#fcfaf4">company</text>
+  <text x="128" y="370" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="26" fill="#cfe0eb">Local orchestration for client delivery,</text>
+  <text x="128" y="408" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="26" fill="#cfe0eb">approval gates, and audit-first teamwork.</text>
+
+  <rect x="128" y="462" width="192" height="78" rx="22" fill="#fcfaf4"/>
+  <text x="154" y="493" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#7b8ea6">PIPELINE</text>
+  <text x="154" y="523" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#10243b">PM to Report</text>
+
+  <rect x="340" y="462" width="132" height="78" rx="22" fill="#1f4d6b"/>
+  <text x="366" y="493" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#cfe0eb">QA</text>
+  <text x="366" y="523" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#ffffff">Gate</text>
+
+  <rect x="492" y="462" width="100" height="78" rx="22" fill="#ff8a5b"/>
+  <text x="516" y="493" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#fff4ea">AUDIT</text>
+  <text x="516" y="523" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#ffffff">Log</text>
+
+  <g transform="translate(696 116)">
+    <rect width="458" height="188" rx="28" fill="#ffffff" stroke="#15304a" stroke-width="4"/>
+    <text x="34" y="42" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="18" font-weight="700" fill="#7b8ea6">CLIENT FLOW</text>
+
+    <g transform="translate(34 72)">
+      <rect width="84" height="72" rx="18" fill="#e9f3ef" stroke="#15304a" stroke-width="3"/>
+      <text x="42" y="31" text-anchor="middle" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="16" font-weight="700" fill="#15304a">INTAKE</text>
+      <text x="42" y="52" text-anchor="middle" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="12" fill="#4c657e">Raw brief</text>
+    </g>
+
+    <g transform="translate(138 72)">
+      <rect width="84" height="72" rx="18" fill="#fff1d6" stroke="#15304a" stroke-width="3"/>
+      <text x="42" y="31" text-anchor="middle" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="16" font-weight="700" fill="#15304a">PM</text>
+      <text x="42" y="52" text-anchor="middle" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="12" fill="#4c657e">Scope lock</text>
+    </g>
+
+    <g transform="translate(242 72)">
+      <rect width="84" height="72" rx="18" fill="#e7eefb" stroke="#15304a" stroke-width="3"/>
+      <text x="42" y="31" text-anchor="middle" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="16" font-weight="700" fill="#15304a">CTO</text>
+      <text x="42" y="52" text-anchor="middle" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="12" fill="#4c657e">Plan build</text>
+    </g>
+
+    <g transform="translate(346 72)">
+      <rect width="84" height="72" rx="18" fill="#ffe5db" stroke="#15304a" stroke-width="3"/>
+      <text x="42" y="31" text-anchor="middle" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="16" font-weight="700" fill="#15304a">DEV</text>
+      <text x="42" y="52" text-anchor="middle" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="12" fill="#4c657e">Parallel</text>
+    </g>
+
+    <path d="M 118 108 H 138 M 222 108 H 242 M 326 108 H 346" fill="none" stroke="#15304a" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(696 336)">
+    <rect width="458" height="256" rx="28" fill="#15304a"/>
+    <rect x="0" y="0" width="458" height="64" rx="28" fill="#11273c"/>
+    <text x="34" y="42" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="18" font-weight="700" fill="#f6f1e8">TEAM SIGNALS</text>
+
+    <g transform="translate(34 96)">
+      <circle cx="18" cy="18" r="18" fill="#ff8a5b"/>
+      <text x="50" y="24" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="20" font-weight="700" fill="#ffffff">Design Review required</text>
+      <text x="50" y="48" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="14" fill="#c7d7e2">UI, copy, theme, and component changes cannot skip Design Ops.</text>
+    </g>
+
+    <g transform="translate(34 156)">
+      <circle cx="18" cy="18" r="18" fill="#f3c969"/>
+      <text x="50" y="24" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="20" font-weight="700" fill="#ffffff">QA and post-job audit</text>
+      <text x="50" y="48" font-family="'Trebuchet MS', 'Segoe UI', sans-serif" font-size="14" fill="#c7d7e2">Release only after verdict, recovery checks, and audit evidence.</text>
+    </g>
+  </g>
+
+  <g transform="translate(96 588)">
+    <rect width="1058" height="36" rx="18" fill="#e8efe8"/>
+    <rect x="12" y="8" width="182" height="20" rx="10" fill="#15304a"/>
+    <rect x="210" y="8" width="248" height="20" rx="10" fill="#1f4d6b"/>
+    <rect x="474" y="8" width="306" height="20" rx="10" fill="#ff8a5b"/>
+    <rect x="796" y="8" width="250" height="20" rx="10" fill="#f3c969"/>
+  </g>
+</svg>
