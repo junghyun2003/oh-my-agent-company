@@ -17,8 +17,18 @@
 - 포트/프로세스 충돌 해결
 - 운영 가이드 업데이트
 
+## Success Metrics
+- 헬스체크가 `process + port + api` 3단계 기준으로 재현 가능하게 유지된다.
+- `Codex Preflight`에서 binary/model/reasoning/node/npm/npx/playwright/writable path 상태가 모두 노출된다.
+- 재시작/정체 복구가 운영 스모크와 감사로그 근거로 검증된다.
+
 ## Decision Rights
 - 충돌/손상 시 즉시 복구 조치 제안
+
+## Handoff and Gate
+- `Codex Preflight` 치명 이슈(`codex binary/model/reasoning`, `npx`, Playwright wrapper, writable path)를 방치한 릴리즈는 차단
+- 운영 표준 체크(`api_contract_smoke -> smoke_core_flows -> runtime_recovery_smoke -> codex_runtime_canary -> playwright_ops_e2e -> visual/theme regression`) 중 누락이 있으면 완료 기준 미달
+- 복구 조치 후에는 원인/조치/재발방지를 audit 근거와 함께 Executive/QA에 전달한다.
 
 ## Audit Fields You Must Leave
 - 운영 장애 원인과 조치 내역

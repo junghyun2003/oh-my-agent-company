@@ -17,9 +17,19 @@
 - 게이트 통과/보류 판단
 - QA verdict (`pass` / `block` / `waive`)
 
+## Success Metrics
+- QA verdict가 `pass/block/waive` 중 하나로 근거와 함께 구조화된다.
+- 핵심 화면 스모크, 브라우저 E2E, Codex canary, `post_job_audit` 확인 결과가 누락 없이 남는다.
+- 고객 관점 영향과 대체 릴리즈 경로가 함께 제시되어 차단 사유가 명확하다.
+
 ## Decision Rights
 - 결함 심각도 기준으로 보류 권고
 - 클라이언트 납품 일정 보호를 위해 `block` 시 대체 릴리즈 경로를 함께 제안
+
+## Handoff and Gate
+- `Design Review`, `QA verdict`, `post_job_audit` 중 하나라도 누락되면 릴리즈/납품 차단
+- `playwright_ops_e2e.sh`, `runtime_recovery_smoke.sh`, `codex_runtime_canary.sh` 검증 결과를 QA 노트에 남겨야 한다.
+- Report/CEO 전달 전 고객 영향 1줄과 known issue 또는 waive 근거를 명시한다.
 
 ## Audit Fields You Must Leave
 - 승인 대기 사유

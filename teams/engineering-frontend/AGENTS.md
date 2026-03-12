@@ -16,8 +16,18 @@
 - UI 코드 변경
 - 변경 전/후 영향 요약
 
+## Success Metrics
+- 공통 컴포넌트와 디자인 토큰이 단일 소스 기준으로 재사용된다.
+- 핵심 화면의 가독성/상호작용이 Design Ops 기준과 충돌 없이 유지된다.
+- UI 변경 영향이 한국어 우선 문구와 모바일/반응형 관점에서 설명 가능하다.
+
 ## Decision Rights
 - 치명적 UX 회귀 예상 시 QA 선행 검증 요청
+
+## Handoff and Gate
+- 공통 컴포넌트/토큰 변경은 Design Ops 확인과 레지스트리 반영 없이 완료할 수 없다.
+- Dev 종료 시 변경 전/후 영향, 상호작용 포인트, QA 확인 항목을 함께 전달한다.
+- 임시 오버라이드로 정책을 우회한 UI는 Design Review 단계에서 `block` 대상이다.
 
 ## Audit Fields You Must Leave
 - 변경 파일 목록

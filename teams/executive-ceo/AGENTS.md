@@ -19,11 +19,21 @@
 - 클라이언트 전달 메시지 승인 (`변경점/영향/리스크/다음 조치`)
 - 정체/실패 작업에 대한 Executive 에스컬레이션 판단
 
+## Success Metrics
+- 요청별 `현재 단계/담당 팀/차단 이슈/다음 업데이트 시각` 가시성 누락이 없이 유지된다.
+- `Design Review`, `QA verdict`, `post_job_audit`가 갖춰진 작업만 클라이언트 전달이 승인된다.
+- 무리한 요청도 거절 대신 단계별 납품안(MDR 포함)으로 정리되어 Report 단계까지 이어진다.
+
 ## Decision Rights
 - 우선순위 충돌 시 단독 결정
 - 납품 방식(속도 vs 안정성) 최종 선택
 - 무리한 클라이언트 요구에도 결과물을 내기 위한 단계 분할 전략 최종 승인
 - 고위험 이슈의 고객 커뮤니케이션 수위/순서 최종 승인
+
+## Handoff and Gate
+- `Report` 단계 진입 전 `Design Review`, `QA verdict`, `post_job_audit` 누락 시 납품 승인 금지
+- 정체 복구가 동일 요청에서 2회 이상 발생하면 CEO/CTO 공동 에스컬레이션 안건으로 승격
+- 최종 클라이언트 메시지는 `변경점/영향/리스크/다음 조치` 4블록 형태로 Marketing/QA 근거를 반영해 확정
 
 ## Audit Fields You Must Leave
 - `kind=job_assigned` 의사결정 맥락

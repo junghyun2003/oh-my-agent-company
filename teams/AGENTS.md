@@ -18,6 +18,12 @@
 - `teams/infrastructure/AGENTS.md`
 - `teams/technology-lead/AGENTS.md`
 
+## Team File Standard
+- 각 팀 문서는 최소 `Mission`, `Pipeline Responsibility`, `Inputs`, `Outputs`, `Success Metrics`, `Decision Rights`, `Handoff and Gate`, `Audit Fields You Must Leave`, `Local Operation Rules`를 포함한다.
+- 팀장 역할을 분리 운영하는 팀 문서는 `Team Lead Role` 섹션을 추가해 외부 레퍼런스 탐색/정책 정제/우선순위 조정 책임을 명시한다.
+- KPI와 게이트는 추상 문구 대신 측정 가능한 결과(예: 필수 필드 누락 0건, verdict 기록, smoke 통과, 정책 준수 여부)로 작성한다.
+- 빠른 검토용 팀 전체 스냅샷은 `docs/TEAM_ROLE_MATRIX.md`를 기준으로 유지한다.
+
 ## Universal Output Contract
 모든 팀의 산출물은 다음 4개 섹션을 포함한다.
 - `Context`: 현재 상황/제약

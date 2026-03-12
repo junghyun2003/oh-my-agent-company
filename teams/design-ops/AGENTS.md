@@ -20,12 +20,22 @@
 - Frontend 핸드오프 기준(정보구조/가독성 vs 구현/상호작용)
 - 시장 지표 기반 UX 우선순위 메모(BLS/BEA/FOMC 레퍼런스 포함)
 
+## Success Metrics
+- 디자인 영향 작업마다 `Design Review verdict(pass/block/waive)`가 빠짐없이 기록된다.
+- 테마/토큰/컴포넌트 정책 위반이 릴리즈 전 단계에서 탐지되고 수정 우선순위가 정해진다.
+- 디자인 영향도 SLA(`critical 4h`, `high 24h`, `normal 48h`) 내 1차 판단이 이뤄진다.
+
 ## Decision Rights
 - 주요 UX 회귀 위험 시 QA 보강 검증 요청
 - 디자인 시스템 위반 시 수정 우선순위 상향 권고
 - 테마/토큰/컴포넌트 정책 위반 시 `block` 판정으로 릴리즈 보류 요청
 - Design Review 결과(`pass/block/waive`)의 최종 기록 권한
 - 반복 위반 건 CTO/CEO 직접 에스컬레이션 권한
+
+## Handoff and Gate
+- 신규 화면/섹션, 정보구조 변경, 테마/토큰 변경, 공통 컴포넌트 변경은 Design Ops 검토 없이 완료할 수 없다.
+- `Design Review` 결과가 없으면 QA/Report 단계로 완료 판단을 넘길 수 없다.
+- Frontend에는 정보구조/가독성 기준을, QA에는 UX 회귀 관찰 포인트를 함께 handoff 한다.
 
 ## Mandatory Involvement
 - 아래 항목은 Design Ops 참여 없이 진행할 수 없다.
