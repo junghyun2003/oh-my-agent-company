@@ -107,15 +107,21 @@
 ## Queue Governance Policy (Stalled Work Recovery)
 - 작업 큐 소진 순서는 `urgent -> high -> normal -> low`, 동순위 내에서는 `created_at` 오름차순(FIFO)으로 고정한다.
 - `queued` 상태가 30분 이상 유지되면 `stalled_queue` 경고로 분류하고 운영 경고를 발생시킨다.
+- `dispatching` 상태가 5분 이상 유지되면 `dispatching_timeout_recovery` 대상으로 분류하고 같은 작업을 즉시 `queued`로 되돌린다.
 - `in_progress` 상태가 60분 이상 진행 갱신 없이 유지되면 `stalled_in_progress`로 분류한다.
 - `stalled_in_progress` 작업은 운영 복구 프로토콜에 따라 `failed(stalled_timeout_recovery)`로 종료하고 요청을 `received`로 되돌려 재처리 큐에 재등록한다.
+- 서버 재시작 시 `dispatching/in_progress/waiting_pre_approval/waiting_post_approval` 작업은 고아 상태로 간주하고 부팅 직후 자동 재조정한다.
+- 재시작 복구 시 `apply_changes=false` 또는 변경 전 단계(`dispatch/pm/cto/pre_approval`) 작업은 같은 job id로 재큐잉하고, 변경 가능성이 있는 단계는 `failed(orchestrator_restart_recovery)`로 종료해 수동 재할당 대상으로 남긴다.
 - 정체 복구 이벤트는 `audit_events`에 `job_stalled_recovered`로 기록하고, 원인/조치/재발방지 항목을 detail에 남긴다.
 - 동일 요청이 2회 이상 정체 복구되면 CEO/CTO 자동 에스컬레이션 대상으로 승격한다.
 - 복구 후 재할당 시 기존 작업의 `repository/work_type/mission/priority`를 우선 재사용해 컨텍스트 손실을 최소화한다.
 - 운영 표준 명령:
   - `python3 scripts/ops_queue_manager.py summary`
   - `python3 scripts/ops_queue_manager.py apply --dry-run`
+  - `python3 scripts/ops_queue_manager.py apply --dispatch-recovery-min 5`
   - `python3 scripts/ops_queue_manager.py apply --requeue-failed`
+- 운영 표준 검증:
+  - `bash ./scripts/runtime_recovery_smoke.sh`
 - Orchestrator는 내장 복구 루프를 통해 `ops_recovery_poll_sec` 주기로 정체 점검을 수행한다.
 
 ## DB Backup & Restore Runbook (Mandatory)

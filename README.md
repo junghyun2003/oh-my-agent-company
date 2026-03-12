@@ -237,6 +237,7 @@ Queue management (direct):
 ```bash
 python3 ./scripts/ops_queue_manager.py summary
 python3 ./scripts/ops_queue_manager.py apply --dry-run
+python3 ./scripts/ops_queue_manager.py apply --dispatch-recovery-min 5
 python3 ./scripts/ops_queue_manager.py apply --requeue-failed
 ```
 
@@ -297,15 +298,17 @@ Smoke test automation:
 ```bash
 bash ./scripts/api_contract_smoke.sh
 bash ./scripts/smoke_core_flows.sh
+bash ./scripts/runtime_recovery_smoke.sh
 bash ./scripts/codex_runtime_canary.sh
 bash ./scripts/playwright_ops_e2e.sh
 bash ./scripts/ci_local_check.sh
 ```
 - `api_contract_smoke.sh`: 핵심 `/api/*` 계약 검증
 - `smoke_core_flows.sh`: 요청 접수 -> 작업 할당 -> pre-approval -> `job_done` + `post_job_audit` 검증
+- `runtime_recovery_smoke.sh`: `dispatching` 고아 복구 + 재시작 후 `waiting_pre_approval` 재조정 검증
 - `codex_runtime_canary.sh`: `codex exec --ephemeral -s read-only -m gpt-5-codex -c model_reasoning_effort="high"` 경로 검증
 - `playwright_ops_e2e.sh`: 실제 브라우저로 `auto`/`manual_pre` 무변경 운영 플로우 검증
-- `ci_local_check.sh`: `API smoke -> flow smoke -> Codex canary -> Playwright ops E2E -> visual/theme regression` 순서 실행
+- `ci_local_check.sh`: `API smoke -> flow smoke -> runtime recovery smoke -> Codex canary -> Playwright ops E2E -> visual/theme regression` 순서 실행
 - Playwright visual regression:
 ```bash
 bash ./scripts/visual_regression_playwright.sh
@@ -362,8 +365,12 @@ bash ./scripts/install_pre_commit_hook.sh
 
 Stalled-job recovery (built-in):
 - Orchestrator automatically checks stalled jobs on a polling interval.
+- 서버 부팅 시 `dispatching/in_progress/waiting_pre_approval/waiting_post_approval` 작업은 고아 상태로 간주하고 자동 재조정한다.
+- `dispatching` 상태는 `dispatch_recovery_min` 기준(기본 `5`분)으로 빠르게 재큐잉한다.
+- `apply_changes=false` 또는 변경 전 단계(`dispatch/pm/cto/pre_approval`)에서 끊긴 작업은 같은 job id로 재큐잉하고, 변경 가능성이 있는 단계에서 끊긴 작업은 `failed(orchestrator_restart_recovery)`로 정리해 수동 재할당 대상으로 남긴다.
 - App settings keys:
   - `queue_warn_min` (default: `30`)
+  - `dispatch_recovery_min` (default: `5`)
   - `in_progress_timeout_min` (default: `60`)
   - `ops_recovery_poll_sec` (default: `10`)
   - `worker_concurrency` (default: `2`, max `6`)

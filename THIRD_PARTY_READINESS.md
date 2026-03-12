@@ -51,6 +51,7 @@
 - `process + port + api` 헬스체크로 상태를 즉시 진단 가능한가?
 - 로컬 환경 차이로 인한 실행 실패 대응책이 문서화됐는가?
 - `Codex Preflight`가 Node/npm/npx/Playwright/Codex reasoning effort 문제를 바로 드러내는가?
+- 재시작 뒤 고아 `dispatching/in_progress/waiting_*` 작업이 자동 재조정되는가?
 
 7. Marketing/Strategy
 - 클라이언트 응대 메시지가 신뢰를 주는 구조인가?

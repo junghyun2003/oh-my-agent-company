@@ -27,6 +27,22 @@ def parse_ts(value):
         return None
 
 
+def parse_json(value, default):
+    if value in (None, ""):
+        return default
+    try:
+        return json.loads(value)
+    except Exception:
+        return default
+
+
+def active_job_base_at(row):
+    status = str(row["status"] or "").strip()
+    if status == "dispatching":
+        return row["dispatched_at"] or row["created_at"]
+    return row["started_at"] or row["dispatched_at"] or row["created_at"]
+
+
 def connect():
     con = sqlite3.connect(str(DB_PATH), timeout=30.0)
     con.row_factory = sqlite3.Row
@@ -107,24 +123,52 @@ def apply_rules(
     dry_run,
     queue_promote_min=15,
     queue_warn_min=30,
+    dispatch_recovery_min=5,
     progress_timeout_min=60,
     requeue_failed=False,
 ):
     now = utc_now()
-    actions = {"promoted": [], "warned_queue": [], "recovered_in_progress": [], "requeued_failed": []}
+    actions = {"promoted": [], "warned_queue": [], "recovered_dispatching": [], "recovered_in_progress": [], "requeued_failed": []}
 
-    # 1) backlog priority promotion + warning
-    for row in cur.execute("SELECT id, request_id, priority, created_at FROM jobs WHERE status IN ('queued','dispatching')"):
-        created = parse_ts(row["created_at"])
-        if not created:
+    # 1) backlog priority promotion + warning / dispatch recovery
+    for row in cur.execute("SELECT id, request_id, priority, status, timeline, created_at, dispatched_at FROM jobs WHERE status IN ('queued','dispatching')"):
+        base = parse_ts(active_job_base_at(row))
+        if not base:
             continue
-        age_min = (now_dt - created).total_seconds() / 60
-        if age_min >= queue_warn_min:
+        age_min = (now_dt - base).total_seconds() / 60
+        if row["status"] == "dispatching" and age_min >= dispatch_recovery_min:
+            info = {"id": row["id"], "request_id": row["request_id"], "age_min": round(age_min, 1)}
+            actions["recovered_dispatching"].append(info)
+            if dry_run:
+                continue
+            timeline = parse_json(row["timeline"], [])
+            timeline.append({"at": now, "message": "Dispatching job recovered by ops queue manager; requeued for replay."})
+            cur.execute(
+                """
+                UPDATE jobs
+                SET status='queued', stage='queued', dispatched_at=NULL, started_at=NULL, completed_at=NULL,
+                    report_path=NULL, error=NULL, executed_actions='[]', changed_files='[]',
+                    pm_notes='[]', cto_notes='[]', dev_notes='[]', qa_notes='[]', timeline=?
+                WHERE id=?
+                """,
+                (json.dumps(timeline, ensure_ascii=False), row["id"]),
+            )
+            cur.execute("UPDATE requests SET status='in_company' WHERE id=?", (row["request_id"],))
+            append_audit(
+                cur,
+                "job_stalled_recovered",
+                now,
+                {"reason": "dispatching_timeout_recovery", "source": "ops_queue_manager", "recovery_action": "requeued", "age_min": round(age_min, 1), "threshold_min": dispatch_recovery_min},
+                job_id=row["id"],
+                request_id=row["request_id"],
+            )
+            continue
+        if row["status"] == "queued" and age_min >= queue_warn_min:
             info = {"id": row["id"], "request_id": row["request_id"], "age_min": round(age_min, 1)}
             actions["warned_queue"].append(info)
             if not dry_run:
                 append_audit(cur, "queue_stalled_warning", now, {"age_min": round(age_min, 1)}, job_id=row["id"], request_id=row["request_id"])
-        if age_min >= queue_promote_min and row["priority"] in ("normal", "low"):
+        if row["status"] == "queued" and age_min >= queue_promote_min and row["priority"] in ("normal", "low"):
             new_priority = "high" if age_min < 60 else "urgent"
             info = {"id": row["id"], "from": row["priority"], "to": new_priority, "age_min": round(age_min, 1)}
             actions["promoted"].append(info)
@@ -253,6 +297,7 @@ def cmd_apply(args):
         dry_run=args.dry_run,
         queue_promote_min=args.queue_promote_min,
         queue_warn_min=args.queue_warn_min,
+        dispatch_recovery_min=args.dispatch_recovery_min,
         progress_timeout_min=args.progress_timeout_min,
         requeue_failed=args.requeue_failed,
     )
@@ -275,6 +320,7 @@ def build_parser():
     a.add_argument("--dry-run", action="store_true")
     a.add_argument("--queue-promote-min", type=int, default=15)
     a.add_argument("--queue-warn-min", type=int, default=30)
+    a.add_argument("--dispatch-recovery-min", type=int, default=5)
     a.add_argument("--progress-timeout-min", type=int, default=60)
     a.add_argument("--requeue-failed", action="store_true")
     a.set_defaults(func=cmd_apply)
@@ -290,4 +336,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -57,7 +57,9 @@
 - Client transparency: 요청 단위 단일 상태판(칸반+타임라인) 업데이트를 필수 운영
 - Queue order: 큐 소진 순서는 `urgent -> high -> normal -> low`, 동순위는 FIFO(`created_at`)
 - Stalled threshold: `queued 30분`, `in_progress 60분` 초과 시 정체 작업으로 분류
+- Dispatching recovery: `dispatching 5분` 초과 시 같은 job id로 즉시 `queued` 복구
 - Stalled recovery: 정체 작업은 `failed(stalled_timeout_recovery)` 종료 + 요청 `received` 재등록 + 감사로그(`job_stalled_recovered`) 기록을 표준화
+- Restart reconciliation: 서버 재시작 시 `dispatching/in_progress/waiting_*` 고아 작업을 부팅 직후 재조정
 - Reassignment rule: 정체 복구 후 재할당 시 기존 `repository/work_type/mission/priority`를 기본값으로 재사용
 
 ## Design Involvement Contract (Required)

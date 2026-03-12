@@ -36,6 +36,7 @@ while [[ "${attempt}" -le "${max_attempts}" ]]; do
   attempt=$((attempt + 1))
 done
 
+bash ./scripts/runtime_recovery_smoke.sh
 bash ./scripts/codex_runtime_canary.sh
 
 if [[ "${QUICK}" != "1" ]]; then

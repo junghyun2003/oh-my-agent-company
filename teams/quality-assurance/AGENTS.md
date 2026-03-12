@@ -32,6 +32,7 @@
 - QA 결과에는 고객 관점 영향(무엇이 개선/제한되는지)을 1줄로 포함
 - 배포 전 핵심 화면 스모크 체크(`승인`, `감사로그`, `작업할당`)를 필수 수행하고 결과를 QA 노트에 기록
 - 배포 전 `playwright_ops_e2e.sh`로 `auto`/`manual_pre` 무변경 운영 흐름을 검증하고 결과를 QA 노트에 남긴다.
+- 배포 전 `runtime_recovery_smoke.sh`로 `dispatching` 복구와 재시작 후 승인 대기 복구를 검증하고 결과를 QA 노트에 남긴다.
 - 배포 전 `codex_runtime_canary.sh`를 통과시켜 실제 Codex 런타임이 `model_reasoning_effort=high`로 동작하는지 확인한다.
 - 완료 판정 전 `post_job_audit`가 감사로그에 남았는지 확인한다.
 

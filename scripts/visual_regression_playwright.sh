@@ -101,7 +101,7 @@ await page.evaluate(({ label, selector }) => {
   }
 
   if (label === "approval") {
-    ["#jobsKanban", "#jobsTable", "#jobsPagination"].forEach(hide);
+    ["#approvalSummary", "#approvalKanbanFold", "#approvalTableFold", "#jobsKanban", "#jobsTable", "#jobsPagination"].forEach(hide);
     resetSelect("#approveJobSelect", "승인 대기 작업 선택");
     resetSelect("#approvePhase", "pre (변경 전)");
     resetText("#approveResult", "");

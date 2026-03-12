@@ -33,7 +33,8 @@
 - 포트/프로세스 충돌이 감지되면 `doctor` 결과를 운영 진단 로그로 남기고 재발 방지 조치를 함께 기록
 - 제어 명령은 lock 기반으로 직렬 실행해 동시 start/restart 충돌을 방지한다.
 - `Codex Preflight`에서 `codex binary/model/reasoning effort`, `node/npm/npx`, `playwright wrapper`, `writable path` 이슈를 함께 노출해야 한다.
-- 운영 표준 체크는 `api_contract_smoke -> smoke_core_flows -> codex_runtime_canary -> playwright_ops_e2e -> visual/theme regression` 순서를 기본으로 사용한다.
+- 재시작 직후 `dispatching/in_progress/waiting_*` 고아 작업을 자동 재조정하고, 복구 detail을 감사로그에 남긴다.
+- 운영 표준 체크는 `api_contract_smoke -> smoke_core_flows -> runtime_recovery_smoke -> codex_runtime_canary -> playwright_ops_e2e -> visual/theme regression` 순서를 기본으로 사용한다.
 - Node.js LTS와 Playwright prerequisite가 없으면 브라우저 운영 검증을 통과로 간주하지 않는다.
 
 ## Team Lead Role

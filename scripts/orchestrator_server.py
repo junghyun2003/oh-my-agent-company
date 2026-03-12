@@ -31,6 +31,7 @@ DB_RETRY_SLEEP_SEC = 0.15
 JOB_PRIORITIES = ["urgent", "high", "normal", "low"]
 CODEX_REASONING_EFFORTS = ["low", "medium", "high"]
 DEFAULT_CODEX_REASONING_EFFORT = "high"
+SAFE_ORPHAN_REQUEUE_STAGES = {"queued", "dispatch", "pm", "cto", "pre_approval"}
 WORKER_HEARTBEAT = {}
 RECOVERY_HEARTBEAT = {"at": 0.0, "state": "init"}
 
@@ -105,6 +106,26 @@ def normalize_codex_reasoning_effort(value, default=DEFAULT_CODEX_REASONING_EFFO
 def current_codex_reasoning_effort():
     raw = app_setting("codex_reasoning_effort", DEFAULT_CODEX_REASONING_EFFORT)
     return normalize_codex_reasoning_effort(raw, DEFAULT_CODEX_REASONING_EFFORT)
+
+
+def read_int_setting(key, default, minimum=None, maximum=None):
+    try:
+        value = int(app_setting(key, str(default)) or str(default))
+    except Exception:
+        value = int(default)
+    if minimum is not None and value < minimum:
+        value = minimum
+    if maximum is not None and value > maximum:
+        value = maximum
+    return value
+
+
+def coerce_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def candidate_runtime_bin_dirs():
@@ -276,6 +297,27 @@ def prepare_job_error_storage(value):
     if not payload:
         return None
     return jdump(payload)
+
+
+def active_job_base_at(job):
+    status = str(job.get("status") or "").strip()
+    if status == "dispatching":
+        return job.get("dispatched_at") or job.get("created_at")
+    return job.get("started_at") or job.get("dispatched_at") or job.get("created_at")
+
+
+def can_requeue_interrupted_job(job):
+    if not coerce_bool(job.get("apply_changes")):
+        return True, "apply_changes_disabled"
+    status = str(job.get("status") or "").strip()
+    stage = str(job.get("stage") or "").strip()
+    if status == "dispatching":
+        return True, "dispatch_not_started"
+    if status == "waiting_pre_approval":
+        return True, "waiting_pre_approval"
+    if stage in SAFE_ORPHAN_REQUEUE_STAGES:
+        return True, "pre_change_stage"
+    return False, "possible_partial_changes"
 
 
 def db_connect():
@@ -546,6 +588,8 @@ def seed_defaults():
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("local_trust_mode", "1"))
     if not q1("SELECT key FROM app_settings WHERE key='queue_warn_min'"):
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("queue_warn_min", "30"))
+    if not q1("SELECT key FROM app_settings WHERE key='dispatch_recovery_min'"):
+        exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("dispatch_recovery_min", "5"))
     if not q1("SELECT key FROM app_settings WHERE key='in_progress_timeout_min'"):
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("in_progress_timeout_min", "60"))
     if not q1("SELECT key FROM app_settings WHERE key='ops_recovery_poll_sec'"):
@@ -903,8 +947,9 @@ def _minutes_since(value):
 
 
 def ops_queue_snapshot(limit=40):
-    queue_warn_min = int(app_setting("queue_warn_min", "30") or "30")
-    progress_timeout_min = int(app_setting("in_progress_timeout_min", "60") or "60")
+    queue_warn_min = read_int_setting("queue_warn_min", 30, minimum=1)
+    dispatch_recovery_min = read_int_setting("dispatch_recovery_min", 5, minimum=1)
+    progress_timeout_min = read_int_setting("in_progress_timeout_min", 60, minimum=1)
 
     backlog = []
     in_progress = []
@@ -940,7 +985,7 @@ def ops_queue_snapshot(limit=40):
         item = dict(row)
         item["priority"] = normalize_job_priority(item.get("priority"))
         if item["status"] in ("queued", "dispatching"):
-            age_min = _minutes_since(item.get("created_at"))
+            age_min = _minutes_since(active_job_base_at(item))
             out = {
                 "id": item["id"],
                 "request_id": item.get("request_id"),
@@ -953,11 +998,10 @@ def ops_queue_snapshot(limit=40):
             }
             backlog.append(out)
             counts[item["status"]] += 1
-            if age_min >= queue_warn_min:
+            if (item["status"] == "queued" and age_min >= queue_warn_min) or (item["status"] == "dispatching" and age_min >= dispatch_recovery_min):
                 counts["stalled_queue"] += 1
         elif item["status"] in running_statuses:
-            base = item.get("started_at") or item.get("dispatched_at") or item.get("created_at")
-            age_min = _minutes_since(base)
+            age_min = _minutes_since(active_job_base_at(item))
             out = {
                 "id": item["id"],
                 "request_id": item.get("request_id"),
@@ -1009,6 +1053,7 @@ def ops_queue_snapshot(limit=40):
         "generated_at": utc_now(),
         "thresholds": {
             "queue_warn_min": queue_warn_min,
+            "dispatch_recovery_min": dispatch_recovery_min,
             "in_progress_timeout_min": progress_timeout_min,
         },
         "counts": counts,
@@ -2012,33 +2057,173 @@ def run_pipeline(job):
     )
 
 
+def recover_interrupted_job(job, reason, source, now_iso=None, age_min=None, threshold_min=None):
+    item = dict(job)
+    now_iso = now_iso or utc_now()
+    safe_requeue, policy_reason = can_requeue_interrupted_job(item)
+    timeline = parse_json(item.get("timeline"), [])
+    current_status = str(item.get("status") or "").strip()
+    current_stage = str(item.get("stage") or "").strip()
+    detail = {
+        "reason": reason,
+        "source": source,
+        "from_status": current_status,
+        "from_stage": current_stage,
+        "apply_changes": coerce_bool(item.get("apply_changes")),
+        "policy_reason": policy_reason,
+    }
+    if age_min is not None:
+        detail["age_min"] = round(age_min, 1)
+    if threshold_min is not None:
+        detail["threshold_min"] = threshold_min
+
+    if safe_requeue:
+        timeline.append({"at": now_iso, "message": f"Interrupted job recovered by {source}; requeued for replay."})
+        set_job_fields(
+            item["id"],
+            {
+                "status": "queued",
+                "stage": "queued",
+                "dispatched_at": None,
+                "started_at": None,
+                "completed_at": None,
+                "report_path": None,
+                "error": None,
+                "executed_actions": [],
+                "changed_files": [],
+                "pm_notes": [],
+                "cto_notes": [],
+                "dev_notes": [],
+                "qa_notes": [],
+                "timeline": timeline,
+            },
+        )
+        update_request(item["request_id"], {"status": "in_company"})
+        detail["recovery_action"] = "requeued"
+    else:
+        timeline.append({"at": now_iso, "message": f"Interrupted job recovered by {source}; marked failed for manual reassignment."})
+        set_job_fields(
+            item["id"],
+            {
+                "status": "failed",
+                "stage": "failed",
+                "completed_at": now_iso,
+                "error": {
+                    "message": reason,
+                    "reason": reason,
+                    "source": source,
+                    "status_at_recovery": current_status,
+                    "stage_at_recovery": current_stage,
+                    "policy_reason": policy_reason,
+                    "apply_changes": coerce_bool(item.get("apply_changes")),
+                    "age_min": round(age_min, 1) if age_min is not None else None,
+                    "threshold_min": threshold_min,
+                },
+                "timeline": timeline,
+            },
+        )
+        update_request(item["request_id"], {"status": "received"})
+        detail["recovery_action"] = "failed"
+
+    append_audit(
+        "job_stalled_recovered",
+        owner_id=item.get("owner_id") or "local-owner",
+        job_id=item["id"],
+        request_id=item.get("request_id"),
+        phase="ops",
+        detail=detail,
+    )
+    return {"id": item["id"], "request_id": item.get("request_id"), "action": detail["recovery_action"], "reason": reason}
+
+
+def reconcile_runtime_orphans_on_boot(previous_boot_at=None, current_boot_at=None):
+    now_iso = current_boot_at or utc_now()
+    rows = [
+        dict(row)
+        for row in q(
+            """
+            SELECT * FROM jobs
+            WHERE status IN ('dispatching','in_progress','waiting_pre_approval','waiting_post_approval')
+            ORDER BY created_at ASC
+            """
+        )
+    ]
+    if not rows:
+        return []
+
+    recovered = []
+    for item in rows:
+        base_ts = parse_utc(active_job_base_at(item))
+        age_min = None
+        if base_ts:
+            age_min = max(0.0, (datetime.now(timezone.utc) - base_ts).total_seconds() / 60.0)
+        recovered.append(
+            recover_interrupted_job(
+                item,
+                reason="orchestrator_restart_recovery",
+                source="startup_reconciliation",
+                now_iso=now_iso,
+                age_min=age_min,
+            )
+        )
+
+    append_audit(
+        "ops_queue_managed",
+        owner_id="local-owner",
+        phase="ops",
+        detail={
+            "source": "startup_reconciliation",
+            "previous_boot_at": previous_boot_at or "",
+            "current_boot_at": now_iso,
+            "recovered": recovered,
+        },
+    )
+    set_meta("updated_at", now_iso)
+    return recovered
+
+
 def recover_stalled_jobs():
     now = datetime.now(timezone.utc)
     now_iso = utc_now()
-    queue_warn_min = int(app_setting("queue_warn_min", "30") or "30")
-    progress_timeout_min = int(app_setting("in_progress_timeout_min", "60") or "60")
+    queue_warn_min = read_int_setting("queue_warn_min", 30, minimum=1)
+    dispatch_recovery_min = read_int_setting("dispatch_recovery_min", 5, minimum=1)
+    progress_timeout_min = read_int_setting("in_progress_timeout_min", 60, minimum=1)
 
     warned_queue = []
     recovered = []
 
     # queue warning audit
-    for row in q("SELECT id, request_id, created_at FROM jobs WHERE status IN ('queued','dispatching') ORDER BY created_at ASC"):
+    for row in q("SELECT id, request_id, status, created_at, dispatched_at FROM jobs WHERE status IN ('queued','dispatching') ORDER BY created_at ASC"):
         item = dict(row)
-        created_at = parse_utc(item.get("created_at"))
-        if not created_at:
+        base = parse_utc(active_job_base_at(item))
+        if not base:
             continue
-        age_min = (now - created_at).total_seconds() / 60
-        if age_min < queue_warn_min:
+        age_min = (now - base).total_seconds() / 60
+        if item.get("status") == "dispatching":
+            if age_min >= dispatch_recovery_min:
+                row_full = q1("SELECT * FROM jobs WHERE id=?", (item["id"],))
+                if row_full:
+                    recovered.append(
+                        recover_interrupted_job(
+                            dict(row_full),
+                            reason="dispatching_timeout_recovery",
+                            source="recovery_loop",
+                            now_iso=now_iso,
+                            age_min=age_min,
+                            threshold_min=dispatch_recovery_min,
+                        )
+                    )
             continue
-        warned_queue.append({"id": item["id"], "request_id": item.get("request_id"), "age_min": round(age_min, 1)})
-        append_audit(
-            "queue_stalled_warning",
-            owner_id="local-owner",
-            job_id=item["id"],
-            request_id=item.get("request_id"),
-            phase="ops",
-            detail={"age_min": round(age_min, 1), "threshold_min": queue_warn_min},
-        )
+        if age_min >= queue_warn_min:
+            warned_queue.append({"id": item["id"], "request_id": item.get("request_id"), "age_min": round(age_min, 1)})
+            append_audit(
+                "queue_stalled_warning",
+                owner_id="local-owner",
+                job_id=item["id"],
+                request_id=item.get("request_id"),
+                phase="ops",
+                detail={"age_min": round(age_min, 1), "threshold_min": queue_warn_min},
+            )
 
     # in_progress timeout recovery
     for row in q("SELECT id, request_id, owner_id, started_at, created_at, timeline FROM jobs WHERE status='in_progress'"):
@@ -2076,7 +2261,7 @@ def recover_stalled_jobs():
             phase="ops",
             detail={"reason": "stalled_timeout_recovery", "age_min": round(age_min, 1), "threshold_min": progress_timeout_min},
         )
-        recovered.append({"id": item["id"], "request_id": item["request_id"], "age_min": round(age_min, 1)})
+        recovered.append({"id": item["id"], "request_id": item["request_id"], "action": "failed", "reason": "stalled_timeout_recovery", "age_min": round(age_min, 1)})
 
     if warned_queue or recovered:
         append_audit(
@@ -2202,6 +2387,11 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Location", location)
         self.end_headers()
 
+    def _send_empty(self, status=HTTPStatus.NO_CONTENT):
+        self.send_response(status)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def _owner_guard(self, payload):
         ok, reason = validate_owner(payload)
         if ok:
@@ -2216,6 +2406,8 @@ class Handler(SimpleHTTPRequestHandler):
         # Canonicalize dashboard entry URL so every entry path is unified.
         if path in ["/", "/index.html", "/dashboard", "/dashboard/index.html"]:
             return self._redirect(CANONICAL_DASHBOARD_PATH, status=HTTPStatus.MOVED_PERMANENTLY)
+        if path == "/favicon.ico":
+            return self._send_empty()
         if path.startswith("/api/"):
             with LOCK:
                 touch_api_usage("GET", path)
@@ -2584,15 +2776,16 @@ def main():
     DB = db_connect()
     init_db()
     seed_defaults()
-    boot_count = int(app_setting("runtime_boot_count", "0") or "0") + 1
+    previous_boot_at = app_setting("runtime_last_boot_at", "")
+    boot_count = read_int_setting("runtime_boot_count", 0, minimum=0) + 1
+    boot_at = utc_now()
     set_app_setting("runtime_boot_count", str(boot_count))
-    set_app_setting("runtime_last_boot_at", utc_now())
+    set_app_setting("runtime_last_boot_at", boot_at)
 
-    worker_concurrency = int(app_setting("worker_concurrency", "2") or "2")
-    if worker_concurrency < 1:
-        worker_concurrency = 1
-    if worker_concurrency > 6:
-        worker_concurrency = 6
+    with LOCK:
+        reconcile_runtime_orphans_on_boot(previous_boot_at=previous_boot_at, current_boot_at=boot_at)
+
+    worker_concurrency = read_int_setting("worker_concurrency", 2, minimum=1, maximum=6)
 
     for idx in range(worker_concurrency):
         worker = threading.Thread(target=worker_loop, args=(idx + 1,), daemon=True, name=f"worker-{idx+1}")
