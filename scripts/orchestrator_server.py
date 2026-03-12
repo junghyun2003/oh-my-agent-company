@@ -2,6 +2,7 @@
 import json
 import os
 import random
+import re
 import shlex
 import shutil
 import sqlite3
@@ -87,6 +88,21 @@ def display_path(value):
 
 def display_paths(values):
     return [display_path(v) for v in (values or [])]
+
+
+def slugify_token(value, default="job", max_len=32):
+    token = re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-")
+    if not token:
+        token = default
+    token = token[:max_len].strip("-")
+    return token or default
+
+
+def normalize_repo_delivery(value):
+    if isinstance(value, dict):
+        return dict(value)
+    parsed = parse_json(value, {})
+    return dict(parsed) if isinstance(parsed, dict) else {}
 
 
 def normalize_job_priority(value):
@@ -212,6 +228,47 @@ def summarize_command(cmd):
     if preview and len(preview[-1]) > 160:
         preview[-1] = f"<prompt:{len(preview[-1])} chars>"
     return shlex.join(preview)
+
+
+def run_process_capture(cwd, args, env=None, timeout=None):
+    try:
+        return subprocess.run(args, cwd=str(cwd), text=True, capture_output=True, check=False, timeout=timeout, env=env)
+    except FileNotFoundError as exc:
+        raise JobExecutionError(
+            f"command not found: {args[0]}",
+            {
+                "exit_code": None,
+                "stdout_tail": [],
+                "stderr_tail": [str(exc)],
+                "command_summary": summarize_command(args),
+            },
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise JobExecutionError(
+            f"command timed out after {timeout}s",
+            {
+                "exit_code": None,
+                "stdout_tail": truncate_process_output(exc.stdout),
+                "stderr_tail": truncate_process_output(exc.stderr),
+                "command_summary": summarize_command(args),
+            },
+        )
+
+
+def run_process_checked(cwd, args, error_prefix, env=None, timeout=None, ok_returncodes=(0,)):
+    result = run_process_capture(cwd, args, env=env, timeout=timeout)
+    if result.returncode not in ok_returncodes:
+        cause = derive_failure_message(result.stdout, result.stderr, error_prefix)
+        raise JobExecutionError(
+            f"{error_prefix}: {cause}",
+            {
+                "exit_code": result.returncode,
+                "stdout_tail": truncate_process_output(result.stdout),
+                "stderr_tail": truncate_process_output(result.stderr),
+                "command_summary": summarize_command(args),
+            },
+        )
+    return result
 
 
 def _normalize_error_tail_lines(value):
@@ -467,6 +524,7 @@ def init_db():
           started_at TEXT,
           completed_at TEXT,
           report_path TEXT,
+          repo_delivery TEXT,
           pre_approved INTEGER DEFAULT 0,
           pre_approved_at TEXT,
           post_approved INTEGER DEFAULT 0,
@@ -522,6 +580,8 @@ def seed_defaults():
     job_cols = {r["name"] for r in q("PRAGMA table_info(jobs)")}
     if "priority" not in job_cols:
         exec_sql("ALTER TABLE jobs ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'")
+    if "repo_delivery" not in job_cols:
+        exec_sql("ALTER TABLE jobs ADD COLUMN repo_delivery TEXT")
     exec_sql("UPDATE jobs SET priority='normal' WHERE priority IS NULL OR TRIM(priority)=''")
 
     default_actions = ["dashboard_snb", "work_intake_menu", "audit_log_readability"]
@@ -927,6 +987,7 @@ def jobs_snapshot(limit=None, offset=0):
     for row in rows:
         for key in ["executed_actions", "changed_files", "pm_notes", "cto_notes", "dev_notes", "qa_notes", "timeline"]:
             row[key] = parse_json(row.get(key), [])
+        row["repo_delivery"] = normalize_repo_delivery(row.get("repo_delivery"))
         row["error"] = normalize_job_error(row.get("error"))
         row["error_message"] = job_error_summary(row.get("error"))
         row["priority"] = normalize_job_priority(row.get("priority"))
@@ -1317,12 +1378,14 @@ def build_codex_exec_command(repo_path, prompt):
 
 def codex_preflight_snapshot():
     codex_bin = app_setting("codex_bin", "codex").strip() or "codex"
+    gh_bin = app_setting("gh_bin", "gh").strip() or "gh"
     codex_model = app_setting("codex_model", "").strip()
     stored_reasoning_effort = app_setting("codex_reasoning_effort", DEFAULT_CODEX_REASONING_EFFORT)
     codex_reasoning_effort = normalize_codex_reasoning_effort(stored_reasoning_effort, DEFAULT_CODEX_REASONING_EFFORT)
     timeout_sec = int(app_setting("codex_timeout_sec", "900") or "900")
     execution_mode = app_setting("execution_mode", "codex")
     binary_path = resolve_codex_binary_path(codex_bin)
+    gh_path = resolve_binary_path(gh_bin)
     node_path = resolve_binary_path("node")
     npm_path = resolve_binary_path("npm")
     npx_path = resolve_binary_path("npx")
@@ -1386,6 +1449,9 @@ def codex_preflight_snapshot():
     if not wrapper_executable:
         issues.append("playwright_wrapper_missing")
         remediations.append(f"Playwright wrapper를 확인하세요: {playwright_wrapper_path}")
+    if not gh_path:
+        warnings.append("gh_missing")
+        warning_remediations.append("GitHub 저장소에서 자동 브랜치 푸시/PR 생성을 사용하려면 GitHub CLI(`gh`)를 설치하세요.")
     if missing_repo > 0:
         warnings.append("enabled_repo_missing")
         warning_remediations.append("활성화된 저장소 경로가 실제 디렉터리인지 확인하세요.")
@@ -1413,6 +1479,8 @@ def codex_preflight_snapshot():
         "execution_mode": execution_mode,
         "codex_bin": codex_bin,
         "codex_bin_path": binary_path,
+        "gh_bin": gh_bin,
+        "gh_bin_path": gh_path,
         "codex_model": codex_model,
         "codex_reasoning_effort": codex_reasoning_effort,
         "codex_timeout_sec": timeout_sec,
@@ -1436,6 +1504,347 @@ def run_cmd(repo_path, args):
     if result.returncode != 0:
         return f"(failed: {' '.join(args)})\n{result.stderr.strip()}"
     return (result.stdout or "").strip()
+
+
+def git_ref_exists(repo_path, ref_name):
+    result = run_process_capture(repo_path, ["git", "show-ref", "--verify", "--quiet", ref_name])
+    return result.returncode == 0
+
+
+def git_is_repository(repo_path):
+    result = run_process_capture(repo_path, ["git", "rev-parse", "--is-inside-work-tree"])
+    return result.returncode == 0 and str(result.stdout or "").strip() == "true"
+
+
+def git_current_branch(repo_path):
+    result = run_process_capture(repo_path, ["git", "branch", "--show-current"])
+    if result.returncode != 0:
+        return ""
+    return str(result.stdout or "").strip()
+
+
+def detect_base_branch(repo_path):
+    remote_head = run_process_capture(repo_path, ["git", "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"])
+    if remote_head.returncode == 0:
+        ref = str(remote_head.stdout or "").strip()
+        if ref.startswith("origin/"):
+            return ref.split("/", 1)[1]
+    current = git_current_branch(repo_path)
+    if current and current != "HEAD":
+        return current
+    for candidate in ["main", "master"]:
+        if git_ref_exists(repo_path, f"refs/heads/{candidate}") or git_ref_exists(repo_path, f"refs/remotes/origin/{candidate}"):
+            return candidate
+    return "main"
+
+
+def build_job_branch_name(job):
+    job_token = slugify_token(job.get("id"), "job", 28)
+    mission_token = slugify_token(job.get("mission") or job.get("work_type") or "task", "task", 28)
+    return f"codex/{job_token}-{mission_token}"
+
+
+def relative_repo_paths(repo_path, changed_files):
+    root = Path(repo_path).resolve()
+    rels = []
+    for raw in changed_files or []:
+        path = Path(raw).resolve()
+        try:
+            rels.append(path.relative_to(root).as_posix())
+        except Exception:
+            rels.append(str(raw))
+    return rels
+
+
+def origin_remote_url(repo_path):
+    result = run_process_capture(repo_path, ["git", "config", "--get", "remote.origin.url"])
+    if result.returncode != 0:
+        return ""
+    return str(result.stdout or "").strip()
+
+
+def remote_host_from_url(remote_url):
+    raw = str(remote_url or "").strip()
+    if not raw:
+        return ""
+    if "://" in raw:
+        return (urlparse(raw).hostname or "").lower()
+    if ":" in raw and "/" in raw.split(":", 1)[1]:
+        return raw.split(":", 1)[0].split("@")[-1].lower()
+    return ""
+
+
+def is_github_remote(remote_url):
+    host = remote_host_from_url(remote_url)
+    return host.endswith("github.com") or ".github." in host or host.startswith("github.")
+
+
+def build_repo_commit_message(job):
+    summary = " ".join(str(job.get("mission") or job.get("work_type") or "repository update").split())
+    if len(summary) > 60:
+        summary = summary[:57].rstrip() + "..."
+    return f"chore: {summary} ({job['id']})"
+
+
+def build_pull_request_title(job):
+    summary = " ".join(str(job.get("mission") or job.get("work_type") or "repository update").split())
+    if not summary:
+        summary = "repository update"
+    if len(summary) > 72:
+        summary = summary[:69].rstrip() + "..."
+    return f"{summary} [{job['id']}]"
+
+
+def build_pull_request_body(job, changed_files):
+    changed_display = display_paths(changed_files)
+    lines = [
+        "## Summary",
+        f"- Job ID: {job.get('id', '-')}",
+        f"- Request ID: {job.get('request_id', '-')}",
+        f"- Client: {job.get('client_name', '-')}",
+        f"- Work Type: {job.get('work_type', '-')}",
+        f"- Mission: {job.get('mission', '-')}",
+        "",
+        "## Changed Files",
+    ]
+    if changed_display:
+        lines.extend([f"- {path}" for path in changed_display[:20]])
+    else:
+        lines.append("- (none)")
+    lines.extend(
+        [
+            "",
+            "## Notes",
+            "- Auto-generated by oh-my-agent-company.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def update_repo_delivery(job_id, updates):
+    row = q1("SELECT repo_delivery FROM jobs WHERE id=?", (job_id,))
+    current = normalize_repo_delivery(row["repo_delivery"] if row else {})
+    current.update(updates or {})
+    set_job_fields(job_id, {"repo_delivery": current})
+    return current
+
+
+def ensure_job_work_branch(job):
+    repo_path = Path(job["repository"]).resolve()
+    meta = normalize_repo_delivery(job.get("repo_delivery"))
+    if not coerce_bool(job.get("apply_changes")):
+        meta.update({"status": "skipped", "skipped_reason": "apply_changes_disabled"})
+        return meta
+    if not git_is_repository(repo_path):
+        meta.update({"status": "skipped", "skipped_reason": "non_git_repository"})
+        return update_repo_delivery(job["id"], meta)
+
+    remote_url = origin_remote_url(repo_path)
+    base_branch = meta.get("base_branch") or detect_base_branch(repo_path)
+    working_branch = meta.get("working_branch") or build_job_branch_name(job)
+    current_branch = git_current_branch(repo_path)
+    dirty = run_cmd(repo_path, ["git", "status", "--short"])
+
+    branch_action = "ready"
+    if current_branch != working_branch:
+        if git_ref_exists(repo_path, f"refs/heads/{working_branch}"):
+            run_process_checked(repo_path, ["git", "switch", working_branch], "failed to switch to existing job branch")
+            branch_action = "reused"
+        else:
+            base_ref = "HEAD"
+            if base_branch and git_ref_exists(repo_path, f"refs/remotes/origin/{base_branch}"):
+                base_ref = f"origin/{base_branch}"
+            elif base_branch and git_ref_exists(repo_path, f"refs/heads/{base_branch}"):
+                base_ref = base_branch
+            run_process_checked(repo_path, ["git", "switch", "-c", working_branch, base_ref], "failed to create job branch")
+            branch_action = "created"
+
+    meta.update(
+        {
+            "status": "branch_ready",
+            "working_branch": working_branch,
+            "base_branch": base_branch,
+            "branch_action": branch_action,
+            "remote_name": "origin" if remote_url else "",
+            "remote_url": remote_url,
+            "preexisting_dirty": bool(str(dirty or "").strip()),
+            "preexisting_dirty_summary": truncate_process_output(dirty),
+            "branch_prepared_at": utc_now(),
+        }
+    )
+    meta = update_repo_delivery(job["id"], meta)
+    append_audit(
+        "job_branch_prepared",
+        owner_id=job.get("owner_id"),
+        job_id=job["id"],
+        request_id=job.get("request_id"),
+        repository=display_path(job["repository"]),
+        phase="dev",
+        detail=meta,
+    )
+    add_timeline(job["id"], f"Working branch ready: {working_branch} (base: {base_branch or 'HEAD'}).")
+    return meta
+
+
+def finalize_repository_delivery(job, changed_files):
+    repo_path = Path(job["repository"]).resolve()
+    meta = normalize_repo_delivery(job.get("repo_delivery"))
+    if not coerce_bool(job.get("apply_changes")):
+        meta.update({"status": "skipped", "skipped_reason": "apply_changes_disabled", "pr_status": "skipped"})
+        return update_repo_delivery(job["id"], meta)
+    if not git_is_repository(repo_path):
+        meta.update({"status": "skipped", "skipped_reason": "non_git_repository", "pr_status": "skipped"})
+        return update_repo_delivery(job["id"], meta)
+
+    meta = ensure_job_work_branch(job)
+    base_branch = meta.get("base_branch") or detect_base_branch(repo_path)
+    working_branch = meta.get("working_branch") or build_job_branch_name(job)
+    remote_url = meta.get("remote_url") or origin_remote_url(repo_path)
+    rel_paths = relative_repo_paths(repo_path, changed_files)
+
+    if rel_paths:
+        run_process_checked(repo_path, ["git", "add", "-A", "--", *rel_paths], "failed to stage changed files")
+    staged_diff = run_process_capture(repo_path, ["git", "diff", "--cached", "--quiet"])
+    commit_sha = ""
+    commit_status = "skipped"
+    if staged_diff.returncode == 1:
+        commit_message = build_repo_commit_message(job)
+        run_process_checked(repo_path, ["git", "commit", "-m", commit_message], "failed to create repository commit")
+        commit_sha = run_process_checked(repo_path, ["git", "rev-parse", "HEAD"], "failed to read commit SHA").stdout.strip()
+        commit_status = "created"
+        append_audit(
+            "job_commit_created",
+            owner_id=job.get("owner_id"),
+            job_id=job["id"],
+            request_id=job.get("request_id"),
+            repository=display_path(job["repository"]),
+            phase="report",
+            detail={"branch": working_branch, "commit_sha": commit_sha, "paths": display_paths(changed_files)},
+        )
+        add_timeline(job["id"], f"Repository commit created on {working_branch}: {commit_sha[:12]}.")
+    elif staged_diff.returncode not in (0, 1):
+        raise JobExecutionError(
+            "failed to inspect staged diff",
+            {
+                "exit_code": staged_diff.returncode,
+                "stdout_tail": truncate_process_output(staged_diff.stdout),
+                "stderr_tail": truncate_process_output(staged_diff.stderr),
+                "command_summary": "git diff --cached --quiet",
+            },
+        )
+    else:
+        current_head = run_process_capture(repo_path, ["git", "rev-parse", "HEAD"])
+        if current_head.returncode == 0:
+            commit_sha = str(current_head.stdout or "").strip()
+
+    base_ref = f"origin/{base_branch}" if base_branch and git_ref_exists(repo_path, f"refs/remotes/origin/{base_branch}") else (base_branch or "HEAD")
+    ahead_count_res = run_process_checked(repo_path, ["git", "rev-list", "--count", f"{base_ref}..HEAD"], "failed to inspect branch diff")
+    ahead_count = int((ahead_count_res.stdout or "0").strip() or "0")
+    if ahead_count <= 0:
+        meta.update(
+            {
+                "status": "skipped",
+                "skipped_reason": "no_committed_changes",
+                "commit_status": commit_status,
+                "commit_sha": commit_sha,
+                "push_status": "skipped",
+                "pr_status": "skipped",
+            }
+        )
+        return update_repo_delivery(job["id"], meta)
+
+    if remote_url:
+        run_process_checked(repo_path, ["git", "push", "-u", "origin", working_branch], "failed to push job branch")
+        meta.update({"push_status": "created", "push_at": utc_now()})
+        append_audit(
+            "job_branch_pushed",
+            owner_id=job.get("owner_id"),
+            job_id=job["id"],
+            request_id=job.get("request_id"),
+            repository=display_path(job["repository"]),
+            phase="report",
+            detail={"branch": working_branch, "remote": "origin"},
+        )
+        add_timeline(job["id"], f"Working branch pushed: {working_branch}.")
+    else:
+        meta.update({"push_status": "skipped", "push_skipped_reason": "no_origin_remote"})
+
+    meta.update({"commit_status": commit_status, "commit_sha": commit_sha})
+
+    if not remote_url:
+        meta.update({"status": "skipped", "skipped_reason": "no_origin_remote", "pr_status": "skipped"})
+        return update_repo_delivery(job["id"], meta)
+    if not is_github_remote(remote_url):
+        meta.update({"status": "skipped", "skipped_reason": "non_github_remote", "pr_status": "skipped"})
+        return update_repo_delivery(job["id"], meta)
+
+    gh_bin = app_setting("gh_bin", "gh").strip() or "gh"
+    gh_path = resolve_binary_path(gh_bin)
+    if not gh_path:
+        raise JobExecutionError(
+            "GitHub pull request automation requires gh CLI",
+            {"repo_delivery": meta, "step": "pull_request", "required_binary": gh_bin},
+        )
+
+    run_process_checked(repo_path, [gh_path, "auth", "status"], "GitHub CLI authentication is required for pull request creation")
+    pr_list = run_process_checked(
+        repo_path,
+        [gh_path, "pr", "list", "--head", working_branch, "--json", "number,url,state,title", "--limit", "1"],
+        "failed to inspect existing pull requests",
+    )
+    existing = parse_json(pr_list.stdout, [])
+    if isinstance(existing, list) and existing:
+        pr = existing[0]
+        meta.update(
+            {
+                "status": "pr_ready",
+                "pr_status": "existing",
+                "pr_number": pr.get("number"),
+                "pr_url": pr.get("url"),
+                "pr_title": pr.get("title"),
+                "pr_state": pr.get("state"),
+            }
+        )
+        add_timeline(job["id"], f"Existing pull request found for {working_branch}.")
+    else:
+        pr_title = build_pull_request_title(job)
+        pr_body = build_pull_request_body(job, changed_files)
+        create_res = run_process_checked(
+            repo_path,
+            [gh_path, "pr", "create", "--base", base_branch, "--head", working_branch, "--title", pr_title, "--body", pr_body],
+            "failed to create pull request",
+        )
+        pr_url = str(create_res.stdout or "").strip().splitlines()[-1].strip()
+        pr_view = run_process_checked(
+            repo_path,
+            [gh_path, "pr", "list", "--head", working_branch, "--json", "number,url,state,title", "--limit", "1"],
+            "failed to inspect created pull request",
+        )
+        rows = parse_json(pr_view.stdout, [])
+        pr = rows[0] if isinstance(rows, list) and rows else {}
+        meta.update(
+            {
+                "status": "pr_ready",
+                "pr_status": "created",
+                "pr_number": pr.get("number"),
+                "pr_url": pr.get("url") or pr_url,
+                "pr_title": pr.get("title") or pr_title,
+                "pr_state": pr.get("state") or "OPEN",
+                "pr_created_at": utc_now(),
+            }
+        )
+        append_audit(
+            "pull_request_created",
+            owner_id=job.get("owner_id"),
+            job_id=job["id"],
+            request_id=job.get("request_id"),
+            repository=display_path(job["repository"]),
+            phase="report",
+            detail={"branch": working_branch, "base_branch": base_branch, "pr_url": meta.get("pr_url"), "pr_number": meta.get("pr_number")},
+        )
+        add_timeline(job["id"], f"Pull request created: {meta.get('pr_url') or '-'}")
+
+    return update_repo_delivery(job["id"], meta)
 
 
 def snapshot_writable_files(writable_paths):
@@ -1674,13 +2083,13 @@ def set_job_fields(job_id, fields):
     exec_sql(
         """
         UPDATE jobs SET
-          status=?, stage=?, dispatched_at=?, started_at=?, completed_at=?, report_path=?,
+          status=?, stage=?, dispatched_at=?, started_at=?, completed_at=?, report_path=?, repo_delivery=?,
           pre_approved=?, pre_approved_at=?, post_approved=?, post_approved_at=?,
           error=?, executed_actions=?, changed_files=?, pm_notes=?, cto_notes=?, dev_notes=?, qa_notes=?, timeline=?
         WHERE id=?
         """,
         (
-            data.get("status"), data.get("stage"), data.get("dispatched_at"), data.get("started_at"), data.get("completed_at"), data.get("report_path"),
+            data.get("status"), data.get("stage"), data.get("dispatched_at"), data.get("started_at"), data.get("completed_at"), data.get("report_path"), jdump(normalize_repo_delivery(data.get("repo_delivery"))),
             int(bool(data.get("pre_approved"))), data.get("pre_approved_at"), int(bool(data.get("post_approved"))), data.get("post_approved_at"),
             prepare_job_error_storage(data.get("error")),
             jdump(parse_json(data.get("executed_actions"), []) if isinstance(data.get("executed_actions"), str) else data.get("executed_actions") or []),
@@ -1793,10 +2202,11 @@ def build_post_completion_audit(job):
     return summary
 
 
-def build_client_delivery_message(job, actions, changed_files, post_audit=None):
+def build_client_delivery_message(job, actions, changed_files, post_audit=None, repo_delivery=None):
     changed_display = display_paths(changed_files)
     key_files = changed_display[:3]
     recs = (post_audit or {}).get("recommendations", [])[:2]
+    delivery = normalize_repo_delivery(repo_delivery)
     lines = [
         "[변경점]",
         f"- 요청 ID: {job.get('request_id', '-')}",
@@ -1817,7 +2227,8 @@ def build_client_delivery_message(job, actions, changed_files, post_audit=None):
         [
             "",
             "[다음 조치]",
-            "- 운영자가 대시보드에서 결과를 확인하고 필요 시 추가 요청을 접수합니다.",
+            f"- 작업 브랜치: {delivery.get('working_branch') or '(none)'}",
+            f"- Pull Request: {delivery.get('pr_url') or delivery.get('pr_status') or 'not-created'}",
             "- 후속 개선 요청은 동일 요청 ID 기준으로 추적합니다.",
         ]
     )
@@ -1851,8 +2262,9 @@ def normalize_client_response_note(raw_note, request_row=None):
     )
 
 
-def write_report(job, actions, changed_files, notes, post_audit=None):
+def write_report(job, actions, changed_files, notes, post_audit=None, repo_delivery=None):
     repo_path = Path(job["repository"])
+    delivery = normalize_repo_delivery(repo_delivery)
     DELIVERABLE_DIR.mkdir(parents=True, exist_ok=True)
     report_path = DELIVERABLE_DIR / f"job-{job['id']}.md"
     branch = run_cmd(repo_path, ["git", "rev-parse", "--abbrev-ref", "HEAD"])
@@ -1898,7 +2310,28 @@ def write_report(job, actions, changed_files, notes, post_audit=None):
             lines.append("  - (none)")
     else:
         lines.append("- (audit unavailable)")
-    client_message = build_client_delivery_message(job, actions, changed_files, post_audit)
+    lines.extend(
+        [
+            "",
+            "## Repository Delivery",
+            f"- Base Branch: {delivery.get('base_branch') or '(unknown)'}",
+            f"- Working Branch: {delivery.get('working_branch') or '(none)'}",
+            f"- Commit SHA: {delivery.get('commit_sha') or '(none)'}",
+            f"- Push Status: {delivery.get('push_status') or delivery.get('status') or '(none)'}",
+            f"- PR Status: {delivery.get('pr_status') or '(none)'}",
+            f"- PR URL: {delivery.get('pr_url') or '(none)'}",
+        ]
+    )
+    if delivery.get("skipped_reason"):
+        lines.append(f"- Skip Reason: {delivery.get('skipped_reason')}")
+    if delivery.get("preexisting_dirty"):
+        lines.append("- Preexisting Dirty Files:")
+        dirty_summary = delivery.get("preexisting_dirty_summary") or []
+        if dirty_summary:
+            lines.extend([f"  - {line}" for line in dirty_summary])
+        else:
+            lines.append("  - (summary unavailable)")
+    client_message = build_client_delivery_message(job, actions, changed_files, post_audit, repo_delivery=delivery)
     lines.extend(["", "## Client Delivery Message (Template)", "```text", client_message, "```"])
     lines.extend(["", "## Working Tree", f"- Branch: {branch}", "```text", status or "(clean)", "```"])
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -1982,6 +2415,8 @@ def run_pipeline(job):
     changed_files = []
     execution_mode = app_setting("execution_mode", "codex")
     if int(job["apply_changes"]) == 1:
+        repo_delivery = ensure_job_work_branch(job)
+        job["repo_delivery"] = repo_delivery
         if execution_mode == "codex":
             actions, changed_files, codex_summary = execute_actions_with_codex(job, policy)
             dev_notes.append({"role": "Codex", "stage": "Dev", "note": f"Codex run: {codex_summary}", "at": utc_now()})
@@ -2006,7 +2441,9 @@ def run_pipeline(job):
     qa_notes = [agent_note("QA", "QA", "Regression and release checks")]
 
     post_audit = build_post_completion_audit(job)
-    report_path = write_report(job, actions, changed_files, pm_notes + cto_notes + dev_notes + qa_notes, post_audit=post_audit)
+    repo_delivery = finalize_repository_delivery(job, changed_files)
+    job["repo_delivery"] = repo_delivery
+    report_path = write_report(job, actions, changed_files, pm_notes + cto_notes + dev_notes + qa_notes, post_audit=post_audit, repo_delivery=repo_delivery)
 
     for aid in [
         "ceo", "cto", "strategy", "marketing", "product", "pm", "backend", "frontend", "app", "design", "security", "qa", "infra",
@@ -2017,13 +2454,14 @@ def run_pipeline(job):
     update_agent("tech-lead", current_task="Tech trend scan and policy updates", initiative="Technology leadership")
     set_meta("updated_at", utc_now())
 
-    client_message = build_client_delivery_message(job, actions, changed_files, post_audit)
+    client_message = build_client_delivery_message(job, actions, changed_files, post_audit, repo_delivery=repo_delivery)
     set_job_fields(job["id"], {
         "status": "done",
         "stage": "report",
         "qa_notes": qa_notes,
         "completed_at": utc_now(),
         "report_path": report_path,
+        "repo_delivery": repo_delivery,
     })
     add_timeline(job["id"], "Report stage complete. Job done.")
     update_request(job["request_id"], {"status": "completed", "completed_at": utc_now(), "response_note": client_message})
@@ -2034,7 +2472,7 @@ def run_pipeline(job):
         job_id=job["id"],
         request_id=job["request_id"],
         repository=display_path(job["repository"]),
-        detail={"executed_actions": actions, "changed_files": changed_display},
+        detail={"executed_actions": actions, "changed_files": changed_display, "repo_delivery": repo_delivery},
     )
     append_audit(
         "post_job_audit",
@@ -2043,7 +2481,7 @@ def run_pipeline(job):
         request_id=job["request_id"],
         repository=display_path(job["repository"]),
         phase="post_completion",
-        detail={"audit": post_audit, "client_message_template": client_message},
+        detail={"audit": post_audit, "client_message_template": client_message, "repo_delivery": repo_delivery},
     )
     add_timeline(job["id"], "Post-completion audit generated.")
     append_audit(
