@@ -29,14 +29,35 @@ and delivers auditable outcomes with approval gates.
 - Main server: `scripts/orchestrator_server.py`
 - Dashboard: `dashboard/index.html`
 
+## Recommended Start Path (3 Steps)
+1. Check the environment
+```bash
+bash ./scripts/setup_dev_env.sh --check-only
+```
+
+2. Start the server
+```bash
+./scripts/infra_server_ctl.sh ensure
+./scripts/infra_server_ctl.sh status
+```
+
+3. Open the dashboard
+- `http://localhost:18765/dashboard/`
+
+- For the first local run, the three steps above are enough.
+- For the fuller walkthrough, open `docs/ONBOARDING_10MIN.md`.
+- `npm run bootstrap:local`, `bash ./scripts/bootstrap_local.sh --with-smoke`, Playwright, and GitHub PR automation are advanced install/verification paths.
+- Warning: smoke-style commands such as `smoke_*`, `repo_delivery_smoke.py`, `ci_local_check.sh`, and `npm run check:smoke` may create sample request/job/audit data.
+
 ## Installation Guide
 ### 0. Environment self-check
 ```bash
 bash ./scripts/setup_dev_env.sh --check-only
 bash ./scripts/ci_local_check.sh --quick
 ```
-- You should see `codex`, `node`, `npm`, `npx`, and the Playwright wrapper before running the full verification flow.
-- Install `gh` as well if you want automatic push and pull request creation for GitHub target repositories.
+- `setup_dev_env.sh --check-only` separates `core required` from `advanced optional`.
+- `ci_local_check.sh --quick` is non-destructive. It only runs compile, docs/policy checks, server ensure, API contract, and preflight.
+- Node, npm, npx, the Playwright wrapper, and `gh` are for advanced automation and are not required for the first dashboard visit.
 - The Codex runtime explicitly overrides `model_reasoning_effort="high"` regardless of global `~/.codex/config.toml`.
 
 ### A. Python-only quick run
@@ -46,7 +67,7 @@ python3 --version
 ./scripts/infra_server_ctl.sh status
 ```
 
-### B. npm-supported local setup
+### B. npm-supported local setup (Advanced)
 If Node.js and npm are installed:
 ```bash
 npm install
@@ -93,14 +114,17 @@ cd oh-my-agent-company
 ## 10-Minute Onboarding
 1. Choose an installation path.
 ```bash
-# npm path
+# recommended path
+./scripts/infra_server_ctl.sh ensure
+bash ./scripts/bootstrap_local.sh
+
+# npm path (advanced)
 npm install
 npm run install:local
 npm run bootstrap:local
 
-# python path
-./scripts/infra_server_ctl.sh ensure
-bash ./scripts/bootstrap_local.sh
+# smoke path that also creates sample request/job/audit data (advanced)
+bash ./scripts/bootstrap_local.sh --with-smoke
 
 # require Node.js and fail if npm is missing
 REQUIRE_NODE=1 bash ./scripts/bootstrap_local.sh
@@ -120,6 +144,7 @@ REQUIRE_NODE=1 bash ./scripts/bootstrap_local.sh
 ```bash
 bash ./scripts/ci_local_check.sh --quick
 ```
+- `--quick` is a non-destructive check and does not create sample request/job/audit data.
 
 ## Update Strategy
 - P0: keep service availability stable with `watch-start`, `ensure`, and `doctor`
@@ -304,6 +329,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
 - The audit UI supports filters for `kind`, `job`, `request`, `owner`, and `phase`.
 
 Smoke test automation:
+- Warning: the commands below may create sample request/job/audit data or use a temporary git repository.
 ```bash
 bash ./scripts/api_contract_smoke.sh
 bash ./scripts/smoke_core_flows.sh

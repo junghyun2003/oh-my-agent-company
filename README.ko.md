@@ -29,14 +29,35 @@
 - 메인 서버: `scripts/orchestrator_server.py`
 - 대시보드: `dashboard/index.html`
 
+## 추천 시작 경로 (3단계)
+1. 환경 확인
+```bash
+bash ./scripts/setup_dev_env.sh --check-only
+```
+
+2. 서버 기동
+```bash
+./scripts/infra_server_ctl.sh ensure
+./scripts/infra_server_ctl.sh status
+```
+
+3. 대시보드 열기
+- `http://localhost:18765/dashboard/`
+
+- 가장 빠른 첫 진입은 위 3단계면 충분합니다.
+- 자세한 순서는 `docs/ONBOARDING_10MIN.md`를 참고하세요.
+- `npm run bootstrap:local`, `bash ./scripts/bootstrap_local.sh --with-smoke`, Playwright, GitHub PR 자동화는 고급 설치/검증 경로입니다.
+- 주의: `smoke_*`, `repo_delivery_smoke.py`, `ci_local_check.sh`, `npm run check:smoke` 같은 smoke 계열 명령은 샘플 request/job/audit 데이터를 생성할 수 있습니다.
+
 ## 설치 가이드
 ### 0. 환경 사전 점검
 ```bash
 bash ./scripts/setup_dev_env.sh --check-only
 bash ./scripts/ci_local_check.sh --quick
 ```
-- 전체 운영 검증을 돌리기 전 `codex`, `node`, `npm`, `npx`, Playwright wrapper가 보여야 합니다.
-- GitHub 대상 저장소에 자동 푸시와 풀리퀘스트 생성을 쓰려면 `gh`도 함께 설치되어 있어야 합니다.
+- `setup_dev_env.sh --check-only`는 `core required`와 `advanced optional`을 나눠 보여줍니다.
+- `ci_local_check.sh --quick`는 비파괴 점검입니다. compile, 문서/정책 체크, 서버 ensure, API contract, preflight만 확인합니다.
+- Node, npm, npx, Playwright wrapper, `gh`는 고급 자동화용이며 처음 대시보드 진입에는 없어도 됩니다.
 - Codex 런타임은 글로벌 `~/.codex/config.toml`과 무관하게 `model_reasoning_effort="high"`를 명시 오버라이드합니다.
 
 ### A. Python만으로 빠르게 실행
@@ -46,7 +67,7 @@ python3 --version
 ./scripts/infra_server_ctl.sh status
 ```
 
-### B. npm 기반 로컬 설치
+### B. npm 기반 로컬 설치 (고급)
 Node.js와 npm이 이미 설치되어 있다면:
 ```bash
 npm install
@@ -93,14 +114,17 @@ cd oh-my-agent-company
 ## 10분 온보딩
 1. 설치 경로를 선택합니다.
 ```bash
-# npm 경로
+# 권장 경로
+./scripts/infra_server_ctl.sh ensure
+bash ./scripts/bootstrap_local.sh
+
+# npm 경로 (고급)
 npm install
 npm run install:local
 npm run bootstrap:local
 
-# python 경로
-./scripts/infra_server_ctl.sh ensure
-bash ./scripts/bootstrap_local.sh
+# 샘플 request/job/audit까지 만드는 smoke 경로 (고급)
+bash ./scripts/bootstrap_local.sh --with-smoke
 
 # Node.js 필수 강제, npm이 없으면 실패
 REQUIRE_NODE=1 bash ./scripts/bootstrap_local.sh
@@ -120,6 +144,7 @@ REQUIRE_NODE=1 bash ./scripts/bootstrap_local.sh
 ```bash
 bash ./scripts/ci_local_check.sh --quick
 ```
+- `--quick`은 샘플 request/job/audit를 만들지 않는 비파괴 점검입니다.
 
 ## 업데이트 전략
 - P0: `watch-start`, `ensure`, `doctor` 중심으로 서비스 가용성 유지
@@ -304,6 +329,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
 - 감사로그 UI는 `kind`, `job`, `request`, `owner`, `phase` 필터를 지원합니다.
 
 스모크 테스트 자동화:
+- 주의: 아래 명령은 샘플 request/job/audit 데이터를 생성하거나 임시 git 저장소를 사용할 수 있습니다.
 ```bash
 bash ./scripts/api_contract_smoke.sh
 bash ./scripts/smoke_core_flows.sh

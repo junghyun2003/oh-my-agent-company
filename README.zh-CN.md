@@ -28,14 +28,35 @@
 - 主服务: `scripts/orchestrator_server.py`
 - 仪表盘: `dashboard/index.html`
 
+## 推荐起步路径（3 步）
+1. 检查环境
+```bash
+bash ./scripts/setup_dev_env.sh --check-only
+```
+
+2. 启动服务
+```bash
+./scripts/infra_server_ctl.sh ensure
+./scripts/infra_server_ctl.sh status
+```
+
+3. 打开仪表盘
+- `http://localhost:18765/dashboard/`
+
+- 第一次本地体验时，上面 3 步就够了。
+- 需要更完整的说明时，请打开 `docs/ONBOARDING_10MIN.md`。
+- `npm run bootstrap:local`、`bash ./scripts/bootstrap_local.sh --with-smoke`、Playwright、GitHub PR 自动化属于高级安装/验证路径。
+- 注意：`smoke_*`、`repo_delivery_smoke.py`、`ci_local_check.sh`、`npm run check:smoke` 等 smoke 类命令可能会创建示例 request/job/audit 数据。
+
 ## 安装指南
 ### 0. 环境自检
 ```bash
 bash ./scripts/setup_dev_env.sh --check-only
 bash ./scripts/ci_local_check.sh --quick
 ```
-- 运行完整验证流程前，应确保 `codex`、`node`、`npm`、`npx` 与 Playwright wrapper 可用。
-- 如果要对 GitHub 目标仓库自动推送并创建 Pull Request，还需要安装 `gh`。
+- `setup_dev_env.sh --check-only` 会区分 `core required` 与 `advanced optional`。
+- `ci_local_check.sh --quick` 是非破坏性检查，只验证 compile、文档/策略、server ensure、API contract 与 preflight。
+- Node、npm、npx、Playwright wrapper、`gh` 属于高级自动化能力，第一次打开仪表盘时不是必需项。
 - 无论全局 `~/.codex/config.toml` 如何设置，Codex 运行时都会显式覆盖 `model_reasoning_effort="high"`。
 
 ### A. 仅用 Python 快速启动
@@ -45,7 +66,7 @@ python3 --version
 ./scripts/infra_server_ctl.sh status
 ```
 
-### B. 基于 npm 的本地安装
+### B. 基于 npm 的本地安装（高级）
 如果已经安装 Node.js 和 npm:
 ```bash
 npm install
@@ -92,14 +113,17 @@ cd oh-my-agent-company
 ## 10 分钟上手
 1. 选择安装路径。
 ```bash
-# npm 路径
+# 推荐路径
+./scripts/infra_server_ctl.sh ensure
+bash ./scripts/bootstrap_local.sh
+
+# npm 路径（高级）
 npm install
 npm run install:local
 npm run bootstrap:local
 
-# python 路径
-./scripts/infra_server_ctl.sh ensure
-bash ./scripts/bootstrap_local.sh
+# 同时创建示例 request/job/audit 的 smoke 路径（高级）
+bash ./scripts/bootstrap_local.sh --with-smoke
 
 # 强制要求 Node.js，若缺少 npm 则失败
 REQUIRE_NODE=1 bash ./scripts/bootstrap_local.sh
@@ -119,6 +143,7 @@ REQUIRE_NODE=1 bash ./scripts/bootstrap_local.sh
 ```bash
 bash ./scripts/ci_local_check.sh --quick
 ```
+- `--quick` 是非破坏性检查，不会创建示例 request/job/audit 数据。
 
 ## 更新策略
 - P0: 通过 `watch-start`、`ensure`、`doctor` 保持服务可用性
@@ -303,6 +328,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
 - 审计 UI 支持 `kind`、`job`、`request`、`owner`、`phase` 过滤。
 
 冒烟测试自动化:
+- 注意：下面这些命令可能会创建示例 request/job/audit 数据，或使用临时 git 仓库。
 ```bash
 bash ./scripts/api_contract_smoke.sh
 bash ./scripts/smoke_core_flows.sh
