@@ -88,7 +88,7 @@ echo "[smoke] waiting for completion..."
 wait_for_job_status "${JOB_ID}" "done" 120
 
 echo "[smoke] validating audit events..."
-json_get '/api/audit' | python3 -c 'import json,sys; job_id=sys.argv[1]; events=json.load(sys.stdin).get("events", []); found={"job_assigned":False,"job_approved":False,"job_done":False}; [found.__setitem__(e.get("kind"), True) for e in events if str(e.get("job_id") or "")==job_id and e.get("kind") in found]; missing=[k for k,v in found.items() if not v]; (print("ok") if not missing else (_ for _ in ()).throw(SystemExit("missing audit events: "+", ".join(missing))))' "$JOB_ID" >/dev/null
+json_get '/api/audit' | python3 -c 'import json,sys; job_id=sys.argv[1]; events=json.load(sys.stdin).get("events", []); found={"job_assigned":False,"job_approved":False,"job_done":False,"post_job_audit":False}; [found.__setitem__(e.get("kind"), True) for e in events if str(e.get("job_id") or "")==job_id and e.get("kind") in found]; missing=[k for k,v in found.items() if not v]; (print("ok") if not missing else (_ for _ in ()).throw(SystemExit("missing audit events: "+", ".join(missing))))' "$JOB_ID" >/dev/null
 
 echo "[smoke] validating ops queue API..."
 json_get '/api/ops/queue' | python3 -c 'import json,sys; data=json.load(sys.stdin); queue=data.get("queue") or {}; req={"counts","backlog","in_progress","failed"}; missing=[k for k in req if k not in queue]; (print("ok") if data.get("ok") and not missing else (_ for _ in ()).throw(SystemExit("ops queue snapshot invalid")))' >/dev/null

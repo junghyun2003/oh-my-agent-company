@@ -83,6 +83,33 @@ with_lock() {
   "$@"
 }
 
+spawn_detached() {
+  local log_file="$1"
+  shift
+  python3 - "${ROOT_DIR}" "${log_file}" "$@" <<'PY'
+import os
+import subprocess
+import sys
+
+root_dir = sys.argv[1]
+log_file = sys.argv[2]
+cmd = sys.argv[3:]
+
+os.makedirs(os.path.dirname(log_file), exist_ok=True)
+with open(log_file, "ab", buffering=0) as log:
+    proc = subprocess.Popen(
+        cmd,
+        cwd=root_dir,
+        stdin=subprocess.DEVNULL,
+        stdout=log,
+        stderr=log,
+        start_new_session=True,
+        close_fds=True,
+    )
+print(proc.pid)
+PY
+}
+
 is_running() {
   if [[ ! -f "${PID_FILE}" ]]; then
     # PID file can be lost; recover from listening socket when possible.
@@ -224,9 +251,8 @@ start_server() {
 
   mkdir -p "${ROOT_DIR}/state"
   touch "${LOG_FILE}"
-  nohup env ORCHESTRATOR_PORT="${PORT}" python3 "${SERVER_PY}" >> "${LOG_FILE}" 2>&1 < /dev/null &
-  local pid=$!
-  disown "${pid}" 2>/dev/null || true
+  local pid
+  pid="$(spawn_detached "${LOG_FILE}" env ORCHESTRATOR_PORT="${PORT}" python3 "${SERVER_PY}")"
   echo "${pid}" > "${PID_FILE}"
 
   if wait_health && wait_health_stable; then
@@ -472,14 +498,13 @@ watchdog_start() {
   fi
   mkdir -p "${ROOT_DIR}/state"
   touch "${WATCHDOG_LOG_FILE}"
-  nohup bash -c "
+  local pid
+  pid="$(spawn_detached "${WATCHDOG_LOG_FILE}" bash -lc "
     while true; do
       '${SCRIPT_PATH}' ensure >> '${WATCHDOG_LOG_FILE}' 2>&1 || true
       sleep 5
     done
-  " >> "${WATCHDOG_LOG_FILE}" 2>&1 < /dev/null &
-  local pid=$!
-  disown "${pid}" 2>/dev/null || true
+  ")"
   echo "${pid}" > "${WATCHDOG_PID_FILE}"
   echo "watchdog started: pid ${pid}"
 }

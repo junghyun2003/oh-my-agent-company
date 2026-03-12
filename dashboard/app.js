@@ -14,7 +14,7 @@ const opsQueueManageUrl = "/api/ops/queue/manage";
 const assignUrl = "/api/jobs/from-request";
 const approveUrl = "/api/jobs/approve";
 const settingsSaveUrl = "/api/settings/save";
-const fallbackCodexModels = ["gpt-5", "gpt-5-mini", "gpt-4.1", "o4-mini"];
+const fallbackCodexModels = ["gpt-5-codex", "gpt-5", "gpt-5-mini", "gpt-4.1", "o4-mini"];
 const THEME_STORAGE_KEY = "omac-theme-mode";
 const NAV_TARGET_STORAGE_KEY = "omac-nav-target";
 const LIGHT_LOAD_MODE = new URLSearchParams(window.location.search).get("light") === "1";
@@ -126,6 +126,18 @@ const FLOW_STEPS = [
   { label: "파이프라인 재현", detail: "PM→CTO→Dev→Design→QA 순으로 최근 메시지 검토" },
   { label: "CEO 결론 기록", detail: "진행/제거 여부와 이유를 리포트 메모에 남김" }
 ];
+const PREFLIGHT_ISSUE_LABELS = {
+  codex_binary_missing: "Codex CLI를 찾지 못했습니다.",
+  codex_model_not_set: "Codex 모델이 비어 있습니다.",
+  codex_reasoning_effort_unsupported: "Codex reasoning effort 값이 지원 범위를 벗어났습니다.",
+  codex_timeout_too_low: "Codex timeout 값이 너무 낮습니다.",
+  node_missing: "Node.js가 설치되어 있지 않습니다.",
+  npm_missing: "npm이 설치되어 있지 않습니다.",
+  npx_missing: "npx가 없어 Playwright CLI를 실행할 수 없습니다.",
+  playwright_wrapper_missing: "Playwright wrapper 경로를 찾지 못했거나 실행 권한이 없습니다.",
+  enabled_repo_missing: "활성 저장소 경로를 찾지 못했습니다.",
+  missing_writable_paths: "repo 정책의 writable path 일부가 누락되었습니다."
+};
 const RECOVERY_TEMPLATE = `1) 정체 원인: __
 2) 즉시 조치: __
 3) 필요 승인/검증: __
@@ -156,6 +168,52 @@ function findRequestById(id) {
 function safeDomId(prefix, seed) {
   const slug = String(seed ?? "").trim().replace(/[^a-zA-Z0-9_-]/g, "-") || "x";
   return `${prefix}-${slug}`;
+}
+
+function normalizeErrorPayload(error) {
+  if (!error) return null;
+  if (typeof error === "string") {
+    try {
+      const parsed = JSON.parse(error);
+      if (parsed && typeof parsed === "object") return parsed;
+    } catch (_error) {
+      // Fall through to plain string payload.
+    }
+    return { message: error };
+  }
+  if (typeof error === "object") return error;
+  return { message: String(error) };
+}
+
+function errorSummary(error) {
+  const payload = normalizeErrorPayload(error);
+  if (!payload) return "-";
+  return String(payload.message || payload.reason || payload.raw || "오류 미기록").trim() || "오류 미기록";
+}
+
+function errorDetailText(error) {
+  const payload = normalizeErrorPayload(error);
+  if (!payload) return "";
+  const lines = [errorSummary(payload)];
+  if (payload.exit_code !== undefined && payload.exit_code !== null && payload.exit_code !== "") {
+    lines.push(`exit_code=${payload.exit_code}`);
+  }
+  if (payload.command_summary) {
+    lines.push(`cmd=${payload.command_summary}`);
+  }
+  const stderrTail = Array.isArray(payload.stderr_tail) ? payload.stderr_tail : [];
+  const stdoutTail = Array.isArray(payload.stdout_tail) ? payload.stdout_tail : [];
+  if (stderrTail.length) lines.push(`stderr: ${stderrTail.join(" | ")}`);
+  if (stdoutTail.length) lines.push(`stdout: ${stdoutTail.join(" | ")}`);
+  return lines.join("\n");
+}
+
+function preflightIssueLabel(code) {
+  return PREFLIGHT_ISSUE_LABELS[code] || code;
+}
+
+function preflightPathLabel(pathValue) {
+  return pathValue ? `<code>${esc(pathValue)}</code>` : "<span class=\"muted\">미확인</span>";
 }
 
 function normalizeThemeMode(mode) {
@@ -1542,7 +1600,7 @@ function renderOpsQueueList(rootId, emptyId, tagId, rows = [], mode = "backlog")
       const title = `${item.id} · ${statusKo(item.status || item.stage || "-")}`;
       const mission = item.mission || "미션 미입력";
       const age = mode === "failed" ? `${item.failed_age_min || 0}분 전 실패` : `${item.age_min || 0}분 경과`;
-      const trailing = mode === "failed" ? (item.error || "오류 미기록") : `우선순위 ${priorityKo(item.priority)}`;
+      const trailing = mode === "failed" ? errorSummary(item.error) : `우선순위 ${priorityKo(item.priority)}`;
       return `
         <li>
           <strong>${esc(title)}</strong>
@@ -1565,7 +1623,7 @@ function refillOpsSelectors(queue) {
   refillSelectPreservingValue(
     failedSel,
     "실패 작업 선택",
-    failed.map((job) => `<option value="${esc(job.id)}">${esc(job.id)} · ${esc(job.error || "-")}</option>`).join("")
+    failed.map((job) => `<option value="${esc(job.id)}">${esc(job.id)} · ${esc(errorSummary(job.error))}</option>`).join("")
   );
   refillSelectPreservingValue(
     prioritySel,
@@ -2111,18 +2169,21 @@ function renderJobs(payload) {
     root.innerHTML = `
       <div class="table-wrap"><table class="table">
         <thead>
-          <tr><th>작업 ID</th><th>생성 시각</th><th>완료 시각</th><th>우선순위</th><th>상태</th><th>단계</th><th>저장소</th><th>승인 모드</th><th>실행 액션</th><th>변경 파일 수</th><th>리포트</th></tr>
+          <tr><th>작업 ID</th><th>생성 시각</th><th>완료 시각</th><th>우선순위</th><th>상태</th><th>단계</th><th>저장소</th><th>승인 모드</th><th>실행 액션</th><th>변경 파일 수</th><th>실패 요약</th><th>리포트</th></tr>
         </thead>
         <tbody>
           ${rows.map((j) => {
             const approval = j.approval_mode || "auto";
             const actions = esc((j.executed_actions || []).join(", ") || "-");
             const changed = (j.changed_files || []).length;
+            const issue = errorSummary(j.error);
+            const issueTitle = errorDetailText(j.error);
             const reportHref = reportPathToHref(j.report_path);
             const report = j.report_path
               ? `<a href="${esc(reportHref)}" target="_blank" rel="noopener noreferrer"><code>${esc(j.report_path)}</code></a>`
               : "-";
-            return `<tr><td><code>${esc(j.id)}</code></td><td>${esc(formatDateTimeFull(j.created_at))}</td><td>${esc(formatDateTimeFull(j.completed_at))}</td><td><span class="tag ${priorityClass(j.priority)}">${esc(priorityKo(j.priority))}</span></td><td><span class="tag">${esc(statusKo(j.status))}</span></td><td>${esc(statusKo(j.stage || "-"))}</td><td><code>${esc(shortRepoName(j.repository))}</code></td><td>${esc(approval)}</td><td>${actions}</td><td>${changed}</td><td>${report}</td></tr>`;
+            const issueCell = j.status === "failed" ? `<span title="${esc(issueTitle || issue)}">${esc(issue)}</span>` : "-";
+            return `<tr><td><code>${esc(j.id)}</code></td><td>${esc(formatDateTimeFull(j.created_at))}</td><td>${esc(formatDateTimeFull(j.completed_at))}</td><td><span class="tag ${priorityClass(j.priority)}">${esc(priorityKo(j.priority))}</span></td><td><span class="tag">${esc(statusKo(j.status))}</span></td><td>${esc(statusKo(j.stage || "-"))}</td><td><code>${esc(shortRepoName(j.repository))}</code></td><td>${esc(approval)}</td><td>${actions}</td><td>${changed}</td><td>${issueCell}</td><td>${report}</td></tr>`;
           }).join("")}
         </tbody>
       </table></div>`;
@@ -2174,14 +2235,32 @@ function renderPreflightSummary(preflight) {
     return;
   }
   const issues = Array.isArray(preflight.issues) ? preflight.issues : [];
-  const cls = preflight.ok ? "status-ok" : "status-bad";
+  const warnings = Array.isArray(preflight.warnings) ? preflight.warnings : [];
+  const remediations = Array.isArray(preflight.remediations) ? preflight.remediations : [];
+  const warningRemediations = Array.isArray(preflight.warning_remediations) ? preflight.warning_remediations : [];
+  const args = Array.isArray(preflight.effective_codex_args) ? preflight.effective_codex_args.join(" ") : "-";
+  const cls = preflight.ok ? (warnings.length ? "status-warn" : "status-ok") : "status-bad";
+  const statusLabel = preflight.ok ? (warnings.length ? "경고 있음" : "정상") : "주의";
   root.innerHTML = `
     <h4>Codex Preflight</h4>
-    <p><span class="tag ${cls}">${preflight.ok ? "정상" : "주의"}</span> 실행모드: ${esc(preflight.execution_mode || "-")}</p>
-    <p class="muted">bin: ${esc(preflight.codex_bin || "-")} · model: ${esc(preflight.codex_model || "-")}</p>
+    <p><span class="tag ${cls}">${statusLabel}</span> 실행모드: ${esc(preflight.execution_mode || "-")}</p>
+    <div class="policy-list">
+      <div>Codex bin: ${preflightPathLabel(preflight.codex_bin_path || preflight.codex_bin || "")}</div>
+      <div>Codex model: <code>${esc(preflight.codex_model || "-")}</code> · effort: <code>${esc(preflight.codex_reasoning_effort || "-")}</code></div>
+      <div>Node: ${preflightPathLabel(preflight.node_path)} · npm: ${preflightPathLabel(preflight.npm_path)} · npx: ${preflightPathLabel(preflight.npx_path)}</div>
+      <div>Playwright wrapper: ${preflightPathLabel(preflight.playwright_wrapper_path)} · 상태: <strong>${preflight.playwright_ready ? "ready" : "not-ready"}</strong></div>
+      <div>Effective args: <code>${esc(args)}</code></div>
+    </div>
+    <h5>차단 이슈</h5>
     <ul>
-      ${issues.length ? issues.map((x) => `<li>${esc(x)}</li>`).join("") : "<li>이슈 없음</li>"}
+      ${issues.length ? issues.map((x) => `<li><code>${esc(x)}</code> · ${esc(preflightIssueLabel(x))}</li>`).join("") : "<li>이슈 없음</li>"}
     </ul>
+    ${remediations.length ? `<ul>${remediations.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` : ""}
+    <h5>운영 경고</h5>
+    <ul>
+      ${warnings.length ? warnings.map((x) => `<li><code>${esc(x)}</code> · ${esc(preflightIssueLabel(x))}</li>`).join("") : "<li>경고 없음</li>"}
+    </ul>
+    ${warningRemediations.length ? `<ul>${warningRemediations.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` : ""}
   `;
 }
 
@@ -2848,6 +2927,7 @@ function setupSharedFormControls() {
     "#requestSelect",
     "#repoSelect",
     "#jobPriority",
+    "#codexReasoningEffort",
     "#opsFailedJobSelect",
     "#opsPriorityJobSelect",
     "#opsPriorityValue",
@@ -2980,6 +3060,9 @@ async function loadSettings() {
   if (data.execution_mode) {
     document.getElementById("executionMode").value = data.execution_mode;
   }
+  if (data.codex_reasoning_effort) {
+    document.getElementById("codexReasoningEffort").value = data.codex_reasoning_effort;
+  }
   await loadCodexModels(false, typeof data.codex_model === "string" ? data.codex_model : "");
   if (data.polling_interval_sec) {
     document.getElementById("refreshInterval").value = String(data.polling_interval_sec);
@@ -3065,6 +3148,7 @@ async function submitOwnerSettings(event) {
     owner_token_required: document.getElementById("ownerTokenRequired").checked,
     execution_mode: document.getElementById("executionMode").value,
     codex_model: document.getElementById("codexModel").value,
+    codex_reasoning_effort: document.getElementById("codexReasoningEffort").value,
     default_approval_mode: document.getElementById("approvalMode").value,
     polling_enabled: document.getElementById("pollingEnabled").checked,
     polling_interval_sec: Number(document.getElementById("refreshInterval").value)

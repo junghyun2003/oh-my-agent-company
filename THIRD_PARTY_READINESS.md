@@ -23,6 +23,7 @@
 3. 감사로그에서 `request_received -> job_assigned -> job_done` 추적 가능
 4. 클라이언트 응답이 4블록 템플릿으로 저장됨
 5. 실패 작업의 원인과 재발방지 조치가 문서화됨
+6. `Codex canary`와 `Playwright 브라우저 E2E`를 로컬에서 재현 가능
 
 ## 팀별 검토 질문
 1. CEO
@@ -44,10 +45,12 @@
 5. QA
 - 회귀 체크 항목이 명시적이고 반복 가능한가?
 - `pass/block/waive` 판정 근거가 충분한가?
+- 브라우저 E2E와 `post_job_audit` 검증이 실제 릴리즈 게이트에 연결되어 있는가?
 
 6. Infrastructure
 - `process + port + api` 헬스체크로 상태를 즉시 진단 가능한가?
 - 로컬 환경 차이로 인한 실행 실패 대응책이 문서화됐는가?
+- `Codex Preflight`가 Node/npm/npx/Playwright/Codex reasoning effort 문제를 바로 드러내는가?
 
 7. Marketing/Strategy
 - 클라이언트 응대 메시지가 신뢰를 주는 구조인가?

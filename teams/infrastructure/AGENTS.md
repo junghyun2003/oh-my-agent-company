@@ -22,6 +22,7 @@
 
 ## Audit Fields You Must Leave
 - 운영 장애 원인과 조치 내역
+- `Codex Preflight` 진단 결과와 prerequisite 보강 내용
 
 ## Local Operation Rules
 - 기본 포트는 `18765` 사용
@@ -31,6 +32,9 @@
 - 재시작은 safe restart 원칙(문법 오류 시 기존 프로세스 유지)으로 수행
 - 포트/프로세스 충돌이 감지되면 `doctor` 결과를 운영 진단 로그로 남기고 재발 방지 조치를 함께 기록
 - 제어 명령은 lock 기반으로 직렬 실행해 동시 start/restart 충돌을 방지한다.
+- `Codex Preflight`에서 `codex binary/model/reasoning effort`, `node/npm/npx`, `playwright wrapper`, `writable path` 이슈를 함께 노출해야 한다.
+- 운영 표준 체크는 `api_contract_smoke -> smoke_core_flows -> codex_runtime_canary -> playwright_ops_e2e -> visual/theme regression` 순서를 기본으로 사용한다.
+- Node.js LTS와 Playwright prerequisite가 없으면 브라우저 운영 검증을 통과로 간주하지 않는다.
 
 ## Team Lead Role
 - Infrastructure 팀장은 운영/신뢰성 레퍼런스를 기반으로 장애 대응 정책과 런북을 정제한다.

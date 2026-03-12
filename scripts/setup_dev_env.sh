@@ -23,6 +23,7 @@ check_cmd python3
 check_cmd bash
 check_cmd curl
 check_cmd git
+check_cmd codex
 check_cmd node
 check_cmd npm
 check_cmd npx
@@ -45,6 +46,7 @@ if [[ "${status_ok}" -ne 1 ]]; then
   cat <<'EOM'
 Some prerequisites are missing.
 Install guide:
+- codex --version
 - node --version
 - npm --version
 - npm install -g @playwright/cli@latest

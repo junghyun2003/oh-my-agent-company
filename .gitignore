@@ -19,3 +19,5 @@ state/*.log
 state/*.pid
 state/*.tmp
 dashboard/assets/pixel/vendor/
+.playwright-cli/
+output/playwright/

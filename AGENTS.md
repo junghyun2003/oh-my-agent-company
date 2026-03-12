@@ -83,6 +83,9 @@
 - 요청 접수 시 우선순위 필드(`긴급도/중요도/의존성`)를 필수 입력으로 관리한다.
 - 상태 전이(요청/작업/승인) 규칙은 문서와 테스트로 동기화해 변경 시 동시 갱신한다.
 - 핵심 릴리즈 게이트는 `정책(문서) - 코드(구현) - 검증(스크립트/체크)` 3축으로 운영한다.
+- `Codex Preflight`는 `codex binary/model/reasoning effort + node/npm/npx + playwright wrapper + writable path`를 함께 점검해야 한다.
+- 실제 운영 검증은 기본적으로 `API smoke -> flow smoke -> Codex canary -> Playwright 브라우저 E2E -> visual/theme regression` 순서로 수행한다.
+- Codex 실행은 글로벌 설정에 의존하지 않고 서버가 `model_reasoning_effort="high"`를 명시 오버라이드해 재현성을 확보한다.
 
 ## Design Authority Policy (Company-Wide)
 - 디자인팀은 회사 전 업무에서 선택 사항이 아닌 `필수 개입 팀`으로 운영한다.
@@ -138,6 +141,7 @@
 - 클라이언트 피드백 루프는 단발성으로 종료하지 않으며, 만족 기준 충족까지 반복 수행 상태를 유지한다.
 - 각 작업 종료 시 팀 기여 항목 1개 이상(개선/학습/재사용 자산)을 `report` 또는 `audit`에 남기지 않으면 완료 승인하지 않는다.
 - 정체 복구 기준(`queued 30분`, `in_progress 60분`)을 초과한 작업을 방치할 수 없으며, 복구 조치 없이 릴리즈/운영 완료 선언을 금지한다.
+- 최근 실패 원인은 `jobs.error`와 `job_failed` 감사 detail에서 구조화(`message/exit_code/stdout_tail/stderr_tail/command_summary`)해 바로 확인 가능해야 한다.
 
 ## Release Block Conditions
 - 아래 항목 중 하나라도 충족하면 배포/납품을 즉시 보류한다.
@@ -147,6 +151,8 @@
 4. `Design Review` 또는 `QA verdict` 누락
 5. `post_job_audit` 미기록
 6. 보안 점검 누락(민감정보 노출 점검 미수행)
+7. `Codex canary` 또는 `Playwright 브라우저 E2E` 미수행
+8. `Codex Preflight` 치명 이슈(`codex_binary_missing`, `codex_model_not_set`, `npx_missing`, `playwright_wrapper_missing`) 방치
 
 ## Final Team Responsibility Reorg (Effective: 2026-02-21)
 - 발동 기준: `팀장 의견 수렴본`을 CEO 우선 원칙으로 확정 반영
@@ -155,8 +161,8 @@
 - Engineering Frontend + Design Ops: 컴포넌트/디자인 토큰 단일 소스 유지
 - Engineering Backend: 상태 전이 규칙 문서+테스트 고정
 - Engineering App: 모바일 전환 대비 API 응답 계약 안정화 선행
-- Quality Assurance: 핵심 화면(승인/감사로그/작업할당) 스모크 체크 배포 전 필수
-- Infrastructure: 운영 스크립트 표준 강제 + 충돌 시 자동 진단 로그 확보
+- Quality Assurance: 핵심 화면(승인/감사로그/작업할당) 스모크 체크 + 브라우저 E2E + `post_job_audit` 확인을 배포 전 필수화
+- Infrastructure: 운영 스크립트 표준 강제 + 충돌 시 자동 진단 로그 확보 + `Codex Preflight`/Node/Playwright prerequisite 관리
 - Security Ops: 민감정보 노출(로그/응답/문서) 주기 점검 고정
 - Marketing: `한 줄 가치제안 + 3개 핵심 강점` 템플릿으로 대외 메시지 통일
 - Business Strategy: 팀별 KPI를 공통 대시보드/동일 주기로 추적

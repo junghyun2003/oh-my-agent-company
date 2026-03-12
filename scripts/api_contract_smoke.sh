@@ -18,6 +18,6 @@ check_json "/api/jobs?limit=5&offset=0" "assert 'jobs' in d"
 check_json "/api/audit?limit=5&offset=0" "assert 'events' in d and 'total' in d"
 check_json "/api/ops/queue" "assert d.get('ok') is True and 'queue' in d"
 check_json "/api/ops/runtime" "assert 'uptime_sec' in d and 'worker_health' in d"
-check_json "/api/ops/preflight" "assert 'ok' in d and 'issues' in d"
+check_json "/api/ops/preflight" "assert 'ok' in d and 'issues' in d and 'node_path' in d and 'npm_path' in d and 'npx_path' in d and 'playwright_wrapper_path' in d and 'playwright_ready' in d and 'codex_reasoning_effort' in d and 'effective_codex_args' in d and 'remediations' in d"
 
 echo "api_contract_smoke=ok"

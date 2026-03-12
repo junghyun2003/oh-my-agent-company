@@ -26,6 +26,8 @@ and delivers auditable outcomes with approval gates.
 bash ./scripts/setup_dev_env.sh --check-only
 bash ./scripts/ci_local_check.sh --quick
 ```
+- `codex`, `node`, `npm`, `npx`, Playwright wrapper가 모두 보여야 전체 운영 검증을 실행할 수 있습니다.
+- Codex 런타임은 글로벌 `~/.codex/config.toml`과 무관하게 `model_reasoning_effort="high"`를 명시 오버라이드합니다.
 
 ### A. Python-only quick run
 ```bash
@@ -47,7 +49,7 @@ If npm is missing:
 node --version
 npm --version
 ```
-Install Node.js/npm first, then run `npm install`.
+Install Node.js LTS/npm first, then run `npm install`.
 
 ## Quick Start (Sequential)
 Follow these steps in order.
@@ -105,7 +107,7 @@ REQUIRE_NODE=1 bash ./scripts/bootstrap_local.sh
 ```
 4. 기능 점검 자동화
 ```bash
-bash ./scripts/smoke_core_flows.sh
+bash ./scripts/ci_local_check.sh --quick
 ```
 
 ## Update Strategy
@@ -210,6 +212,14 @@ npm run server:status
 npm run server:ensure
 npm run server:watch
 npm run server:health
+npm run check:api
+npm run check:smoke
+npm run check:codex
+npm run check:playwright:ops
+npm run check:playwright:visual
+npm run check:theme
+npm run check:local
+npm run check:local:quick
 npm run ops:queue:summary
 npm run ops:queue:dry-run
 npm run ops:queue:apply
@@ -252,7 +262,7 @@ curl -s http://localhost:18765/api/ops/queue | jq
 # runtime (uptime/boot count)
 curl -s http://localhost:18765/api/ops/runtime | jq
 
-# codex preflight (binary/model/repo writable path checks)
+# codex preflight (binary/model/reasoning/node/npm/npx/playwright/repo checks)
 curl -s http://localhost:18765/api/ops/preflight | jq
 
 # recover stalled jobs
@@ -271,6 +281,7 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
   -d '{"owner_id":"local-owner","action":"reprioritize","job_ids":["job-123"],"priority":"urgent"}' | jq
 ```
 - 운영 설정 화면에서도 `Codex Preflight` 카드로 동일 정보를 확인할 수 있습니다.
+- `GET /api/ops/preflight`는 `node_path/npm_path/npx_path/playwright_wrapper_path/playwright_ready/codex_reasoning_effort/effective_codex_args/issues/remediations`를 포함합니다.
 - `GET /api/health`는 `worker_health` 필드를 포함해 HTTP 가용성과 워커 정체 여부를 분리해 제공합니다.
 - `GET /api/requests`, `GET /api/jobs`는 `limit`/`offset`을 지원합니다. (예: `/api/jobs?limit=300&offset=0`)
 - 대시보드의 요청/작업 페이지네이션은 서버 `offset` 재조회 방식으로 동작합니다.
@@ -284,20 +295,27 @@ curl -s -X POST http://localhost:18765/api/ops/queue/manage \
 
 Smoke test automation:
 ```bash
-bash ./scripts/smoke_core_flows.sh
 bash ./scripts/api_contract_smoke.sh
+bash ./scripts/smoke_core_flows.sh
+bash ./scripts/codex_runtime_canary.sh
+bash ./scripts/playwright_ops_e2e.sh
+bash ./scripts/ci_local_check.sh
 ```
-- Covers: request intake, job assignment, pre-approval gate, audit evidence, ops queue API, dashboard core section render tokens.
-- Playwright visual regression (optional in smoke):
+- `api_contract_smoke.sh`: 핵심 `/api/*` 계약 검증
+- `smoke_core_flows.sh`: 요청 접수 -> 작업 할당 -> pre-approval -> `job_done` + `post_job_audit` 검증
+- `codex_runtime_canary.sh`: `codex exec --ephemeral -s read-only -m gpt-5-codex -c model_reasoning_effort="high"` 경로 검증
+- `playwright_ops_e2e.sh`: 실제 브라우저로 `auto`/`manual_pre` 무변경 운영 플로우 검증
+- `ci_local_check.sh`: `API smoke -> flow smoke -> Codex canary -> Playwright ops E2E -> visual/theme regression` 순서 실행
+- Playwright visual regression:
 ```bash
-ENABLE_PLAYWRIGHT_VISUAL=1 bash ./scripts/smoke_core_flows.sh
 bash ./scripts/visual_regression_playwright.sh
 bash ./scripts/theme_regression_check.sh
 ```
 - strict mode (환경 미충족 시 실패 처리):
 ```bash
 STRICT_PLAYWRIGHT_VISUAL=1 bash ./scripts/visual_regression_playwright.sh
-ENABLE_PLAYWRIGHT_VISUAL=1 STRICT_PLAYWRIGHT_VISUAL=1 bash ./scripts/smoke_core_flows.sh
+STRICT_THEME_REGRESSION=1 bash ./scripts/theme_regression_check.sh
+STRICT_PLAYWRIGHT_E2E=1 bash ./scripts/playwright_ops_e2e.sh
 STRICT_VISUAL_BASELINE=1 bash ./scripts/visual_regression_playwright.sh
 ```
 - `npx` prerequisite:

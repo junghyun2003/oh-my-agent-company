@@ -2,6 +2,7 @@
 import json
 import os
 import random
+import shlex
 import shutil
 import sqlite3
 import subprocess
@@ -22,14 +23,25 @@ DB_PATH = ROOT / "state" / "agent_company.db"
 DELIVERABLE_DIR = ROOT / "deliverables"
 PORT = int(os.environ.get("ORCHESTRATOR_PORT", "18765"))
 CANONICAL_DASHBOARD_PATH = "/dashboard/"
-LOCK = threading.Lock()
+LOCK = threading.RLock()
 DB = None
 DEFAULT_CODEX_MODELS = ["gpt-5-codex", "gpt-5", "o4-mini", "o3"]
 DB_RETRY_ATTEMPTS = 5
 DB_RETRY_SLEEP_SEC = 0.15
 JOB_PRIORITIES = ["urgent", "high", "normal", "low"]
+CODEX_REASONING_EFFORTS = ["low", "medium", "high"]
+DEFAULT_CODEX_REASONING_EFFORT = "high"
 WORKER_HEARTBEAT = {}
 RECOVERY_HEARTBEAT = {"at": 0.0, "state": "init"}
+
+
+class JobExecutionError(RuntimeError):
+    def __init__(self, message, detail=None):
+        super().__init__(message)
+        payload = {"message": message}
+        if isinstance(detail, dict):
+            payload.update(detail)
+        self.detail = payload
 
 
 def utc_now():
@@ -47,6 +59,18 @@ def parse_json(value, default):
 
 def jdump(value):
     return json.dumps(value, ensure_ascii=False)
+
+
+def unique_strings(values):
+    out = []
+    seen = set()
+    for value in values or []:
+        token = str(value or "").strip()
+        if not token or token in seen:
+            continue
+        seen.add(token)
+        out.append(token)
+    return out
 
 
 def display_path(value):
@@ -71,6 +95,189 @@ def normalize_job_priority(value):
     return "normal"
 
 
+def normalize_codex_reasoning_effort(value, default=DEFAULT_CODEX_REASONING_EFFORT):
+    token = str(value or "").strip().lower()
+    if token in CODEX_REASONING_EFFORTS:
+        return token
+    return default
+
+
+def current_codex_reasoning_effort():
+    raw = app_setting("codex_reasoning_effort", DEFAULT_CODEX_REASONING_EFFORT)
+    return normalize_codex_reasoning_effort(raw, DEFAULT_CODEX_REASONING_EFFORT)
+
+
+def candidate_runtime_bin_dirs():
+    dirs = []
+    env_candidates = [
+        os.environ.get("NVM_BIN"),
+        os.environ.get("VOLTA_HOME"),
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+    ]
+    for raw in env_candidates:
+        if not raw:
+            continue
+        path = Path(raw)
+        if path.name != "bin" and (path / "bin").is_dir():
+            path = path / "bin"
+        if path.is_dir():
+            dirs.append(str(path))
+
+    nvm_versions_dir = Path.home() / ".nvm" / "versions" / "node"
+    if nvm_versions_dir.is_dir():
+        try:
+            version_dirs = sorted(
+                [p for p in nvm_versions_dir.iterdir() if p.is_dir()],
+                key=lambda item: item.stat().st_mtime,
+                reverse=True,
+            )
+        except Exception:
+            version_dirs = []
+        for version_dir in version_dirs:
+            bin_dir = version_dir / "bin"
+            if bin_dir.is_dir():
+                dirs.append(str(bin_dir))
+
+    return unique_strings(dirs)
+
+
+def resolve_binary_path(binary_name):
+    token = str(binary_name or "").strip()
+    if not token:
+        return ""
+    if os.path.sep in token:
+        path = Path(token).expanduser()
+        return str(path) if path.exists() else ""
+    direct = shutil.which(token)
+    if direct:
+        return direct
+    for directory in candidate_runtime_bin_dirs():
+        candidate = Path(directory) / token
+        if candidate.exists() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return ""
+
+
+def resolve_codex_binary_path(codex_bin):
+    return resolve_binary_path(codex_bin)
+
+
+def resolve_playwright_wrapper_path():
+    explicit = str(os.environ.get("PWCLI") or "").strip()
+    if explicit:
+        return explicit
+    codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+    return str(codex_home / "skills" / "playwright" / "scripts" / "playwright_cli.sh")
+
+
+def truncate_process_output(text, max_lines=12, max_chars=240):
+    lines = []
+    for raw in str(text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if len(line) > max_chars:
+            line = line[: max_chars - 3] + "..."
+        lines.append(line)
+    return lines[-max_lines:]
+
+
+def summarize_command(cmd):
+    parts = [str(p) for p in (cmd or [])]
+    if not parts:
+        return ""
+    preview = list(parts)
+    if preview and len(preview[-1]) > 160:
+        preview[-1] = f"<prompt:{len(preview[-1])} chars>"
+    return shlex.join(preview)
+
+
+def _normalize_error_tail_lines(value):
+    if isinstance(value, list):
+        return truncate_process_output("\n".join(str(x or "") for x in value))
+    return truncate_process_output(value)
+
+
+def derive_failure_message(stdout_tail, stderr_tail, fallback):
+    boring_prefixes = (
+        "openai codex",
+        "--------",
+        "workdir:",
+        "model:",
+        "provider:",
+        "approval:",
+        "sandbox:",
+        "reasoning effort:",
+        "reasoning summaries:",
+        "session id:",
+        "tokens used",
+        "thinking",
+        "codex",
+        "user",
+        "mcp:",
+    )
+    candidates = _normalize_error_tail_lines(stderr_tail)[::-1] + _normalize_error_tail_lines(stdout_tail)[::-1]
+    preferred = []
+    fallback_lines = []
+    for line in candidates:
+        token = str(line or "").strip()
+        if not token:
+            continue
+        lower = token.lower()
+        if any(lower.startswith(prefix) for prefix in boring_prefixes):
+            continue
+        fallback_lines.append(token)
+        if any(keyword in lower for keyword in ["error", "failed", "unsupported", "timeout", "timed out", "denied"]):
+            preferred.append(token)
+    if preferred:
+        return preferred[0]
+    if fallback_lines:
+        return fallback_lines[0]
+    return fallback
+
+
+def normalize_job_error(value):
+    if value in (None, ""):
+        return None
+    if isinstance(value, dict):
+        payload = dict(value)
+    else:
+        parsed = parse_json(value, None) if isinstance(value, str) else None
+        if isinstance(parsed, dict):
+            payload = dict(parsed)
+        else:
+            payload = {"message": str(value)}
+            if value not in (None, ""):
+                payload["raw"] = str(value)
+    payload["stdout_tail"] = _normalize_error_tail_lines(payload.get("stdout_tail"))
+    payload["stderr_tail"] = _normalize_error_tail_lines(payload.get("stderr_tail"))
+    payload["message"] = str(
+        payload.get("message")
+        or derive_failure_message(payload.get("stdout_tail"), payload.get("stderr_tail"), "job execution failed")
+    ).strip()
+    if "exit_code" in payload and payload.get("exit_code") not in (None, ""):
+        try:
+            payload["exit_code"] = int(payload.get("exit_code"))
+        except Exception:
+            payload["exit_code"] = str(payload.get("exit_code"))
+    return payload
+
+
+def job_error_summary(value):
+    payload = normalize_job_error(value)
+    if not payload:
+        return ""
+    return str(payload.get("message") or "").strip()
+
+
+def prepare_job_error_storage(value):
+    payload = normalize_job_error(value)
+    if not payload:
+        return None
+    return jdump(payload)
+
+
 def db_connect():
     conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=30.0)
     conn.row_factory = sqlite3.Row
@@ -89,8 +296,12 @@ def _db_fetchall(sql, params=()):
     last_exc = None
     for _ in range(DB_RETRY_ATTEMPTS):
         try:
-            cur = DB.execute(sql, params)
-            return cur.fetchall()
+            with LOCK:
+                cur = DB.execute(sql, params)
+                try:
+                    return cur.fetchall()
+                finally:
+                    cur.close()
         except sqlite3.OperationalError as exc:
             last_exc = exc
             if not _is_retryable_db_error(exc):
@@ -103,7 +314,12 @@ def _db_fetchone(sql, params=()):
     last_exc = None
     for _ in range(DB_RETRY_ATTEMPTS):
         try:
-            return DB.execute(sql, params).fetchone()
+            with LOCK:
+                cur = DB.execute(sql, params)
+                try:
+                    return cur.fetchone()
+                finally:
+                    cur.close()
         except sqlite3.OperationalError as exc:
             last_exc = exc
             if not _is_retryable_db_error(exc):
@@ -116,9 +332,11 @@ def _db_exec(sql, params=()):
     last_exc = None
     for _ in range(DB_RETRY_ATTEMPTS):
         try:
-            DB.execute(sql, params)
-            DB.commit()
-            return
+            with LOCK:
+                cur = DB.execute(sql, params)
+                cur.close()
+                DB.commit()
+                return
         except sqlite3.OperationalError as exc:
             last_exc = exc
             if not _is_retryable_db_error(exc):
@@ -320,6 +538,8 @@ def seed_defaults():
             set_app_setting("execution_mode", "codex")
     if not q1("SELECT key FROM app_settings WHERE key='codex_model'"):
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("codex_model", ""))
+    if not q1("SELECT key FROM app_settings WHERE key='codex_reasoning_effort'"):
+        exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("codex_reasoning_effort", DEFAULT_CODEX_REASONING_EFFORT))
     if not q1("SELECT key FROM app_settings WHERE key='codex_timeout_sec'"):
         exec_sql("INSERT INTO app_settings (key, value) VALUES (?,?)", ("codex_timeout_sec", "900"))
     if not q1("SELECT key FROM app_settings WHERE key='local_trust_mode'"):
@@ -663,6 +883,8 @@ def jobs_snapshot(limit=None, offset=0):
     for row in rows:
         for key in ["executed_actions", "changed_files", "pm_notes", "cto_notes", "dev_notes", "qa_notes", "timeline"]:
             row[key] = parse_json(row.get(key), [])
+        row["error"] = normalize_job_error(row.get("error"))
+        row["error_message"] = job_error_summary(row.get("error"))
         row["priority"] = normalize_job_priority(row.get("priority"))
         row["apply_changes"] = bool(row.get("apply_changes"))
         row["pre_approved"] = bool(row.get("pre_approved"))
@@ -776,7 +998,8 @@ def ops_queue_snapshot(limit=40):
                 "priority": item["priority"],
                 "stage": item.get("stage"),
                 "mission": item.get("mission"),
-                "error": item.get("error"),
+                "error": normalize_job_error(item.get("error")),
+                "error_message": job_error_summary(item.get("error")),
                 "failed_age_min": round(age_min, 1),
             }
         )
@@ -1025,16 +1248,42 @@ def worker_health_snapshot(stale_sec=20):
     }
 
 
+def build_codex_exec_command(repo_path, prompt):
+    codex_bin = app_setting("codex_bin", "codex").strip() or "codex"
+    codex_model = app_setting("codex_model", "").strip()
+    reasoning_effort = current_codex_reasoning_effort()
+    cmd = [
+        codex_bin,
+        "exec",
+        "--full-auto",
+        "-s",
+        "workspace-write",
+        "-C",
+        str(repo_path),
+        "--skip-git-repo-check",
+        "-c",
+        f'model_reasoning_effort="{reasoning_effort}"',
+    ]
+    if codex_model:
+        cmd.extend(["-m", codex_model])
+    cmd.append(prompt)
+    return cmd, codex_bin, codex_model, reasoning_effort
+
+
 def codex_preflight_snapshot():
     codex_bin = app_setting("codex_bin", "codex").strip() or "codex"
     codex_model = app_setting("codex_model", "").strip()
+    stored_reasoning_effort = app_setting("codex_reasoning_effort", DEFAULT_CODEX_REASONING_EFFORT)
+    codex_reasoning_effort = normalize_codex_reasoning_effort(stored_reasoning_effort, DEFAULT_CODEX_REASONING_EFFORT)
     timeout_sec = int(app_setting("codex_timeout_sec", "900") or "900")
     execution_mode = app_setting("execution_mode", "codex")
-
-    if os.path.sep in codex_bin:
-        binary_path = codex_bin if Path(codex_bin).exists() else ""
-    else:
-        binary_path = shutil.which(codex_bin) or ""
+    binary_path = resolve_codex_binary_path(codex_bin)
+    node_path = resolve_binary_path("node")
+    npm_path = resolve_binary_path("npm")
+    npx_path = resolve_binary_path("npx")
+    playwright_wrapper_path = resolve_playwright_wrapper_path()
+    wrapper_exists = Path(playwright_wrapper_path).exists()
+    wrapper_executable = wrapper_exists and os.access(playwright_wrapper_path, os.X_OK)
 
     repo_checks = []
     missing_repo = 0
@@ -1065,16 +1314,53 @@ def codex_preflight_snapshot():
         )
 
     issues = []
+    remediations = []
+    warnings = []
+    warning_remediations = []
     if execution_mode == "codex" and not binary_path:
         issues.append("codex_binary_missing")
+        remediations.append("Codex CLI가 PATH에 있어야 합니다. `codex --version`으로 확인하세요.")
     if execution_mode == "codex" and not codex_model:
         issues.append("codex_model_not_set")
+        remediations.append("운영 설정에서 Codex 모델을 지정하세요. 기본 권장값은 `gpt-5-codex`입니다.")
+    if str(stored_reasoning_effort or "").strip() and str(stored_reasoning_effort).strip().lower() not in CODEX_REASONING_EFFORTS:
+        issues.append("codex_reasoning_effort_unsupported")
+        remediations.append("Codex reasoning effort는 `low|medium|high`만 지원합니다. 운영 설정에서 `high`를 권장합니다.")
     if timeout_sec < 60:
         issues.append("codex_timeout_too_low")
+        remediations.append("Codex timeout은 최소 60초 이상으로 유지하세요. 기본값은 900초입니다.")
+    if not node_path:
+        issues.append("node_missing")
+        remediations.append("Node.js LTS를 설치해 `node`, `npm`, `npx`를 함께 제공합니다.")
+    if not npm_path:
+        issues.append("npm_missing")
+        remediations.append("npm이 필요합니다. Node.js LTS를 설치한 뒤 `npm --version`으로 확인하세요.")
+    if not npx_path:
+        issues.append("npx_missing")
+        remediations.append("Playwright CLI wrapper는 `npx`가 필요합니다. Node.js LTS 설치 후 다시 확인하세요.")
+    if not wrapper_executable:
+        issues.append("playwright_wrapper_missing")
+        remediations.append(f"Playwright wrapper를 확인하세요: {playwright_wrapper_path}")
     if missing_repo > 0:
-        issues.append("enabled_repo_missing")
+        warnings.append("enabled_repo_missing")
+        warning_remediations.append("활성화된 저장소 경로가 실제 디렉터리인지 확인하세요.")
     if missing_writable > 0:
-        issues.append("missing_writable_paths")
+        warnings.append("missing_writable_paths")
+        warning_remediations.append("허용된 writable_paths가 실제로 존재하는지 repo 정책을 점검하세요.")
+
+    effective_codex_args = [
+        "exec",
+        "--full-auto",
+        "-s",
+        "workspace-write",
+        "-C",
+        "<repo>",
+        "--skip-git-repo-check",
+        "-c",
+        f'model_reasoning_effort="{codex_reasoning_effort}"',
+    ]
+    if codex_model:
+        effective_codex_args.extend(["-m", codex_model])
 
     return {
         "generated_at": utc_now(),
@@ -1083,10 +1369,20 @@ def codex_preflight_snapshot():
         "codex_bin": codex_bin,
         "codex_bin_path": binary_path,
         "codex_model": codex_model,
+        "codex_reasoning_effort": codex_reasoning_effort,
         "codex_timeout_sec": timeout_sec,
+        "node_path": node_path,
+        "npm_path": npm_path,
+        "npx_path": npx_path,
+        "playwright_wrapper_path": playwright_wrapper_path,
+        "playwright_ready": bool(node_path and npm_path and npx_path and wrapper_executable),
+        "effective_codex_args": effective_codex_args,
         "enabled_repo_count": len(repo_checks),
         "repo_checks": repo_checks,
         "issues": issues,
+        "warnings": warnings,
+        "remediations": unique_strings(remediations),
+        "warning_remediations": unique_strings(warning_remediations),
     }
 
 
@@ -1244,8 +1540,6 @@ def execute_actions(job, policy):
 
 def execute_actions_with_codex(job, policy):
     repo_path = Path(job["repository"]).resolve()
-    codex_bin = app_setting("codex_bin", "codex").strip() or "codex"
-    codex_model = app_setting("codex_model", "").strip()
     timeout_sec = int(app_setting("codex_timeout_sec", "900") or "900")
 
     before = snapshot_writable_files(policy["writable_paths"])
@@ -1263,22 +1557,55 @@ def execute_actions_with_codex(job, policy):
         f"Refined request:\\n{job.get('refined_request','')}\\n"
     )
 
-    cmd = [codex_bin, "exec", "--full-auto", "-s", "workspace-write", "-C", str(repo_path), "--skip-git-repo-check"]
-    if codex_model:
-        cmd.extend(["-m", codex_model])
-    cmd.append(prompt)
+    cmd, codex_bin, codex_model, reasoning_effort = build_codex_exec_command(repo_path, prompt)
+    command_summary = summarize_command(cmd)
 
     try:
         result = subprocess.run(cmd, cwd=str(repo_path), text=True, capture_output=True, check=False, timeout=timeout_sec)
     except FileNotFoundError:
-        raise RuntimeError(f"codex binary not found: {codex_bin}")
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(f"codex execution timeout after {timeout_sec}s")
+        raise JobExecutionError(
+            f"codex binary not found: {codex_bin}",
+            {
+                "exit_code": None,
+                "stdout_tail": [],
+                "stderr_tail": [],
+                "command_summary": command_summary,
+                "model": codex_model,
+                "reasoning_effort": reasoning_effort,
+            },
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout_tail = truncate_process_output(exc.stdout)
+        stderr_tail = truncate_process_output(exc.stderr)
+        message = derive_failure_message(stdout_tail, stderr_tail, f"codex execution timeout after {timeout_sec}s")
+        raise JobExecutionError(
+            message,
+            {
+                "exit_code": None,
+                "stdout_tail": stdout_tail,
+                "stderr_tail": stderr_tail,
+                "command_summary": command_summary,
+                "model": codex_model,
+                "reasoning_effort": reasoning_effort,
+            },
+        )
 
     if result.returncode != 0:
-        err = (result.stderr or result.stdout or "").strip()
-        snippet = err.splitlines()[:6]
-        raise RuntimeError("codex execution failed: " + " | ".join(snippet))
+        stdout_tail = truncate_process_output(result.stdout)
+        stderr_tail = truncate_process_output(result.stderr)
+        cause = derive_failure_message(stdout_tail, stderr_tail, f"codex execution failed (exit {result.returncode})")
+        message = f"codex execution failed (exit {result.returncode}): {cause}"
+        raise JobExecutionError(
+            message,
+            {
+                "exit_code": result.returncode,
+                "stdout_tail": stdout_tail,
+                "stderr_tail": stderr_tail,
+                "command_summary": command_summary,
+                "model": codex_model,
+                "reasoning_effort": reasoning_effort,
+            },
+        )
 
     after = snapshot_writable_files(policy["writable_paths"])
     changed = diff_file_snapshot(before, after)
@@ -1310,7 +1637,7 @@ def set_job_fields(job_id, fields):
         (
             data.get("status"), data.get("stage"), data.get("dispatched_at"), data.get("started_at"), data.get("completed_at"), data.get("report_path"),
             int(bool(data.get("pre_approved"))), data.get("pre_approved_at"), int(bool(data.get("post_approved"))), data.get("post_approved_at"),
-            data.get("error"),
+            prepare_job_error_storage(data.get("error")),
             jdump(parse_json(data.get("executed_actions"), []) if isinstance(data.get("executed_actions"), str) else data.get("executed_actions") or []),
             jdump(parse_json(data.get("changed_files"), []) if isinstance(data.get("changed_files"), str) else data.get("changed_files") or []),
             jdump(parse_json(data.get("pm_notes"), []) if isinstance(data.get("pm_notes"), str) else data.get("pm_notes") or []),
@@ -1731,7 +2058,12 @@ def recover_stalled_jobs():
                 "status": "failed",
                 "stage": "failed",
                 "completed_at": now_iso,
-                "error": "stalled_timeout_recovery",
+                "error": {
+                    "message": "stalled_timeout_recovery",
+                    "reason": "stalled_timeout_recovery",
+                    "age_min": round(age_min, 1),
+                    "threshold_min": progress_timeout_min,
+                },
                 "timeline": timeline,
             },
         )
@@ -1816,17 +2148,19 @@ def worker_loop(worker_id=1):
             try:
                 touch_worker_heartbeat(worker_id, "error")
                 if "job" in locals() and isinstance(job, dict) and job.get("id"):
-                    set_job_fields(job["id"], {"status": "failed", "stage": "failed", "completed_at": utc_now(), "error": str(exc)})
-                    add_timeline(job["id"], f"Failed: {exc}")
+                    error_detail = normalize_job_error(getattr(exc, "detail", None) or {"message": str(exc)})
+                    error_message = job_error_summary(error_detail) or str(exc)
+                    set_job_fields(job["id"], {"status": "failed", "stage": "failed", "completed_at": utc_now(), "error": error_detail})
+                    add_timeline(job["id"], f"Failed: {error_message}")
                     update_request(job["request_id"], {"status": "received"})
                     append_audit(
                         "job_failed",
                         owner_id=job.get("owner_id"),
                         job_id=job["id"],
                         request_id=job.get("request_id"),
-                        detail={"error": str(exc), "worker_id": worker_id},
+                        detail={"error": error_detail, "worker_id": worker_id},
                     )
-                update_agent("qa", status="critical", current_task="Failure triage", initiative="Incident handling", latency_ms=700, error_rate=0.11, blocker=str(exc))
+                update_agent("qa", status="critical", current_task="Failure triage", initiative="Incident handling", latency_ms=700, error_rate=0.11, blocker=job_error_summary(getattr(exc, "detail", None) or str(exc)))
                 set_meta("updated_at", utc_now())
             except Exception:
                 traceback.print_exc()
@@ -1931,6 +2265,7 @@ class Handler(SimpleHTTPRequestHandler):
                         "default_approval_mode": default_approval_mode(),
                         "execution_mode": app_setting("execution_mode", "codex"),
                         "codex_model": app_setting("codex_model", ""),
+                        "codex_reasoning_effort": current_codex_reasoning_effort(),
                         "polling_enabled": app_setting("polling_enabled", "1") == "1",
                         "polling_interval_sec": int(app_setting("polling_interval_sec", "5") or "5"),
                     }
@@ -2136,6 +2471,9 @@ class Handler(SimpleHTTPRequestHandler):
                 if execution_mode not in ["template", "codex"]:
                     return self._send_json({"error": "invalid execution_mode"}, status=HTTPStatus.BAD_REQUEST)
                 codex_model = (payload.get("codex_model") or "").strip()
+                codex_reasoning_effort = str(payload.get("codex_reasoning_effort") or "").strip().lower() or DEFAULT_CODEX_REASONING_EFFORT
+                if codex_reasoning_effort not in CODEX_REASONING_EFFORTS:
+                    return self._send_json({"error": "invalid codex_reasoning_effort"}, status=HTTPStatus.BAD_REQUEST)
 
                 polling_enabled = 1 if bool(payload.get("polling_enabled", True)) else 0
                 polling_interval = int(payload.get("polling_interval_sec", 5))
@@ -2154,6 +2492,7 @@ class Handler(SimpleHTTPRequestHandler):
                 set_app_setting("default_approval_mode", approval)
                 set_app_setting("execution_mode", execution_mode)
                 set_app_setting("codex_model", codex_model)
+                set_app_setting("codex_reasoning_effort", codex_reasoning_effort)
                 set_app_setting("polling_enabled", str(polling_enabled))
                 set_app_setting("polling_interval_sec", str(polling_interval))
                 append_audit(
@@ -2163,6 +2502,7 @@ class Handler(SimpleHTTPRequestHandler):
                         "default_approval_mode": approval,
                         "execution_mode": execution_mode,
                         "codex_model": codex_model,
+                        "codex_reasoning_effort": codex_reasoning_effort,
                         "polling_enabled": bool(polling_enabled),
                         "polling_interval_sec": polling_interval,
                     },
