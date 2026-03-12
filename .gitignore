@@ -15,6 +15,7 @@ state/orchestrator_lifecycle.log
 state/launchd.out.log
 state/launchd.err.log
 state/backups/
+state/.infra_ctl.lock/
 state/*.log
 state/*.pid
 state/*.tmp
