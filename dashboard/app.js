@@ -10,6 +10,7 @@ const auditUrl = "/api/audit";
 const usageUrl = "/api/usage";
 const opsQueueUrl = "/api/ops/queue";
 const opsPreflightUrl = "/api/ops/preflight";
+const healthUrl = "/api/health";
 const opsQueueManageUrl = "/api/ops/queue/manage";
 const assignUrl = "/api/jobs/from-request";
 const approveUrl = "/api/jobs/approve";
@@ -17,6 +18,7 @@ const settingsSaveUrl = "/api/settings/save";
 const fallbackCodexModels = ["gpt-5-codex", "gpt-5", "gpt-5-mini", "gpt-4.1", "o4-mini"];
 const THEME_STORAGE_KEY = "omac-theme-mode";
 const NAV_TARGET_STORAGE_KEY = "omac-nav-target";
+const ONBOARDING_DISMISS_STORAGE_KEY = "omac-onboarding-dismissed";
 const LIGHT_LOAD_MODE = new URLSearchParams(window.location.search).get("light") === "1";
 
 let timer = null;
@@ -95,6 +97,8 @@ let lastClientDigestText = "";
 let lastPolicySnapshotHtml = "";
 let themeMode = "system";
 let ownerUiState = { data: null, expandIdentity: false };
+let navController = null;
+let onboardingAutoRouteHandled = false;
 const themeMediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
 const TRANSLATION_RULES = [
   { pattern: /\bclient\b/gi, replacement: "클라이언트" },
@@ -139,6 +143,21 @@ const PREFLIGHT_ISSUE_LABELS = {
   enabled_repo_missing: "활성 저장소 경로를 찾지 못했습니다.",
   missing_writable_paths: "repo 정책의 writable path 일부가 누락되었습니다."
 };
+const PREFLIGHT_ACTION_LABELS = {
+  codex_binary_missing: "Codex CLI가 PATH에 있어야 합니다. `codex --version`으로 확인하세요.",
+  codex_model_not_set: "운영 설정에서 Codex 모델을 지정하세요. 기본 권장값은 `gpt-5-codex`입니다.",
+  codex_reasoning_effort_unsupported: "Codex reasoning effort는 `low|medium|high`만 지원합니다.",
+  codex_timeout_too_low: "Codex timeout은 최소 60초 이상으로 유지하세요. 기본값은 900초입니다.",
+  node_missing: "Node.js LTS를 설치하면 npm, npx, Playwright 경로도 함께 준비됩니다.",
+  npm_missing: "npm이 필요합니다. Node.js LTS 설치 후 `npm --version`으로 확인하세요.",
+  npx_missing: "Playwright CLI wrapper를 쓰려면 `npx`가 필요합니다.",
+  playwright_wrapper_missing: "Playwright wrapper 경로 또는 실행 권한을 확인하세요.",
+  gh_missing: "GitHub 저장소 자동 push/PR 생성이 필요할 때만 `gh`를 추가 설치하세요.",
+  enabled_repo_missing: "활성 저장소 경로가 실제 디렉터리인지 확인하세요.",
+  missing_writable_paths: "허용된 writable_paths가 실제로 존재하는지 repo 정책을 점검하세요."
+};
+const PREFLIGHT_ADVANCED_ISSUES = new Set(["node_missing", "npm_missing", "npx_missing", "playwright_wrapper_missing"]);
+const PREFLIGHT_ADVANCED_WARNINGS = new Set(["gh_missing"]);
 const RECOVERY_TEMPLATE = `1) 정체 원인: __
 2) 즉시 조치: __
 3) 필요 승인/검증: __
@@ -223,8 +242,109 @@ function preflightIssueLabel(code) {
   return PREFLIGHT_ISSUE_LABELS[code] || code;
 }
 
+function preflightActionLabel(code) {
+  return PREFLIGHT_ACTION_LABELS[code] || "설정과 실행 경로를 다시 확인하세요.";
+}
+
 function preflightPathLabel(pathValue) {
   return pathValue ? `<code>${esc(pathValue)}</code>` : "<span class=\"muted\">미확인</span>";
+}
+
+function summarizePreflightBucket(issues = [], warnings = []) {
+  if (issues.length) return { cls: "status-bad", label: "준비 필요" };
+  if (warnings.length) return { cls: "status-warn", label: "선택 보강 가능" };
+  return { cls: "status-ok", label: "준비됨" };
+}
+
+function splitPreflightBuckets(preflight) {
+  const issues = Array.isArray(preflight?.issues) ? preflight.issues : [];
+  const warnings = Array.isArray(preflight?.warnings) ? preflight.warnings : [];
+  return {
+    core: {
+      issues: issues.filter((code) => !PREFLIGHT_ADVANCED_ISSUES.has(code)),
+      warnings: warnings.filter((code) => !PREFLIGHT_ADVANCED_WARNINGS.has(code)),
+    },
+    advanced: {
+      issues: issues.filter((code) => PREFLIGHT_ADVANCED_ISSUES.has(code)),
+      warnings: warnings.filter((code) => PREFLIGHT_ADVANCED_WARNINGS.has(code)),
+    },
+  };
+}
+
+function readOnboardingDismissed() {
+  try {
+    return window.localStorage.getItem(ONBOARDING_DISMISS_STORAGE_KEY) === "1";
+  } catch (_error) {
+    return false;
+  }
+}
+
+function writeOnboardingDismissed(value) {
+  try {
+    if (value) {
+      window.localStorage.setItem(ONBOARDING_DISMISS_STORAGE_KEY, "1");
+    } else {
+      window.localStorage.removeItem(ONBOARDING_DISMISS_STORAGE_KEY);
+    }
+  } catch (_error) {
+    // ignore storage failures
+  }
+}
+
+function hasExplicitRouteSelection() {
+  const hashRaw = decodeURIComponent((window.location.hash || "").replace(/^#/, "")).trim();
+  if (hashRaw) return true;
+  const query = new URLSearchParams(window.location.search || "");
+  return Boolean((query.get("section") || "").trim());
+}
+
+function goToSection(target, options = {}) {
+  const safeTarget = String(target || "").trim();
+  if (!safeTarget) return;
+  if (navController?.setRoute && navController?.applyTarget) {
+    navController.setRoute(safeTarget);
+    navController.applyTarget(safeTarget);
+  } else {
+    const navBtn = document.querySelector(`.nav-item[data-target="${safeTarget}"]`);
+    navBtn?.click();
+  }
+  const panel = document.getElementById(safeTarget);
+  if (panel && options.scroll !== false) {
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  if (options.focusSelector) {
+    window.setTimeout(() => {
+      const focusEl = document.querySelector(options.focusSelector);
+      if (focusEl instanceof HTMLElement) focusEl.focus();
+    }, 180);
+  }
+}
+
+function updateGettingStartedVisibility(visible) {
+  document.getElementById("section-getting-started")?.classList.toggle("is-hidden", !visible);
+  document.getElementById("gettingStartedNavItem")?.classList.toggle("is-hidden", !visible);
+  document.getElementById("gettingStartedFlowTab")?.classList.toggle("is-hidden", !visible);
+}
+
+function syncGettingStartedRoute(visible) {
+  if (!navController) return;
+  const current = navController.routeTarget();
+  if (!visible) {
+    onboardingAutoRouteHandled = false;
+    if (current === "section-getting-started") {
+      navController.setRoute("all");
+      navController.applyTarget("all");
+    }
+    return;
+  }
+  if (onboardingAutoRouteHandled) return;
+  if (hasExplicitRouteSelection()) {
+    onboardingAutoRouteHandled = true;
+    return;
+  }
+  navController.setRoute("section-getting-started");
+  navController.applyTarget("section-getting-started");
+  onboardingAutoRouteHandled = true;
 }
 
 function normalizeThemeMode(mode) {
@@ -1095,7 +1215,12 @@ function renderRequests(payload) {
   rememberRequests(requests);
   const root = document.getElementById("requestsTable");
   if (!requests.length) {
-    root.innerHTML = `<p class="muted">접수된 클라이언트 요청이 없습니다.</p>`;
+    root.innerHTML = `
+      <div class="empty-state-card">
+        <p class="muted">접수된 클라이언트 요청이 없습니다. 처음에는 클라이언트명과 원본 요청만 입력하면 됩니다.</p>
+        <button type="button" data-nav-target="section-requests" data-focus-target="#requestClientName">첫 요청 등록</button>
+      </div>
+    `;
     renderPaginationControls("requests", { page: 1, totalPages: 1, totalItems: 0 });
   } else {
     const pagination = applyPagination("requests", requests);
@@ -2540,6 +2665,111 @@ function renderPolicy(data) {
   lastPolicySnapshotHtml = nextHtml;
 }
 
+function renderGettingStarted({ requestsPayload, jobsPayload, preflight, health }) {
+  const panel = document.getElementById("section-getting-started");
+  const overviewRoot = document.getElementById("gettingStartedOverview");
+  const cardsRoot = document.getElementById("gettingStartedCards");
+  if (!panel || !overviewRoot || !cardsRoot) return;
+
+  const requests = Array.isArray(requestsPayload?.requests) ? requestsPayload.requests : [];
+  const jobs = Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : [];
+  const repoCount = Array.isArray(reposCache) ? reposCache.length : 0;
+  const visible = !readOnboardingDismissed() && requests.length === 0 && jobs.length === 0;
+  updateGettingStartedVisibility(visible);
+  syncGettingStartedRoute(visible);
+  if (!visible) return;
+
+  const preflightBuckets = splitPreflightBuckets(preflight || {});
+  const coreStatus = summarizePreflightBucket(preflightBuckets.core.issues, preflightBuckets.core.warnings);
+  const advancedStatus = summarizePreflightBucket(preflightBuckets.advanced.issues, preflightBuckets.advanced.warnings);
+  const coreLines = [...preflightBuckets.core.issues, ...preflightBuckets.core.warnings];
+  const advancedLines = [...preflightBuckets.advanced.issues, ...preflightBuckets.advanced.warnings];
+  const serverOk = Boolean(health?.ok);
+  const worker = health?.worker_health || {};
+  const workerSummary = `${worker.healthy_workers || 0} healthy / ${worker.stale_workers || 0} stale`;
+  const repoReady = repoCount > 0;
+
+  overviewRoot.innerHTML = `
+    <div class="getting-started-summary">
+      <span class="pill">요청 ${esc(requests.length)}건</span>
+      <span class="pill">작업 ${esc(jobs.length)}건</span>
+      <span class="pill">허용 저장소 ${esc(repoCount)}개</span>
+      <span class="pill">고급 자동화 ${esc(advancedStatus.label)}</span>
+    </div>
+    <p class="muted">추천 순서: 서버 상태 확인 → 필수 도구 확인 → 첫 요청 등록 → 첫 작업 생성</p>
+  `;
+
+  const cards = [
+    {
+      eyebrow: "1. 서버 상태",
+      title: serverOk ? "서버가 정상 실행 중입니다." : "서버를 먼저 켜세요.",
+      tone: serverOk ? "status-ok" : "status-bad",
+      body: serverOk
+        ? `현재 <code>/api/health</code> 응답이 정상입니다. 워커 상태: ${esc(workerSummary)}`
+        : "<code>./scripts/infra_server_ctl.sh ensure</code> 실행 후 이 화면을 새로고침하세요.",
+      actions: [
+        serverOk
+          ? '<button type="button" data-nav-target="section-requests" data-focus-target="#requestClientName">첫 요청 등록</button>'
+          : '<button type="button" data-nav-target="section-owner">운영 설정 보기</button>',
+        '<button type="button" class="ghost" data-refresh-app="1">지금 새로고침</button>',
+      ],
+    },
+    {
+      eyebrow: "2. 필수 도구 상태",
+      title: coreStatus.label === "준비됨" ? "바로 실행에 필요한 항목이 준비되었습니다." : "바로 실행 전에 필요한 항목이 있습니다.",
+      tone: coreStatus.cls,
+      body: `Core run: <span class="tag ${coreStatus.cls}">${esc(coreStatus.label)}</span> · Advanced automation: <span class="tag ${advancedStatus.cls}">${esc(advancedStatus.label)}</span>`,
+      details: [
+        coreLines.length
+          ? coreLines.map((code) => `<li><strong>${esc(preflightIssueLabel(code))}</strong> · ${esc(preflightActionLabel(code))}</li>`).join("")
+          : "<li>Codex, 모델, 기본 저장소 정책이 현재 기준으로 준비되어 있습니다.</li>",
+        advancedLines.length
+          ? advancedLines.map((code) => `<li><strong>${esc(preflightIssueLabel(code))}</strong> · ${esc(preflightActionLabel(code))}</li>`).join("")
+          : "<li>Node/npm/npx/Playwright/gh는 고급 자동화용이며 지금 당장 없어도 첫 진입은 가능합니다.</li>",
+      ],
+      actions: ['<button type="button" class="ghost" data-nav-target="section-owner">상세 설정 보기</button>'],
+    },
+    {
+      eyebrow: "3. 첫 요청 만들기",
+      title: "클라이언트 요청을 먼저 등록하세요.",
+      tone: "status-warn",
+      body: "처음에는 `클라이언트명`과 `원본 요청` 두 칸만 채우면 됩니다. 정제 문장은 나중에 자동으로 채울 수 있습니다.",
+      actions: ['<button type="button" data-nav-target="section-requests" data-focus-target="#requestClientName">요청 접수 열기</button>'],
+    },
+    {
+      eyebrow: "4. 첫 작업 만들기",
+      title: repoReady ? "첫 작업은 요청 등록 뒤 바로 만들 수 있습니다." : "허용된 저장소가 없어 첫 작업이 막혀 있습니다.",
+      tone: repoReady ? "status-warn" : "status-bad",
+      body: repoReady
+        ? `기본 대상은 현재 workspace(<code>${esc(shortRepoName(reposCache[0]?.path || ""))}</code>)입니다. 요청 등록 후 작업 할당으로 이동하세요.`
+        : '현재 허용된 저장소가 없습니다. 기본적으로 현재 workspace가 대상이며, 외부 저장소는 정책 설정 후 노출됩니다. 안내 문서: <a href="/README.ko.md" target="_blank" rel="noopener noreferrer">README.ko.md</a>',
+      actions: [
+        repoReady
+          ? '<button type="button" data-nav-target="section-intake" data-focus-target="#requestSelect">작업 할당 열기</button>'
+          : '<button type="button" class="ghost" data-nav-target="section-owner">저장소 정책 확인</button>',
+      ],
+    },
+  ];
+
+  cardsRoot.innerHTML = cards
+    .map(
+      (card, idx) => `
+      <article class="getting-started-card ${esc(card.tone)}">
+        <p class="eyebrow">${esc(card.eyebrow)}</p>
+        <h3>${esc(card.title)}</h3>
+        <p>${card.body}</p>
+        ${
+          Array.isArray(card.details)
+            ? `<div class="getting-started-details">${card.details.map((list, listIdx) => `<ul data-kind="${listIdx}">${list}</ul>`).join("")}</div>`
+            : ""
+        }
+        <div class="getting-started-actions">${(card.actions || []).join("")}</div>
+      </article>
+    `
+    )
+    .join("");
+}
+
 function renderPreflightSummary(preflight) {
   const root = document.getElementById("preflightSummary");
   if (!root) return;
@@ -2547,16 +2777,42 @@ function renderPreflightSummary(preflight) {
     root.innerHTML = `<p class="muted">Preflight 정보를 불러오지 못했습니다.</p>`;
     return;
   }
-  const issues = Array.isArray(preflight.issues) ? preflight.issues : [];
-  const warnings = Array.isArray(preflight.warnings) ? preflight.warnings : [];
-  const remediations = Array.isArray(preflight.remediations) ? preflight.remediations : [];
-  const warningRemediations = Array.isArray(preflight.warning_remediations) ? preflight.warning_remediations : [];
+  const buckets = splitPreflightBuckets(preflight);
+  const core = summarizePreflightBucket(buckets.core.issues, buckets.core.warnings);
+  const advanced = summarizePreflightBucket(buckets.advanced.issues, buckets.advanced.warnings);
   const args = Array.isArray(preflight.effective_codex_args) ? preflight.effective_codex_args.join(" ") : "-";
-  const cls = preflight.ok ? (warnings.length ? "status-warn" : "status-ok") : "status-bad";
-  const statusLabel = preflight.ok ? (warnings.length ? "경고 있음" : "정상") : "주의";
   root.innerHTML = `
     <h4>Codex Preflight</h4>
-    <p><span class="tag ${cls}">${statusLabel}</span> 실행모드: ${esc(preflight.execution_mode || "-")}</p>
+    <div class="preflight-grid">
+      <article class="preflight-panel">
+        <p class="eyebrow">Core run</p>
+        <h5>지금 바로 필요한 항목</h5>
+        <p><span class="tag ${core.cls}">${esc(core.label)}</span> 서버 기동, 대시보드 진입, 첫 작업 기준</p>
+        <ul>
+          ${
+            [...buckets.core.issues, ...buckets.core.warnings].length
+              ? [...buckets.core.issues, ...buckets.core.warnings]
+                  .map((code) => `<li><strong>${esc(preflightIssueLabel(code))}</strong> · ${esc(preflightActionLabel(code))}</li>`)
+                  .join("")
+              : "<li>바로 실행에 필요한 항목이 준비되어 있습니다.</li>"
+          }
+        </ul>
+      </article>
+      <article class="preflight-panel">
+        <p class="eyebrow">Advanced automation</p>
+        <h5>나중에 보강해도 되는 항목</h5>
+        <p><span class="tag ${advanced.cls}">${esc(advanced.label)}</span> npm, Playwright, GitHub PR 자동화 기준</p>
+        <ul>
+          ${
+            [...buckets.advanced.issues, ...buckets.advanced.warnings].length
+              ? [...buckets.advanced.issues, ...buckets.advanced.warnings]
+                  .map((code) => `<li><strong>${esc(preflightIssueLabel(code))}</strong> · ${esc(preflightActionLabel(code))}</li>`)
+                  .join("")
+              : "<li>고급 자동화용 의존성도 준비되어 있습니다.</li>"
+          }
+        </ul>
+      </article>
+    </div>
     <div class="policy-list">
       <div>Codex bin: ${preflightPathLabel(preflight.codex_bin_path || preflight.codex_bin || "")}</div>
       <div>Codex model: <code>${esc(preflight.codex_model || "-")}</code> · effort: <code>${esc(preflight.codex_reasoning_effort || "-")}</code></div>
@@ -2564,17 +2820,21 @@ function renderPreflightSummary(preflight) {
       <div>Playwright wrapper: ${preflightPathLabel(preflight.playwright_wrapper_path)} · 상태: <strong>${preflight.playwright_ready ? "ready" : "not-ready"}</strong></div>
       <div>Effective args: <code>${esc(args)}</code></div>
     </div>
-    <h5>차단 이슈</h5>
-    <ul>
-      ${issues.length ? issues.map((x) => `<li><code>${esc(x)}</code> · ${esc(preflightIssueLabel(x))}</li>`).join("") : "<li>이슈 없음</li>"}
-    </ul>
-    ${remediations.length ? `<ul>${remediations.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` : ""}
-    <h5>운영 경고</h5>
-    <ul>
-      ${warnings.length ? warnings.map((x) => `<li><code>${esc(x)}</code> · ${esc(preflightIssueLabel(x))}</li>`).join("") : "<li>경고 없음</li>"}
-    </ul>
-    ${warningRemediations.length ? `<ul>${warningRemediations.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>` : ""}
   `;
+}
+
+function renderRepositoryHint() {
+  const hint = document.getElementById("repoSelectHint");
+  const select = document.getElementById("repoSelect");
+  if (!hint || !select) return;
+  const repos = Array.isArray(reposCache) ? reposCache : [];
+  select.disabled = repos.length === 0;
+  if (!repos.length) {
+    hint.innerHTML = '현재 허용된 저장소가 없습니다. 기본적으로 현재 workspace가 대상이며, 외부 저장소는 정책 설정 후 노출됩니다. 안내 문서: <a href="/README.ko.md" target="_blank" rel="noopener noreferrer">README.ko.md</a>';
+    return;
+  }
+  const primaryRepo = repos[0];
+  hint.innerHTML = `기본 대상: <code>${esc(primaryRepo.path)}</code> · 외부 저장소는 정책에 추가된 경로만 목록에 표시됩니다.`;
 }
 
 function pickDefaultRepoPath() {
@@ -3195,9 +3455,12 @@ function setupSnbNavigation() {
     updateNavHelper(activeBtn);
   };
 
+  navController = { normalizeTarget, routeTarget, setRoute, applyTarget };
+
   navItems.forEach((btn) => {
     btn.addEventListener("click", () => {
       const target = normalizeTarget(btn.dataset.target);
+      onboardingAutoRouteHandled = onboardingAutoRouteHandled || target !== "section-getting-started";
       setRoute(target);
       applyTarget(target);
     });
@@ -3232,6 +3495,28 @@ function setupFlowTabs() {
     }
     const panel = document.getElementById(target);
     if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function setupJumpButtons() {
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-nav-target]");
+    if (!trigger) return;
+    const target = trigger.getAttribute("data-nav-target") || "";
+    const focusSelector = trigger.getAttribute("data-focus-target") || "";
+    goToSection(target, { focusSelector });
+  });
+
+  document.getElementById("gettingStartedDismissBtn")?.addEventListener("click", () => {
+    writeOnboardingDismissed(true);
+    updateGettingStartedVisibility(false);
+    syncGettingStartedRoute(false);
+  });
+
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-refresh-app]");
+    if (!trigger) return;
+    loadAll();
   });
 }
 
@@ -3342,7 +3627,7 @@ async function loadRepositories() {
   const select = document.getElementById("repoSelect");
   refillSelectPreservingValue(
     select,
-    "저장소 선택",
+    reposCache.length ? "저장소 선택" : "허용된 저장소 없음",
     reposCache
       .map((r) => `<option value="${esc(r.path)}">${esc(r.name)} · ${esc(shortRepoName(r.path))}</option>`)
       .join("")
@@ -3350,6 +3635,7 @@ async function loadRepositories() {
   if (select && !select.value && reposCache.length) {
     select.value = reposCache[0].path;
   }
+  renderRepositoryHint();
 }
 
 async function loadOwnerInfo() {
@@ -3408,7 +3694,7 @@ async function loadAll() {
     const auditPromise = shouldLoadAuditPayload()
       ? fetch(`${auditUrl}?t=${Date.now()}&limit=${auditFetchState.limit}&offset=${auditFetchState.offset}`)
       : Promise.resolve(null);
-    const [stateRes, reqRes, jobsRes, polRes, auditRes, usageRes, opsRes, preflightRes] = await Promise.all([
+    const [stateRes, reqRes, jobsRes, polRes, auditRes, usageRes, opsRes, preflightRes, healthRes] = await Promise.all([
       fetch(`${stateUrl}?t=${Date.now()}`),
       fetch(`${requestsUrl}?t=${Date.now()}&limit=${requestFetchState.limit}&offset=${requestFetchState.offset}`),
       fetch(`${jobsUrl}?t=${Date.now()}&limit=${jobsFetchState.limit}&offset=${jobsFetchState.offset}`),
@@ -3416,7 +3702,8 @@ async function loadAll() {
       auditPromise,
       fetch(`${usageUrl}?t=${Date.now()}`),
       fetch(`${opsQueueUrl}?t=${Date.now()}`),
-      fetch(`${opsPreflightUrl}?t=${Date.now()}`)
+      fetch(`${opsPreflightUrl}?t=${Date.now()}`),
+      fetch(`${healthUrl}?t=${Date.now()}`)
     ]);
 
     const state = await stateRes.json();
@@ -3427,6 +3714,7 @@ async function loadAll() {
     const usage = await usageRes.json();
     const ops = await opsRes.json();
     const preflight = await preflightRes.json();
+    const health = await healthRes.json();
 
     renderMission(state);
     setTimestamp(state.updated_at);
@@ -3439,6 +3727,7 @@ async function loadAll() {
     renderRequests(requests);
     renderJobs(jobs);
     renderPolicy(policies);
+    renderGettingStarted({ requestsPayload: requests, jobsPayload: jobs, preflight, health });
     renderAudit(audit);
     renderExecutionAudit(requests, jobs, audit);
     renderWeeklyKpiCards(requests, jobs);
@@ -3496,6 +3785,9 @@ function explainApiError(error) {
   }
   if (msg.includes("owner token required")) {
     return `${msg} · 운영 설정에서 owner token을 입력해 주세요.`;
+  }
+  if (msg.includes("repository not allowed by policy")) {
+    return "저장소 정책에 없는 경로입니다. 현재 workspace가 기본 대상이며, 외부 저장소는 정책 설정 후 다시 시도하세요.";
   }
   if (msg.toLowerCase().includes("failed to fetch")) {
     return "서버 연결 실패: `./scripts/infra_server_ctl.sh ensure` 후 `doctor`로 점검해 주세요.";
@@ -3557,7 +3849,7 @@ async function submitJob(event) {
   const result = document.getElementById("jobSubmitResult");
   const repository = await resolveRepositorySelection();
   if (!repository) {
-    result.textContent = "실패: 대상 저장소를 찾지 못했습니다. 저장소 목록을 먼저 로드하세요.";
+    result.innerHTML = '실패: 현재 허용된 저장소가 없습니다. 기본적으로 현재 workspace가 대상이며, 외부 저장소는 정책 설정 후 노출됩니다. 안내 문서: <a href="/README.ko.md" target="_blank" rel="noopener noreferrer">README.ko.md</a>';
     return;
   }
   const payload = {
@@ -3733,6 +4025,7 @@ setupAutoRefineControls();
 setupSharedFormControls();
 setupSnbNavigation();
 setupFlowTabs();
+setupJumpButtons();
 setupPaginationDelegation();
 setupIntakePresets();
 setupAuditControls();
